@@ -1,22 +1,15 @@
 ﻿<script lang="ts">
-  import type { COA } from '../../types';
+  import { system } from '../../stores/systemStore.svelte';
   import { getModeLabel } from '../../engine/optimisation';
-
-  let {
-    coas = [],
-    onGenerate,
-    selectedId = null,
-    onSelect,
-  }: {
-    coas?: COA[];
-    onGenerate?: () => void;
-    selectedId?: string | null;
-    onSelect?: (id: string) => void;
-  } = $props();
 
   function rankColor(r: number) {
     return r === 1 ? 'var(--accent-green)' : r === 2 ? 'var(--accent-amber)' : 'var(--accent-red)';
   }
+
+  let coas = $derived(system.coas);
+  let btnLabel = $derived(
+    system.computing ? '◢ COMPUTING...' : coas.length === 0 ? '▸ GENERATE COA' : '▸ RE-GENERATE COA',
+  );
 </script>
 
 <div class="panel corners">
@@ -49,11 +42,11 @@
       {#each coas as coa (coa.id)}
         <div
           class="coa-card"
-          class:selected={coa.id === selectedId}
-          onclick={() => onSelect?.(coa.id)}
+          class:selected={coa.id === system.selectedCoaId}
+          onclick={() => system.selectCOA(coa.id)}
           role="button"
           tabindex="0"
-          onkeydown={(e) => e.key === 'Enter' && onSelect?.(coa.id)}
+          onkeydown={(e) => e.key === 'Enter' && system.selectCOA(coa.id)}
         >
           <div class="coa-hdr">
             <span class="rank" style="color:{rankColor(coa.rank)};">OPTION {coa.rank}</span>
@@ -75,10 +68,10 @@
           </div>
           <div class="coa-missions">
             {#each Object.entries(coa.assignments) as [mid, ids]}
-              {#if ids.length > 0}
+              {#if (ids as string[]).length > 0}
                 <div class="assign-row">
                   <span class="mid mono">{mid.toUpperCase()}</span>
-                  <span class="ids mono">{ids.length} AC</span>
+                  <span class="ids mono">{(ids as string[]).length} AC</span>
                 </div>
               {/if}
             {/each}
@@ -89,105 +82,42 @@
     {/if}
   </div>
 
-  <button class="gen" onclick={() => onGenerate?.()}>
-    <span>{coas.length === 0 ? '▸ GENERATE COA' : '▸ RE-GENERATE COA'}</span>
+  <button class="gen" onclick={() => system.generateCOAs()} disabled={system.computing}>
+    <span>{btnLabel}</span>
   </button>
 </div>
 
 <style>
-  .panel {
-    background: var(--bg-panel);
-    display: flex; flex-direction: column;
-    overflow: hidden; position: relative;
-    height: 100%;
-  }
-  .hdr {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border-subtle);
-    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em;
-    color: var(--text-muted); text-transform: uppercase;
-  }
+  .panel { background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; position: relative; height: 100%; }
+  .hdr { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; }
   .hdr .count { color: var(--accent-amber); }
   .body { flex: 1; padding: 12px; overflow-y: auto; }
   .body::-webkit-scrollbar { width: 3px; }
   .body::-webkit-scrollbar-thumb { background: var(--border-strong); }
   .section { margin-bottom: 18px; }
-  .sec-label {
-    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em;
-    color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;
-  }
-  .sec-value {
-    font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary);
-    letter-spacing: 0.05em;
-  }
+  .sec-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; }
+  .sec-value { font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); letter-spacing: 0.05em; }
   .sec-value.muted { color: var(--text-muted); }
   .inputs { display: flex; flex-direction: column; gap: 4px; }
-  .input-row {
-    display: flex; justify-content: space-between; align-items: center;
-    font-family: var(--font-mono); font-size: 10px;
-    color: var(--text-secondary);
-    padding: 3px 0;
-  }
+  .input-row { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary); padding: 3px 0; }
   .chk { font-size: 9px; letter-spacing: 0.15em; color: var(--accent-green); }
-
-  .coa-card {
-    border: 1px solid var(--border-subtle);
-    background: #0c1015;
-    padding: 10px;
-    margin-bottom: 10px;
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-  }
+  .coa-card { border: 1px solid var(--border-subtle); background: #0c1015; padding: 10px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
   .coa-card:hover { border-color: var(--border-strong); }
-  .coa-card.selected {
-    border-color: var(--accent-cyan);
-    box-shadow: 0 0 12px rgba(0,240,255,0.15), inset 0 0 12px rgba(0,240,255,0.04);
-  }
-  .coa-hdr {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-bottom: 8px;
-  }
-  .rank {
-    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; font-weight: 700;
-  }
+  .coa-card.selected { border-color: var(--accent-cyan); box-shadow: 0 0 12px rgba(0,240,255,0.15), inset 0 0 12px rgba(0,240,255,0.04); }
+  .coa-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .rank { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; font-weight: 700; }
   .id { color: var(--text-muted); font-size: 9px; }
-  .coa-metrics {
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
-    padding: 6px 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);
-    margin-bottom: 8px;
-  }
+  .coa-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding: 6px 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); margin-bottom: 8px; }
   .metric { display: flex; flex-direction: column; gap: 2px; }
-  .mlabel {
-    font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.15em;
-    color: var(--text-muted); text-transform: uppercase;
-  }
+  .mlabel { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.15em; color: var(--text-muted); text-transform: uppercase; }
   .mvalue { font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
   .coa-missions { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
   .assign-row { display: flex; justify-content: space-between; font-size: 9px; }
   .mid { color: var(--accent-amber); letter-spacing: 0.1em; }
   .ids { color: var(--text-muted); }
-  .coa-expl {
-    font-family: var(--font-mono); font-size: 9px; line-height: 1.6;
-    color: var(--text-secondary);
-  }
+  .coa-expl { font-family: var(--font-mono); font-size: 9px; line-height: 1.6; color: var(--text-secondary); }
   .mono { font-family: var(--font-mono); }
-
-  .gen {
-    margin: 12px;
-    padding: 14px;
-    background: transparent;
-    border: 1px solid var(--accent-cyan);
-    color: var(--accent-cyan);
-    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.22em;
-    cursor: pointer;
-    transition: background 0.15s, box-shadow 0.15s, color 0.15s;
-    text-align: center;
-  }
-  .gen:hover {
-    background: rgba(0, 240, 255, 0.08);
-    box-shadow: 0 0 16px rgba(0, 240, 255, 0.35), inset 0 0 16px rgba(0, 240, 255, 0.08);
-  }
-  .gen:active { color: #ffffff; }
+  .gen { margin: 12px; padding: 14px; background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.22em; cursor: pointer; transition: background 0.15s, box-shadow 0.15s, color 0.15s; text-align: center; }
+  .gen:hover:not(:disabled) { background: rgba(0, 240, 255, 0.08); box-shadow: 0 0 16px rgba(0, 240, 255, 0.35), inset 0 0 16px rgba(0, 240, 255, 0.08); }
+  .gen:disabled { opacity: 0.6; cursor: wait; }
 </style>
-

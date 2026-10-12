@@ -1,9 +1,7 @@
 ﻿<script lang="ts">
-  import type { Mission } from '../../types';
+  import { system } from '../../stores/systemStore.svelte';
 
-  let { missions = [] }: { missions?: Mission[] } = $props();
-
-  const sorted = $derived([...missions].sort((a, b) => a.priority - b.priority));
+  const sorted = $derived([...system.missions].sort((a, b) => a.priority - b.priority));
 
   function priColor(p: number) {
     return p === 1 ? 'var(--accent-red)' : p === 2 ? 'var(--accent-amber)' : 'var(--text-muted)';
@@ -13,7 +11,7 @@
 <div class="mission-block corners">
   <div class="hdr">
     <span>MISSIONS</span>
-    <span class="count">{missions.length} QUEUED</span>
+    <span class="count">{system.missions.length} QUEUED</span>
   </div>
   <div class="list">
     {#each sorted as m (m.id)}
@@ -26,38 +24,20 @@
           <span class="coords">{m.target.lat.toFixed(3)}N · {m.target.lng.toFixed(3)}E</span>
           <span class="risk">RISK {m.riskLevel}</span>
         </div>
-        <div class="riskbar">
-          <div class="fill" style="width:{m.riskLevel}%;background:{priColor(m.priority)};"></div>
-        </div>
+        <div class="riskbar"><div class="fill" style="width:{m.riskLevel}%;background:{priColor(m.priority)};"></div></div>
       </div>
     {/each}
   </div>
 </div>
 
 <style>
-  .mission-block {
-    border-top: 1px solid var(--border-subtle);
-    display: flex; flex-direction: column;
-    flex: 1; min-height: 0;
-    overflow: hidden; position: relative;
-  }
-  .hdr {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border-subtle);
-    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em;
-    color: var(--text-muted); text-transform: uppercase;
-  }
+  .mission-block { border-top: 1px solid var(--border-subtle); display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; position: relative; }
+  .hdr { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; }
   .hdr .count { color: var(--accent-amber); }
   .list { flex: 1; overflow-y: auto; }
   .list::-webkit-scrollbar { width: 3px; }
   .list::-webkit-scrollbar-thumb { background: var(--border-strong); }
-  .row {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border-subtle);
-    font-family: var(--font-mono);
-    transition: background 0.12s;
-  }
+  .row { padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); transition: background 0.12s; }
   .row:hover { background: var(--bg-elevated); }
   .line1 { display: flex; justify-content: space-between; align-items: center; }
   .name { color: var(--accent-amber); font-size: 10px; letter-spacing: 0.08em; }

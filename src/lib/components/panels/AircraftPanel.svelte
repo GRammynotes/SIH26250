@@ -1,19 +1,17 @@
 ﻿<script lang="ts">
-  import type { Aircraft } from '../../types';
-
-  let { aircraft = [] }: { aircraft?: Aircraft[] } = $props();
+  import { system } from '../../stores/systemStore.svelte';
 
   const sorted = $derived(
-    [...aircraft].sort((a, b) => {
+    [...system.aircraft].sort((a, b) => {
       const rank: Record<string, number> = { FMC: 0, PMC: 1, NMC: 2 };
       return rank[a.status] - rank[b.status];
-    })
+    }),
   );
 
   const counts = $derived({
-    fmc: aircraft.filter((a) => a.status === 'FMC').length,
-    pmc: aircraft.filter((a) => a.status === 'PMC').length,
-    nmc: aircraft.filter((a) => a.status === 'NMC').length,
+    fmc: system.aircraft.filter((a) => a.status === 'FMC').length,
+    pmc: system.aircraft.filter((a) => a.status === 'PMC').length,
+    nmc: system.aircraft.filter((a) => a.status === 'NMC').length,
   });
 
   function statusColor(s: string) {
@@ -24,7 +22,7 @@
 <aside class="panel corners">
   <div class="hdr">
     <span>ASSETS</span>
-    <span class="count">{aircraft.length} TRACKED</span>
+    <span class="count">{system.aircraft.length} TRACKED</span>
   </div>
   <div class="sub">
     <span style="color:var(--accent-green);">FMC {counts.fmc}</span>
@@ -54,34 +52,14 @@
 </aside>
 
 <style>
-  .panel {
-    background: var(--bg-panel);
-    display: flex; flex-direction: column;
-    overflow: hidden; position: relative;
-    height: 100%;
-  }
-  .hdr {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 12px 6px;
-    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em;
-    color: var(--text-muted); text-transform: uppercase;
-  }
+  .panel { background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; position: relative; height: 100%; }
+  .hdr { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px 6px; font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; }
   .hdr .count { color: var(--accent-cyan); }
-  .sub {
-    display: flex; gap: 12px;
-    padding: 0 12px 8px;
-    border-bottom: 1px solid var(--border-subtle);
-    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em;
-  }
+  .sub { display: flex; gap: 12px; padding: 0 12px 8px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em; }
   .list { flex: 1; overflow-y: auto; }
   .list::-webkit-scrollbar { width: 3px; }
   .list::-webkit-scrollbar-thumb { background: var(--border-strong); }
-  .row {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border-subtle);
-    font-family: var(--font-mono);
-    transition: background 0.12s;
-  }
+  .row { padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); transition: background 0.12s; }
   .row:hover { background: var(--bg-elevated); }
   .line1 { display: flex; justify-content: space-between; align-items: center; }
   .tail { color: var(--accent-cyan); font-size: 11px; letter-spacing: 0.08em; }
