@@ -1,30 +1,96 @@
-﻿<div class="panel corners">
+﻿<script lang="ts">
+  import type { COA } from '../../types';
+  import { getModeLabel } from '../../engine/optimisation';
+
+  let {
+    coas = [],
+    onGenerate,
+    selectedId = null,
+    onSelect,
+  }: {
+    coas?: COA[];
+    onGenerate?: () => void;
+    selectedId?: string | null;
+    onSelect?: (id: string) => void;
+  } = $props();
+
+  function rankColor(r: number) {
+    return r === 1 ? 'var(--accent-green)' : r === 2 ? 'var(--accent-amber)' : 'var(--accent-red)';
+  }
+</script>
+
+<div class="panel corners">
   <div class="hdr">
     <span>COA ANALYSIS</span>
-    <span class="count">STANDBY</span>
+    <span class="count">{coas.length > 0 ? `${coas.length} OPTIONS` : 'STANDBY'}</span>
   </div>
+
   <div class="body">
-    <div class="section">
-      <div class="sec-label">STATUS</div>
-      <div class="sec-value">AWAITING GENERATION</div>
-    </div>
-    <div class="section">
-      <div class="sec-label">INPUTS</div>
-      <div class="inputs">
-        <div class="input-row"><span>· AIRCRAFT AVAILABILITY</span><span class="chk">READY</span></div>
-        <div class="input-row"><span>· CREW REST STATUS</span><span class="chk">READY</span></div>
-        <div class="input-row"><span>· WEAPONS INVENTORY</span><span class="chk">READY</span></div>
-        <div class="input-row"><span>· THREAT PICTURE</span><span class="chk">READY</span></div>
-        <div class="input-row"><span>· AIRSPACE & WEATHER</span><span class="chk">READY</span></div>
+    {#if coas.length === 0}
+      <div class="section">
+        <div class="sec-label">STATUS</div>
+        <div class="sec-value">AWAITING GENERATION</div>
       </div>
-    </div>
-    <div class="section">
-      <div class="sec-label">OPTIMISATION</div>
-      <div class="sec-value muted">NSGA-II MULTI-OBJECTIVE · 4 OBJECTIVES</div>
-    </div>
+      <div class="section">
+        <div class="sec-label">INPUTS</div>
+        <div class="inputs">
+          <div class="input-row"><span>· AIRCRAFT AVAILABILITY</span><span class="chk">READY</span></div>
+          <div class="input-row"><span>· CREW REST STATUS</span><span class="chk">READY</span></div>
+          <div class="input-row"><span>· WEAPONS INVENTORY</span><span class="chk">READY</span></div>
+          <div class="input-row"><span>· THREAT PICTURE</span><span class="chk">READY</span></div>
+          <div class="input-row"><span>· AIRSPACE & WEATHER</span><span class="chk">READY</span></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="sec-label">OPTIMISATION</div>
+        <div class="sec-value muted">NSGA-II MULTI-OBJECTIVE · 4 OBJECTIVES</div>
+      </div>
+    {:else}
+      {#each coas as coa (coa.id)}
+        <div
+          class="coa-card"
+          class:selected={coa.id === selectedId}
+          onclick={() => onSelect?.(coa.id)}
+          role="button"
+          tabindex="0"
+          onkeydown={(e) => e.key === 'Enter' && onSelect?.(coa.id)}
+        >
+          <div class="coa-hdr">
+            <span class="rank" style="color:{rankColor(coa.rank)};">OPTION {coa.rank}</span>
+            <span class="id mono">{getModeLabel(coa)}</span>
+          </div>
+          <div class="coa-metrics">
+            <div class="metric">
+              <span class="mlabel">SUCCESS</span>
+              <span class="mvalue" style="color:var(--accent-green);">{coa.successProbability}%</span>
+            </div>
+            <div class="metric">
+              <span class="mlabel">RISK</span>
+              <span class="mvalue" style="color:var(--accent-red);">{coa.riskScore}</span>
+            </div>
+            <div class="metric">
+              <span class="mlabel">TIME</span>
+              <span class="mvalue" style="color:var(--accent-cyan);">{coa.timeToEffect}m</span>
+            </div>
+          </div>
+          <div class="coa-missions">
+            {#each Object.entries(coa.assignments) as [mid, ids]}
+              {#if ids.length > 0}
+                <div class="assign-row">
+                  <span class="mid mono">{mid.toUpperCase()}</span>
+                  <span class="ids mono">{ids.length} AC</span>
+                </div>
+              {/if}
+            {/each}
+          </div>
+          <div class="coa-expl">{coa.explanation}</div>
+        </div>
+      {/each}
+    {/if}
   </div>
-  <button class="gen">
-    <span>▸ GENERATE COA</span>
+
+  <button class="gen" onclick={() => onGenerate?.()}>
+    <span>{coas.length === 0 ? '▸ GENERATE COA' : '▸ RE-GENERATE COA'}</span>
   </button>
 </div>
 
@@ -43,7 +109,9 @@
     color: var(--text-muted); text-transform: uppercase;
   }
   .hdr .count { color: var(--accent-amber); }
-  .body { flex: 1; padding: 14px; overflow-y: auto; }
+  .body { flex: 1; padding: 12px; overflow-y: auto; }
+  .body::-webkit-scrollbar { width: 3px; }
+  .body::-webkit-scrollbar-thumb { background: var(--border-strong); }
   .section { margin-bottom: 18px; }
   .sec-label {
     font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em;
@@ -61,12 +129,52 @@
     color: var(--text-secondary);
     padding: 3px 0;
   }
-  .chk {
-    font-size: 9px; letter-spacing: 0.15em;
-    color: var(--accent-green);
+  .chk { font-size: 9px; letter-spacing: 0.15em; color: var(--accent-green); }
+
+  .coa-card {
+    border: 1px solid var(--border-subtle);
+    background: #0c1015;
+    padding: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
   }
+  .coa-card:hover { border-color: var(--border-strong); }
+  .coa-card.selected {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 12px rgba(0,240,255,0.15), inset 0 0 12px rgba(0,240,255,0.04);
+  }
+  .coa-hdr {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .rank {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; font-weight: 700;
+  }
+  .id { color: var(--text-muted); font-size: 9px; }
+  .coa-metrics {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+    padding: 6px 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);
+    margin-bottom: 8px;
+  }
+  .metric { display: flex; flex-direction: column; gap: 2px; }
+  .mlabel {
+    font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.15em;
+    color: var(--text-muted); text-transform: uppercase;
+  }
+  .mvalue { font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
+  .coa-missions { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+  .assign-row { display: flex; justify-content: space-between; font-size: 9px; }
+  .mid { color: var(--accent-amber); letter-spacing: 0.1em; }
+  .ids { color: var(--text-muted); }
+  .coa-expl {
+    font-family: var(--font-mono); font-size: 9px; line-height: 1.6;
+    color: var(--text-secondary);
+  }
+  .mono { font-family: var(--font-mono); }
+
   .gen {
-    margin: 14px;
+    margin: 12px;
     padding: 14px;
     background: transparent;
     border: 1px solid var(--accent-cyan);
@@ -82,3 +190,4 @@
   }
   .gen:active { color: #ffffff; }
 </style>
+

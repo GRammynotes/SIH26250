@@ -1,36 +1,65 @@
 ﻿<script lang="ts">
   import { generateSystemState } from './lib/data/seed';
+  import { generateCOAs } from './lib/engine/optimisation';
   import TopBar from './lib/components/layout/TopBar.svelte';
   import TacticalMap from './lib/components/map/TacticalMap.svelte';
   import AircraftPanel from './lib/components/panels/AircraftPanel.svelte';
   import MissionPanel from './lib/components/panels/MissionPanel.svelte';
   import COAPanel from './lib/components/panels/COAPanel.svelte';
   import EventLog from './lib/components/panels/EventLog.svelte';
+  import type { COA } from './lib/types';
 
-  const state = generateSystemState();
+  const sysState = generateSystemState();
+
+  let coas = $state<COA[]>([]);
+  let selectedCoaId = $state<string | null>(null);
+  let computing = $state(false);
+
+  function handleGenerate() {
+    if (computing) return;
+    computing = true;
+    // Simulate compute latency for realism
+    setTimeout(() => {
+      coas = generateCOAs(sysState.aircraft, sysState.missions, sysState.threats);
+      selectedCoaId = coas[0]?.id ?? null;
+      computing = false;
+    }, 850);
+  }
+
+  function handleSelect(id: string) {
+    selectedCoaId = id;
+  }
 </script>
 
 <div class="shell">
   <TopBar
-    aircraftCount={state.aircraft.length}
-    missionCount={state.missions.length}
-    threatCount={state.threats.length}
+    aircraftCount={sysState.aircraft.length}
+    missionCount={sysState.missions.length}
+    threatCount={sysState.threats.length}
   />
 
   <aside class="left">
-    <AircraftPanel aircraft={state.aircraft} />
-    <MissionPanel missions={state.missions} />
+    <AircraftPanel aircraft={sysState.aircraft} />
+    <MissionPanel missions={sysState.missions} />
   </aside>
 
   <section class="center">
     <TacticalMap
-      aircraft={state.aircraft}
-      missions={state.missions}
-      threats={state.threats}
+      aircraft={sysState.aircraft}
+      missions={sysState.missions}
+      threats={sysState.threats}
     />
+    {#if computing}
+      <div class="computing mono">◢ COMPUTING COA · NSGA-II · 4 OBJECTIVES</div>
+    {/if}
   </section>
 
-  <COAPanel />
+  <COAPanel
+    coas={coas}
+    selectedId={selectedCoaId}
+    onGenerate={handleGenerate}
+    onSelect={handleSelect}
+  />
 
   <EventLog />
 </div>
@@ -67,4 +96,16 @@
     overflow: hidden;
     background: #050608;
   }
+
+  .computing {
+    position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em;
+    color: var(--accent-cyan);
+    background: rgba(5,6,8,0.9);
+    border: 1px solid var(--accent-cyan);
+    padding: 6px 14px;
+    box-shadow: 0 0 16px rgba(0,240,255,0.4);
+    animation: pulse 0.9s ease-in-out infinite;
+  }
 </style>
+
