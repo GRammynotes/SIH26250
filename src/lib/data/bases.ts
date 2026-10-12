@@ -1,0 +1,22 @@
+﻿export interface AirBase {
+  id: string;
+  name: string;
+  code: string;
+  lat: number;
+  lng: number;
+  elevation: number;
+  primaryAircraft: string[];
+}
+
+export const IAF_BASES: AirBase[] = [
+  { id: 'ambala',   name: 'Ambala AFS',   code: 'AMB', lat: 30.3777, lng: 76.8164, elevation: 275,  primaryAircraft: ['Su-30MKI'] },
+  { id: 'jodhpur',  name: 'Jodhpur AFS',  code: 'JOD', lat: 26.2511, lng: 73.0489, elevation: 220,  primaryAircraft: ['Su-30MKI'] },
+  { id: 'leh',      name: 'Leh AFS',      code: 'LEH', lat: 34.1358, lng: 77.5464, elevation: 3256, primaryAircraft: ['MiG-29UPG'] },
+  { id: 'tezpur',   name: 'Tezpur AFS',   code: 'TEZ', lat: 26.7092, lng: 92.7847, elevation: 70,   primaryAircraft: ['Su-30MKI'] },
+  { id: 'pune',     name: 'Pune AFS',     code: 'PNQ', lat: 18.5822, lng: 73.9197, elevation: 592,  primaryAircraft: ['Rafale'] },
+  { id: 'gwalior',  name: 'Gwalior AFS',  code: 'GWL', lat: 26.2933, lng: 78.2278, elevation: 188,  primaryAircraft: ['Mirage-2000'] },
+  { id: 'jamnagar', name: 'Jamnagar AFS', code: 'JGA', lat: 22.4675, lng: 70.0117, elevation: 21,   primaryAircraft: ['Jaguar'] },
+  { id: 'sulur',    name: 'Sulur AFS',    code: 'SLR', lat: 11.0168, lng: 77.1577, elevation: 381,  primaryAircraft: ['Tejas'] },
+  { id: 'bathinda', name: 'Bathinda AFS', code: 'BTI', lat: 30.2700, lng: 74.7556, elevation: 203,  primaryAircraft: ['MiG-29UPG'] },
+  { id: 'hasimara', name: 'Hasimara AFS', code: 'HAS', lat: 26.7042, lng: 89.4289, elevation: 90,   primaryAircraft: ['Rafale'] },
+];

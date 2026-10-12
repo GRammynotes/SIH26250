@@ -1,5 +1,4 @@
-﻿@'
-/** @type {import('tailwindcss').Config} */
+﻿/** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{svelte,ts,js}'],
   theme: {
@@ -26,4 +25,3 @@ export default {
   },
   plugins: [],
 };
-'@ | Out-File -Encoding utf8 tailwind.config.js

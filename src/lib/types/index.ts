@@ -1,5 +1,4 @@
-@'
-export type AircraftStatus = 'FMC' | 'PMC' | 'NMC';
+﻿export type AircraftStatus = 'FMC' | 'PMC' | 'NMC';
 export type MissionStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETE' | 'ABORTED';
 export type ThreatType = 'SAM' | 'RADAR' | 'AIR' | 'EW';
 
@@ -56,4 +55,3 @@ export interface SystemState {
   coas: COA[];
   timestamp: number;
 }
-'@ | Out-File -Encoding utf8 src\lib\types\index.ts

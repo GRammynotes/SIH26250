@@ -1,0 +1,51 @@
+﻿:root {
+  font-family: "Consolas", "Courier New", monospace;
+  color-scheme: dark;
+
+  --bg-base: #080d12;
+  --bg-panel: #101820;
+  --bg-elevated: #18232d;
+
+  --border-subtle: #263541;
+  --border-strong: #3b5262;
+
+  --text-primary: #e6edf3;
+  --text-secondary: #a4b3bf;
+  --text-muted: #718391;
+
+  --accent-cyan: #00e5ff;
+  --accent-amber: #ffbf47;
+  --accent-red: #ff4d5e;
+  --accent-green: #39e58c;
+
+  --font-mono: "Consolas", "Courier New", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: var(--accent-cyan);
+  color: var(--bg-base);
+}

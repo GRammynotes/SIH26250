@@ -1,5 +1,4 @@
-@'
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 
 const app = express();
@@ -15,4 +14,3 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`[AIR COMMAND] Backend online on port ${PORT}`);
 });
-'@ | Out-File -Encoding utf8 server\index.js
