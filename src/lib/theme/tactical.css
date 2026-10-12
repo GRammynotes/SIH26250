@@ -49,3 +49,21 @@ textarea {
   background: var(--accent-cyan);
   color: var(--bg-base);
 }
+
+/* ========== AIR COMMAND TACTICAL ADDENDA ========== */
+.corners { position: relative; }
+.corners::before, .corners::after {
+  content: ''; position: absolute; width: 8px; height: 8px;
+  border-color: var(--accent-cyan); border-style: solid;
+  pointer-events: none; opacity: 0.55;
+}
+.corners::before { top: 0; left: 0; border-width: 1px 0 0 1px; }
+.corners::after  { bottom: 0; right: 0; border-width: 0 1px 1px 0; }
+
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.pulse { animation: pulse 1.8s ease-in-out infinite; }
+
+@keyframes sweep {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}

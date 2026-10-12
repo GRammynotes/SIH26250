@@ -10,15 +10,26 @@
     })
   );
 
+  const counts = $derived({
+    fmc: aircraft.filter((a) => a.status === 'FMC').length,
+    pmc: aircraft.filter((a) => a.status === 'PMC').length,
+    nmc: aircraft.filter((a) => a.status === 'NMC').length,
+  });
+
   function statusColor(s: string) {
     return s === 'FMC' ? 'var(--accent-green)' : s === 'PMC' ? 'var(--accent-amber)' : 'var(--accent-red)';
   }
 </script>
 
-<aside class="panel">
+<aside class="panel corners">
   <div class="hdr">
     <span>ASSETS</span>
     <span class="count">{aircraft.length} TRACKED</span>
+  </div>
+  <div class="sub">
+    <span style="color:var(--accent-green);">FMC {counts.fmc}</span>
+    <span style="color:var(--accent-amber);">PMC {counts.pmc}</span>
+    <span style="color:var(--accent-red);">NMC {counts.nmc}</span>
   </div>
   <div class="list">
     {#each sorted as ac (ac.id)}
@@ -26,14 +37,14 @@
         <div class="line1">
           <span class="tail">{ac.tailNumber}</span>
           <span class="status" style="color:{statusColor(ac.status)};">
-            <span class="dot" style="background:{statusColor(ac.status)};"></span>
+            <span class="dot" style="background:{statusColor(ac.status)};box-shadow:0 0 5px {statusColor(ac.status)};"></span>
             {ac.status}
           </span>
         </div>
         <div class="line2">
           <span class="type">{ac.type}</span>
           <span class="fuel">
-            <span class="bar" style="width:{ac.fuel}%;background:{statusColor(ac.status)};"></span>
+            <span class="track"><span class="bar" style="width:{ac.fuel}%;background:{statusColor(ac.status)};"></span></span>
             <span class="txt">{ac.fuel}%</span>
           </span>
         </div>
@@ -44,36 +55,42 @@
 
 <style>
   .panel {
-    grid-area: left;
     background: var(--bg-panel);
-    border-right: 1px solid var(--border-subtle);
     display: flex; flex-direction: column;
-    overflow: hidden;
+    overflow: hidden; position: relative;
+    height: 100%;
   }
   .hdr {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border-subtle);
+    padding: 10px 12px 6px;
     font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em;
     color: var(--text-muted); text-transform: uppercase;
   }
   .hdr .count { color: var(--accent-cyan); }
+  .sub {
+    display: flex; gap: 12px;
+    padding: 0 12px 8px;
+    border-bottom: 1px solid var(--border-subtle);
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em;
+  }
   .list { flex: 1; overflow-y: auto; }
-  .list::-webkit-scrollbar { width: 4px; }
+  .list::-webkit-scrollbar { width: 3px; }
   .list::-webkit-scrollbar-thumb { background: var(--border-strong); }
   .row {
     padding: 8px 12px;
     border-bottom: 1px solid var(--border-subtle);
     font-family: var(--font-mono);
+    transition: background 0.12s;
   }
   .row:hover { background: var(--bg-elevated); }
   .line1 { display: flex; justify-content: space-between; align-items: center; }
-  .tail { color: var(--accent-cyan); font-size: 11px; letter-spacing: 0.05em; }
-  .status { display: flex; align-items: center; gap: 4px; font-size: 9px; letter-spacing: 0.1em; }
-  .dot { width: 6px; height: 6px; }
-  .line2 { display: flex; justify-content: space-between; align-items: center; margin-top: 3px; }
+  .tail { color: var(--accent-cyan); font-size: 11px; letter-spacing: 0.08em; }
+  .status { display: flex; align-items: center; gap: 5px; font-size: 9px; letter-spacing: 0.12em; }
+  .dot { width: 5px; height: 5px; }
+  .line2 { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
   .type { color: var(--text-muted); font-size: 10px; }
-  .fuel { display: flex; align-items: center; gap: 4px; }
-  .fuel .bar { display: inline-block; height: 3px; min-width: 2px; max-width: 40px; }
-  .fuel .txt { color: var(--text-muted); font-size: 9px; }
+  .fuel { display: flex; align-items: center; gap: 6px; }
+  .track { display: inline-block; width: 40px; height: 3px; background: var(--border-subtle); position: relative; }
+  .bar { display: block; height: 100%; }
+  .txt { color: var(--text-muted); font-size: 9px; }
 </style>

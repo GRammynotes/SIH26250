@@ -36,35 +36,35 @@
 </div>
 
 <style>
-  :global(body) { margin: 0; overflow: hidden; background: var(--bg-base); }
+  :global(html, body) { margin: 0; padding: 0; overflow: hidden; background: var(--bg-base); }
   :global(#app) { width: 100vw; height: 100vh; }
 
   .shell {
     width: 100vw; height: 100vh;
     display: grid;
     grid-template-rows: 32px 1fr 96px;
-    grid-template-columns: 240px 1fr 320px;
+    grid-template-columns: 260px 1fr 340px;
     grid-template-areas:
       "topbar topbar topbar"
       "left   center right"
       "log    log    log";
-    background: var(--bg-base);
+    background: #1a242e;
+    gap: 1px;
   }
 
   .left {
     grid-area: left;
-    display: flex; flex-direction: column;
-    background: var(--bg-panel);
-    border-right: 1px solid var(--border-subtle);
+    display: grid;
+    grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 1px;
+    background: #1a242e;
     overflow: hidden;
   }
-  .left > :global(:first-child) { flex: 1; min-height: 0; }
 
   .center {
     grid-area: center;
     position: relative;
     overflow: hidden;
+    background: #050608;
   }
-
-  :global(.panel) { grid-area: unset; border: none !important; }
 </style>
