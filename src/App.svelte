@@ -1,68 +1,70 @@
 ﻿<script lang="ts">
   import { generateSystemState } from './lib/data/seed';
+  import TopBar from './lib/components/layout/TopBar.svelte';
   import TacticalMap from './lib/components/map/TacticalMap.svelte';
+  import AircraftPanel from './lib/components/panels/AircraftPanel.svelte';
+  import MissionPanel from './lib/components/panels/MissionPanel.svelte';
+  import COAPanel from './lib/components/panels/COAPanel.svelte';
+  import EventLog from './lib/components/panels/EventLog.svelte';
 
   const state = generateSystemState();
-  const zuluTime = new Date(state.timestamp).toISOString().slice(11, 19);
 </script>
 
-<div class="app-shell">
-  <header class="topbar">
-    <span class="title">AIR COMMAND</span>
-    <span class="sep">//</span>
-    <span class="classification">UNCLASSIFIED · EXERCISE</span>
-    <span class="spacer"></span>
-    <span class="metric">AC <b>{state.aircraft.length}</b></span>
-    <span class="metric">MSN <b>{state.missions.length}</b></span>
-    <span class="metric">THR <b>{state.threats.length}</b></span>
-    <span class="sep">//</span>
-    <span class="time">{zuluTime}Z</span>
-  </header>
-
-  <TacticalMap
-    aircraft={state.aircraft}
-    missions={state.missions}
-    threats={state.threats}
+<div class="shell">
+  <TopBar
+    aircraftCount={state.aircraft.length}
+    missionCount={state.missions.length}
+    threatCount={state.threats.length}
   />
 
-  <footer class="statusbar">
-    <span class="dot"></span>
-    <span>SYS ONLINE</span>
-    <span class="sep">//</span>
-    <span>LINK: LOCAL</span>
-    <span class="sep">//</span>
-    <span>MODE: PLANNING</span>
-  </footer>
+  <aside class="left">
+    <AircraftPanel aircraft={state.aircraft} />
+    <MissionPanel missions={state.missions} />
+  </aside>
+
+  <section class="center">
+    <TacticalMap
+      aircraft={state.aircraft}
+      missions={state.missions}
+      threats={state.threats}
+    />
+  </section>
+
+  <COAPanel />
+
+  <EventLog />
 </div>
 
 <style>
-  :global(body) { overflow: hidden; }
-  .app-shell { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  :global(body) { margin: 0; overflow: hidden; background: var(--bg-base); }
+  :global(#app) { width: 100vw; height: 100vh; }
 
-  .topbar {
-    position: absolute; top: 0; left: 0; right: 0; height: 32px;
-    background: rgba(5, 6, 8, 0.94);
-    border-bottom: 1px solid var(--border-subtle);
-    display: flex; align-items: center; padding: 0 16px; gap: 16px;
-    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.15em;
-    z-index: 10;
+  .shell {
+    width: 100vw; height: 100vh;
+    display: grid;
+    grid-template-rows: 32px 1fr 96px;
+    grid-template-columns: 240px 1fr 320px;
+    grid-template-areas:
+      "topbar topbar topbar"
+      "left   center right"
+      "log    log    log";
+    background: var(--bg-base);
   }
-  .title { color: var(--accent-cyan); font-weight: 700; }
-  .classification { color: var(--accent-amber); }
-  .sep { color: var(--border-strong); }
-  .spacer { flex: 1; }
-  .metric { color: var(--text-muted); }
-  .metric b { color: var(--text-secondary); font-weight: 500; margin-left: 4px; }
-  .time { color: var(--text-secondary); }
 
-  .statusbar {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 24px;
-    background: rgba(5, 6, 8, 0.94);
-    border-top: 1px solid var(--border-subtle);
-    display: flex; align-items: center; padding: 0 16px; gap: 12px;
-    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.15em;
-    color: var(--text-muted);
-    z-index: 10;
+  .left {
+    grid-area: left;
+    display: flex; flex-direction: column;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border-subtle);
+    overflow: hidden;
   }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+  .left > :global(:first-child) { flex: 1; min-height: 0; }
+
+  .center {
+    grid-area: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  :global(.panel) { grid-area: unset; border: none !important; }
 </style>
