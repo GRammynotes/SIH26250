@@ -1,56 +1,68 @@
 ﻿<script lang="ts">
   import { generateSystemState } from './lib/data/seed';
+  import TacticalMap from './lib/components/map/TacticalMap.svelte';
+
   const state = generateSystemState();
+  const zuluTime = new Date(state.timestamp).toISOString().slice(11, 19);
 </script>
 
-<main style="padding: 32px; font-family: var(--font-mono); color: var(--text-primary);">
-  <div style="color: var(--accent-cyan); font-size: 12px; letter-spacing: 0.2em;">
-    AIR COMMAND // PHASE 1
-  </div>
-  <div style="color: var(--text-muted); font-size: 11px; margin-top: 8px; margin-bottom: 24px;">
-    Data layer online. Seed generated.
-  </div>
+<div class="app-shell">
+  <header class="topbar">
+    <span class="title">AIR COMMAND</span>
+    <span class="sep">//</span>
+    <span class="classification">UNCLASSIFIED · EXERCISE</span>
+    <span class="spacer"></span>
+    <span class="metric">AC <b>{state.aircraft.length}</b></span>
+    <span class="metric">MSN <b>{state.missions.length}</b></span>
+    <span class="metric">THR <b>{state.threats.length}</b></span>
+    <span class="sep">//</span>
+    <span class="time">{zuluTime}Z</span>
+  </header>
 
-  <div style="display: grid; grid-template-columns: repeat(3, 200px); gap: 16px;">
-    <div style="border: 1px solid var(--border-subtle); padding: 12px; background: var(--bg-panel);">
-      <div style="color: var(--text-muted); font-size: 10px;">AIRCRAFT</div>
-      <div style="color: var(--accent-cyan); font-size: 24px;">{state.aircraft.length}</div>
-    </div>
-    <div style="border: 1px solid var(--border-subtle); padding: 12px; background: var(--bg-panel);">
-      <div style="color: var(--text-muted); font-size: 10px;">MISSIONS</div>
-      <div style="color: var(--accent-amber); font-size: 24px;">{state.missions.length}</div>
-    </div>
-    <div style="border: 1px solid var(--border-subtle); padding: 12px; background: var(--bg-panel);">
-      <div style="color: var(--text-muted); font-size: 10px;">THREATS</div>
-      <div style="color: var(--accent-red); font-size: 24px;">{state.threats.length}</div>
-    </div>
-  </div>
+  <TacticalMap
+    aircraft={state.aircraft}
+    missions={state.missions}
+    threats={state.threats}
+  />
 
-  <div style="margin-top: 32px; border: 1px solid var(--border-subtle); padding: 16px; background: var(--bg-panel);">
-    <div style="color: var(--text-muted); font-size: 10px; margin-bottom: 12px;">AIRCRAFT ROSTER</div>
-    <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
-      <thead>
-        <tr style="color: var(--text-muted); text-align: left;">
-          <th style="padding: 6px;">TAIL</th>
-          <th style="padding: 6px;">TYPE</th>
-          <th style="padding: 6px;">BASE</th>
-          <th style="padding: 6px;">STATUS</th>
-          <th style="padding: 6px;">FUEL</th>
-          <th style="padding: 6px;">CREW REST</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each state.aircraft as ac}
-          <tr style="border-top: 1px solid var(--border-subtle);">
-            <td style="padding: 6px; color: var(--accent-cyan);">{ac.tailNumber}</td>
-            <td style="padding: 6px;">{ac.type}</td>
-            <td style="padding: 6px;">{ac.base}</td>
-            <td style="padding: 6px; color: {ac.status === 'FMC' ? 'var(--accent-green)' : ac.status === 'PMC' ? 'var(--accent-amber)' : 'var(--accent-red)'};">{ac.status}</td>
-            <td style="padding: 6px;">{ac.fuel}%</td>
-            <td style="padding: 6px;">{ac.crewRest}h</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
-</main>
+  <footer class="statusbar">
+    <span class="dot"></span>
+    <span>SYS ONLINE</span>
+    <span class="sep">//</span>
+    <span>LINK: LOCAL</span>
+    <span class="sep">//</span>
+    <span>MODE: PLANNING</span>
+  </footer>
+</div>
+
+<style>
+  :global(body) { overflow: hidden; }
+  .app-shell { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0; height: 32px;
+    background: rgba(5, 6, 8, 0.94);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex; align-items: center; padding: 0 16px; gap: 16px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.15em;
+    z-index: 10;
+  }
+  .title { color: var(--accent-cyan); font-weight: 700; }
+  .classification { color: var(--accent-amber); }
+  .sep { color: var(--border-strong); }
+  .spacer { flex: 1; }
+  .metric { color: var(--text-muted); }
+  .metric b { color: var(--text-secondary); font-weight: 500; margin-left: 4px; }
+  .time { color: var(--text-secondary); }
+
+  .statusbar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 24px;
+    background: rgba(5, 6, 8, 0.94);
+    border-top: 1px solid var(--border-subtle);
+    display: flex; align-items: center; padding: 0 16px; gap: 12px;
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.15em;
+    color: var(--text-muted);
+    z-index: 10;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+</style>
