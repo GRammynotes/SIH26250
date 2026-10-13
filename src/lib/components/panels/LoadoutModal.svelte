@@ -30,7 +30,7 @@
           <img src="/assets/su30mki_loadout_alpha.svg" alt="Su-30MKI Loadout" />
         {:else}
           <div class="empty">
-            <div class="empty-label">NO DIAGRAM AVAILABLE</div>
+            <div class="empty-label">DIAGRAM PENDING</div>
             <div class="empty-msg">Loadout diagrams are available for Su-30MKI. {aircraftType} uses the same weaponeering engine but has no graphic yet.</div>
           </div>
         {/if}
@@ -102,3 +102,4 @@
   .empty-label { color: var(--accent-amber); font-size: 11px; letter-spacing: 0.2em; margin-bottom: 10px; }
   .empty-msg { color: var(--text-muted); font-size: 11px; letter-spacing: 0.08em; line-height: 1.6; max-width: 420px; }
 </style>
+

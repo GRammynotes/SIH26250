@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500" font-family="'Courier New', Courier, monospace">
+<style>
+.lb{font-size:9px;fill:#ffb000}.st{font-size:7px;fill:#64748b}.hd{font-size:8px;fill:#00d4ff;fill-opacity:.6}.rw{font-size:8px;fill:#00d4ff;fill-opacity:.85}.am{font-size:8px;fill:#ffb000}
+.ld{fill:none;stroke:#ffb000;stroke-width:1}.em{fill:none;stroke:#64748b;stroke-width:1}.ll{stroke:#ffb000;stroke-opacity:.6;stroke-width:1}
+.ac{fill:#00d4ff;fill-opacity:.08;stroke:#00d4ff;stroke-width:1}
+</style>
+<defs>
+<pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0H0V60" fill="none" stroke="#0a1420" stroke-width="1"/></pattern>
+<path id="missile" d="M0,-10L2,-6V4L5,8V10H-5V8L-2,4V-6Z" fill="#ffb000" fill-opacity=".25" stroke="#ffb000" stroke-width="1" vector-effect="non-scaling-stroke"/>
+<path id="bomb" d="M0,-10C4,-6 4,4 2,8L3,10H-3L-2,8C-4,4 -4,-6 0,-10Z" fill="#ffb000" fill-opacity=".25" stroke="#ffb000" stroke-width="1" vector-effect="non-scaling-stroke"/>
+<path id="tank" d="M0,-11C6,-8 6,8 0,11C-6,8 -6,-8 0,-11Z" fill="#ffb000" fill-opacity=".25" stroke="#ffb000" stroke-width="1" vector-effect="non-scaling-stroke"/>
+</defs>
+<rect width="800" height="500" fill="#05080f"/>
+<rect width="800" height="500" fill="url(#grid)"/>
+<path d="M4,18V4H18M782,4H796V18M4,482V496H18M782,496H796V482" fill="none" stroke="#00d4ff" stroke-opacity=".5" stroke-width="1"/>
+<text x="24" y="30" font-size="14" letter-spacing="2" fill="#00d4ff">MIRAGE-2000 · LOADOUT CHARLIE</text>
+<text x="24" y="44" font-size="8" fill="#00d4ff" fill-opacity=".6">DASSAULT MIRAGE-2000 · 6 / 9 STATIONS LOADED</text>
+
+<!-- silhouette -->
+<path class="ac" d="M400,62L405,90L408,130L414,150L412,170L575,284L575,304L420,316L416,336L384,336L380,316L225,304L225,284L388,170L386,150L392,130L395,90Z"/>
+<rect class="ac" x="398" y="284" width="4" height="44"/>
+<ellipse cx="400" cy="100" rx="3.5" ry="11" fill="none" stroke="#00d4ff" stroke-opacity=".5"/>
+
+<!-- leader lines -->
+<path class="ll" d="M226,294H196M273,272L196,249M319,257L196,204M574,294H604M527,272L604,249M481,257L604,204"/>
+
+<!-- hardpoints: loaded -->
+<g class="ld"><circle cx="234" cy="294" r="8"/><circle cx="280" cy="276" r="8"/><circle cx="325" cy="262" r="8"/><circle cx="475" cy="262" r="8"/><circle cx="520" cy="276" r="8"/><circle cx="566" cy="294" r="8"/></g>
+<use href="#missile" transform="translate(234,294) scale(.8)"/>
+<use href="#missile" transform="translate(280,276) scale(.8)"/>
+<use href="#bomb" transform="translate(325,262) scale(1.1)"/>
+<use href="#bomb" transform="translate(475,262) scale(.9)"/>
+<use href="#missile" transform="translate(520,276) scale(.8)"/>
+<use href="#missile" transform="translate(566,294) scale(.8)"/>
+
+<!-- hardpoints: empty -->
+<g class="em"><circle cx="362" cy="250" r="5"/><circle cx="400" cy="200" r="5"/><circle cx="438" cy="250" r="5"/></g>
+<g class="st" text-anchor="middle"><text x="362" y="265">ST04</text><text x="400" y="215">ST05</text><text x="438" y="265">ST06</text></g>
+
+<!-- labels left -->
+<g text-anchor="end">
+<text class="lb" x="192" y="297">MICA IR</text><text class="st" x="192" y="307">ST01</text>
+<text class="lb" x="192" y="252">MICA RF</text><text class="st" x="192" y="262">ST02</text>
+<text class="lb" x="192" y="207">Spice-2000</text><text class="st" x="192" y="217">ST03</text>
+</g>
+<!-- labels right -->
+<g text-anchor="start">
+<text class="lb" x="608" y="297">MICA IR</text><text class="st" x="608" y="307">ST09</text>
+<text class="lb" x="608" y="252">MICA RF</text><text class="st" x="608" y="262">ST08</text>
+<text class="lb" x="608" y="207">Spice-1000</text><text class="st" x="608" y="217">ST07</text>
+</g>
+
+<!-- legend -->
+<rect x="20" y="348" width="760" height="144" fill="#00d4ff" fill-opacity=".04" stroke="#00d4ff" stroke-width="1"/>
+<text class="hd" x="36" y="368">STORE</text><text class="hd" x="250" y="368">QTY</text><text class="hd" x="330" y="368">STATIONS</text><text class="hd" x="560" y="368">UNIT KG</text><text class="hd" x="660" y="368">SUBTOTAL KG</text>
+<path d="M36,374H764" stroke="#00d4ff" stroke-opacity=".3"/>
+<text class="am" x="36" y="392">MICA IR</text><text class="rw" x="250" y="392">2</text><text class="rw" x="330" y="392">01 · 09</text><text class="rw" x="560" y="392">112 kg</text><text class="rw" x="660" y="392">224 kg</text>
+<text class="am" x="36" y="408">MICA RF</text><text class="rw" x="250" y="408">2</text><text class="rw" x="330" y="408">02 · 08</text><text class="rw" x="560" y="408">112 kg</text><text class="rw" x="660" y="408">224 kg</text>
+<text class="am" x="36" y="424">Spice-2000</text><text class="rw" x="250" y="424">1</text><text class="rw" x="330" y="424">03</text><text class="rw" x="560" y="424">1,000 kg</text><text class="rw" x="660" y="424">1,000 kg</text>
+<text class="am" x="36" y="440">Spice-1000</text><text class="rw" x="250" y="440">1</text><text class="rw" x="330" y="440">07</text><text class="rw" x="560" y="440">500 kg</text><text class="rw" x="660" y="440">500 kg</text>
+<text class="am" x="36" y="459">TOTAL PAYLOAD · 1,948 kg · 6 / 9 STATIONS</text>
+<text class="am" x="764" y="459" text-anchor="end">39% OF 5,000 kg</text>
+<rect x="36" y="466" width="728" height="8" fill="none" stroke="#00d4ff" stroke-opacity=".4"/>
+<rect x="36" y="466" width="284" height="8" fill="#ffb000"/>
+<text class="st" x="36" y="486">0</text><text class="st" x="764" y="486" text-anchor="end">5,000 kg</text>
+</svg>

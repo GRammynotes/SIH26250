@@ -122,7 +122,10 @@
   {/if}
 
   <section class="center">
-    <TacticalMap onBaseSelect={(id) => system.selectBase(id)} />
+    <TacticalMap
+      onBaseSelect={(id) => system.selectBase(id)}
+      onLoadoutClick={openLoadout}
+    />
     <ScenarioControls />
     {#if system.computing}
       <div class="computing mono">◢ COMPUTING COA · NSGA-II · 4 OBJECTIVES</div>

@@ -3,17 +3,23 @@
   import maplibregl from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { IAF_BASES } from '../../data/bases';
+  import { GROUND_ASSETS, type GroundAsset } from '../../data/groundAssets';
   import { getAircraftSvg } from '../../data/aircraftIcons';
   import { system } from '../../stores/systemStore.svelte';
 
   let {
     onBaseSelect,
-  }: { onBaseSelect?: (baseId: string) => void } = $props();
+    onLoadoutClick,
+  }: {
+    onBaseSelect?: (baseId: string) => void;
+    onLoadoutClick?: (type: string, tail: string) => void;
+  } = $props();
 
   let container: HTMLDivElement;
   let map: maplibregl.Map | null = null;
   let mapReady = $state(false);
   let dynamicMarkers: maplibregl.Marker[] = [];
+  let groundMarkersList: maplibregl.Marker[] = [];
   let baseMarkersList: { id: string; marker: maplibregl.Marker; el: HTMLElement }[] = [];
 
   // Map layer toggle states
@@ -21,6 +27,7 @@
   let showGrid = $state(true);
   let showTrails = $state(true);
   let showThreats = $state(true);
+  let showGround = $state(true);
 
   const C = {
     cyan: '#00d4ff',
@@ -170,6 +177,44 @@
     `);
   }
 
+  // Ground Asset Marker factory (Tank, UAV, SAM, Radar)
+  function createGroundAssetMarker(asset: GroundAsset): HTMLDivElement {
+    let innerSvg = '';
+    if (asset.type === 'tank') {
+      // solid square 10x10 with green fill at 30% + green border
+      innerSvg = `<div style="width:10px;height:10px;background:rgba(57,255,20,0.3);border:1.2px solid ${C.green};box-shadow:0 0 6px ${C.green};"></div>`;
+    } else if (asset.type === 'uav') {
+      // hollow triangle similar to aircraft
+      innerSvg = `
+        <svg viewBox="0 0 20 20" style="width:14px;height:14px;">
+          <polygon points="10,2 18,17 10,14 2,17" fill="none" stroke="${C.cyan}" stroke-width="1.5" />
+        </svg>`;
+    } else if (asset.type === 'sam') {
+      // circle with crosshairs at N/E/S/W
+      innerSvg = `
+        <svg viewBox="0 0 20 20" style="width:14px;height:14px;">
+          <circle cx="10" cy="10" r="5" fill="none" stroke="${C.amber}" stroke-width="1.2" />
+          <line x1="10" y1="1" x2="10" y2="4" stroke="${C.amber}" stroke-width="1.2" />
+          <line x1="10" y1="16" x2="10" y2="19" stroke="${C.amber}" stroke-width="1.2" />
+          <line x1="1" y1="10" x2="4" y2="10" stroke="${C.amber}" stroke-width="1.2" />
+          <line x1="16" y1="10" x2="19" y2="10" stroke="${C.amber}" stroke-width="1.2" />
+        </svg>`;
+    } else {
+      // radar arc segment marker (half circle)
+      innerSvg = `
+        <svg viewBox="0 0 20 20" style="width:14px;height:14px;">
+          <path d="M3,15 A7,7 0 0,1 17,15" fill="none" stroke="${C.cyan}" stroke-width="1.5" />
+          <circle cx="10" cy="15" r="2" fill="${C.cyan}" />
+        </svg>`;
+    }
+
+    return el(`
+      <div class="ground-marker-wrap" style="cursor:pointer; display:grid; place-items:center;">
+        ${innerSvg}
+      </div>
+    `);
+  }
+
   function circlePolygon(center: [number, number], radiusKm: number, points = 64): number[][] {
     const [lng, lat] = center;
     const dx = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
@@ -183,6 +228,11 @@
   }
 
   onMount(() => {
+    // Expose global loadout handler for popup clicks
+    (window as any).__airCommandLoadout = (type: string, tail: string) => {
+      onLoadoutClick?.(type, tail);
+    };
+
     map = new maplibregl.Map({
       container,
       style: MAP_STYLE,
@@ -217,6 +267,7 @@
     });
 
     return () => {
+      delete (window as any).__airCommandLoadout;
       map?.remove();
       map = null;
     };
@@ -518,7 +569,7 @@
           .setLngLat([ac.position.lng, ac.position.lat])
           .setPopup(
             new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(
-              `<div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#e2e8f0;background:#0a0e1a;border:1px solid #2a3447;padding:10px 14px;min-width:200px;">
+              `<div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#e2e8f0;background:#0a0e1a;border:1px solid #2a3447;padding:10px 14px;min-width:210px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                   <span style="color:#00d4ff;letter-spacing:0.15em;">${ac.tailNumber}</span>
                   <span style="color:${color};font-size:9px;letter-spacing:0.1em;">${ac.status}</span>
@@ -526,13 +577,50 @@
                 <div style="color:#94a3b8;font-size:10px;">${ac.type}</div>
                 <div style="color:#64748b;font-size:9px;margin-top:6px;">FUEL ${ac.fuel}% · CREW ${ac.crewRest}h · BASE ${ac.base.toUpperCase()}</div>
                 <div style="color:#64748b;font-size:9px;margin-top:2px;">HDG ${ac.heading}° · SPD ${ac.speed}</div>
+                <div style="margin-top:8px;padding-top:6px;border-top:1px dashed #2a3447;">
+                  <button
+                    style="background:transparent;border:1px solid #00d4ff;color:#00d4ff;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.12em;padding:3px 8px;cursor:pointer;width:100%;text-align:center;"
+                    onclick="window.__airCommandLoadout && window.__airCommandLoadout('${ac.type}','${ac.tailNumber}')"
+                  >
+                    ◈ OPEN LOADOUT DIAGRAM
+                  </button>
+                </div>
               </div>`
             )
           )
           .addTo(map)
       );
     }
+
+    // Ground asset markers (Layer A3)
+    if (showGround) {
+      for (const ga of GROUND_ASSETS) {
+        const markerEl = createGroundAssetMarker(ga);
+        dynamicMarkers.push(
+          new maplibregl.Marker({ element: markerEl })
+            .setLngLat([ga.position.lng, ga.position.lat])
+            .setPopup(
+              new maplibregl.Popup({ offset: 12, closeButton: false }).setHTML(
+                `<div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#e2e8f0;background:#0a0e1a;border:1px solid #2a3447;padding:10px 14px;min-width:200px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="color:#39ff14;letter-spacing:0.14em;font-weight:700;">${ga.designation}</span>
+                    <span style="color:#00d4ff;font-size:8px;letter-spacing:0.1em;border:1px solid #00d4ff;padding:1px 4px;">${ga.type.toUpperCase()}</span>
+                  </div>
+                  <div style="color:#94a3b8;font-size:9.5px;">${ga.specs}</div>
+                  <div style="color:#64748b;font-size:8.5px;margin-top:4px;">ARMAMENT: ${ga.armament}</div>
+                  <div style="color:#ffb800;font-size:8.5px;margin-top:2px;">RANGE: ${ga.range_km} KM · BASE: ${ga.base.toUpperCase()} · STATUS: ${ga.status}</div>
+                </div>`
+              )
+            )
+            .addTo(map)
+        );
+      }
+    }
   });
+
+  function toggleGround() {
+    showGround = !showGround;
+  }
 </script>
 
 <div class="map-wrap">
@@ -590,6 +678,14 @@
       aria-label="Toggle Threats"
     >
       ◈ THREAT
+    </button>
+    <button
+      class="ctrl-btn {showGround ? 'active' : ''}"
+      onclick={toggleGround}
+      title="Toggle Ground Assets"
+      aria-label="Toggle Ground Assets"
+    >
+      ◈ GROUND
     </button>
   </div>
 </div>

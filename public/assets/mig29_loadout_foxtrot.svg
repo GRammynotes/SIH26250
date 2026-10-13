@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500" font-family="'Courier New', Courier, monospace">
+<style>
+.lb{font-size:9px;fill:#ffb000}.st{font-size:7px;fill:#64748b}.hd{font-size:8px;fill:#00d4ff;fill-opacity:.6}.rw{font-size:8px;fill:#00d4ff;fill-opacity:.85}.am{font-size:8px;fill:#ffb000}
+.ld{fill:none;stroke:#ffb000;stroke-width:1}.em{fill:none;stroke:#64748b;stroke-width:1}.ll{stroke:#ffb000;stroke-opacity:.6;stroke-width:1}
+.ac{fill:#00d4ff;fill-opacity:.08;stroke:#00d4ff;stroke-width:1}
+</style>
+<defs>
+<pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0H0V60" fill="none" stroke="#0a1420" stroke-width="1"/></pattern>
+<path id="missile" d="M0,-10L2,-6V4L5,8V10H-5V8L-2,4V-6Z" fill="#ffb000" fill-opacity=".25" stroke="#ffb000" stroke-width="1" vector-effect="non-scaling-stroke"/>
+<path id="bomb" d="M0,-10C4,-6 4,4 2,8L3,10H-3L-2,8C-4,4 -4,-6 0,-10Z" fill="#ffb000" fill-opacity=".25" stroke="#ffb000" stroke-width="1" vector-effect="non-scaling-stroke"/>
+<path id="tank" d="M0,-11C6,-8 6,8 0,11C-6,8 -6,-8 0,-11Z" fill="#ffb000" fill-opacity=".25" stroke="#ffb000" stroke-width="1" vector-effect="non-scaling-stroke"/>
+</defs>
+<rect width="800" height="500" fill="#05080f"/>
+<rect width="800" height="500" fill="url(#grid)"/>
+<path d="M4,18V4H18M782,4H796V18M4,482V496H18M782,496H796V482" fill="none" stroke="#00d4ff" stroke-opacity=".5" stroke-width="1"/>
+<text x="24" y="30" font-size="14" letter-spacing="2" fill="#00d4ff">MIG-29UPG · LOADOUT FOXTROT</text>
+<text x="24" y="44" font-size="8" fill="#00d4ff" fill-opacity=".6">MIKOYAN MiG-29UPG · 6 / 7 STATIONS LOADED</text>
+
+<!-- silhouette -->
+<path class="ac" d="M400,60L406,82L411,112L418,140L426,162L580,252L580,274L434,290L476,302L480,320L428,320L424,336L408,336L405,326L395,326L392,336L376,336L372,320L320,320L324,302L366,290L220,274L220,252L374,162L382,140L389,112L394,82Z"/>
+<rect class="ac" x="414" y="262" width="4" height="46"/>
+<rect class="ac" x="382" y="262" width="4" height="46"/>
+<ellipse cx="400" cy="96" rx="3.5" ry="11" fill="none" stroke="#00d4ff" stroke-opacity=".5"/>
+
+<!-- leader lines -->
+<path class="ll" d="M242,256H194M288,242L194,212M338,229L194,162M558,256H606M512,242L606,212M462,229L606,162"/>
+
+<!-- hardpoints: loaded -->
+<g class="ld"><circle cx="250" cy="256" r="8"/><circle cx="295" cy="245" r="8"/><circle cx="345" cy="233" r="8"/><circle cx="455" cy="233" r="8"/><circle cx="505" cy="245" r="8"/><circle cx="550" cy="256" r="8"/></g>
+<use href="#missile" transform="translate(250,256) scale(.8)"/>
+<use href="#missile" transform="translate(295,245) scale(.9)"/>
+<use href="#tank" transform="translate(345,233) scale(1.1)"/>
+<use href="#tank" transform="translate(455,233) scale(1.1)"/>
+<use href="#missile" transform="translate(505,245) scale(.9)"/>
+<use href="#missile" transform="translate(550,256) scale(.8)"/>
+
+<!-- hardpoints: empty -->
+<circle class="em" cx="400" cy="200" r="5"/>
+<text class="st" x="400" y="215" text-anchor="middle">ST04</text>
+
+<!-- labels left -->
+<g text-anchor="end">
+<text class="lb" x="190" y="259">R-73</text><text class="st" x="190" y="269">ST01</text>
+<text class="lb" x="190" y="215">R-77</text><text class="st" x="190" y="225">ST02</text>
+<text class="lb" x="190" y="165">Drop tank 1,150L</text><text class="st" x="190" y="175">ST03</text>
+</g>
+<!-- labels right -->
+<g text-anchor="start">
+<text class="lb" x="610" y="259">R-73</text><text class="st" x="610" y="269">ST07</text>
+<text class="lb" x="610" y="215">R-77</text><text class="st" x="610" y="225">ST06</text>
+<text class="lb" x="610" y="165">Drop tank 1,150L</text><text class="st" x="610" y="175">ST05</text>
+</g>
+
+<!-- legend -->
+<rect x="20" y="348" width="760" height="144" fill="#00d4ff" fill-opacity=".04" stroke="#00d4ff" stroke-width="1"/>
+<text class="hd" x="36" y="368">STORE</text><text class="hd" x="250" y="368">QTY</text><text class="hd" x="330" y="368">STATIONS</text><text class="hd" x="560" y="368">UNIT KG</text><text class="hd" x="660" y="368">SUBTOTAL KG</text>
+<path d="M36,374H764" stroke="#00d4ff" stroke-opacity=".3"/>
+<text class="am" x="36" y="392">R-77</text><text class="rw" x="250" y="392">2</text><text class="rw" x="330" y="392">02 · 06</text><text class="rw" x="560" y="392">175 kg</text><text class="rw" x="660" y="392">350 kg</text>
+<text class="am" x="36" y="408">R-73</text><text class="rw" x="250" y="408">2</text><text class="rw" x="330" y="408">01 · 07</text><text class="rw" x="560" y="408">105 kg</text><text class="rw" x="660" y="408">210 kg</text>
+<text class="am" x="36" y="424">Drop tank</text><text class="rw" x="250" y="424">2</text><text class="rw" x="330" y="424">03 · 05</text><text class="rw" x="560" y="424">950 kg</text><text class="rw" x="660" y="424">1,900 kg</text>
+<text class="am" x="36" y="459">TOTAL PAYLOAD · 2,460 kg · 6 / 7 STATIONS</text>
+<text class="am" x="764" y="459" text-anchor="end">49% OF 5,000 kg</text>
+<rect x="36" y="466" width="728" height="8" fill="none" stroke="#00d4ff" stroke-opacity=".4"/>
+<rect x="36" y="466" width="357" height="8" fill="#ffb000"/>
+<text class="st" x="36" y="486">0</text><text class="st" x="764" y="486" text-anchor="end">5,000 kg</text>
+</svg>

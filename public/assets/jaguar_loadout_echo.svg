@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500" font-family="'Courier New', Courier, monospace">
+<style>
+.lb{font-size:9px;fill:#ffb000}.st{font-size:7px;fill:#64748b}.hd{font-size:8px;fill:#00d4ff;fill-opacity:.6}.rw{font-size:8px;fill:#00d4ff;fill-opacity:.85}.am{font-size:8px;fill:#ffb000}
+.ld{fill:none;stroke:#ffb000;stroke-width:1}.em{fill:none;stroke:#64748b;stroke-width:1}.ll{stroke:#ffb000;stroke-opacity:.6;stroke-width:1}
+.ac{fill:#00d4ff;fill-opacity:.08;stroke:#00d4ff;stroke-width:1}
+</style>
+<defs>
+<pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0H0V60" fill="none" stroke="#0a1420" stroke-width="1"/></pattern>
+<path id="missile" d="M0,-10L2,-6V4L5,8V10H-5V8L-2,4V-6Z" fill="#ffb000" fill-opacity=".25" stroke="#ffb000" stroke-width="1" vector-effect="non-scaling-stroke"/>
+<path id="bomb" d="M0,-10C4,-6 4,4 2,8L3,10H-3L-2,8C-4,4 -4,-6 0,-10Z" fill="#ffb000" fill-opacity=".25" stroke="#ffb000" stroke-width="1" vector-effect="non-scaling-stroke"/>
+<path id="tank" d="M0,-11C6,-8 6,8 0,11C-6,8 -6,-8 0,-11Z" fill="#ffb000" fill-opacity=".25" stroke="#ffb000" stroke-width="1" vector-effect="non-scaling-stroke"/>
+</defs>
+<rect width="800" height="500" fill="#05080f"/>
+<rect width="800" height="500" fill="url(#grid)"/>
+<path d="M4,18V4H18M782,4H796V18M4,482V496H18M782,496H796V482" fill="none" stroke="#00d4ff" stroke-opacity=".5" stroke-width="1"/>
+<text x="24" y="30" font-size="14" letter-spacing="2" fill="#00d4ff">JAGUAR · LOADOUT ECHO</text>
+<text x="24" y="44" font-size="8" fill="#00d4ff" fill-opacity=".6">SEPECAT JAGUAR · 4 / 7 STATIONS LOADED</text>
+
+<!-- silhouette -->
+<path class="ac" d="M400,60L406,74L410,100L412,150L413,170L570,236L570,262L416,258L416,290L470,298L470,312L414,314L412,336L402,336L400,328L398,336L388,336L386,314L330,312L330,298L384,290L384,258L230,262L230,236L387,170L388,150L390,100L394,74Z"/>
+<rect class="ac" x="398" y="272" width="4" height="44"/>
+<ellipse cx="400" cy="96" rx="3.5" ry="11" fill="none" stroke="#00d4ff" stroke-opacity=".5"/>
+
+<!-- leader lines -->
+<path class="ll" d="M293,236L209,221M338,221L209,168M507,236L591,221M462,221L591,168"/>
+
+<!-- hardpoints: loaded -->
+<g class="ld"><circle cx="300" cy="238" r="8"/><circle cx="345" cy="225" r="8"/><circle cx="455" cy="225" r="8"/><circle cx="500" cy="238" r="8"/></g>
+<use href="#missile" transform="translate(300,238)"/>
+<use href="#bomb" transform="translate(345,225)"/>
+<use href="#bomb" transform="translate(455,225)"/>
+<use href="#missile" transform="translate(500,238)"/>
+
+<!-- hardpoints: empty -->
+<g class="em"><circle cx="258" cy="245" r="5"/><circle cx="400" cy="200" r="5"/><circle cx="542" cy="245" r="5"/></g>
+<g class="st" text-anchor="middle"><text x="258" y="260">ST01</text><text x="400" y="215">ST04</text><text x="542" y="260">ST07</text></g>
+
+<!-- labels left -->
+<g text-anchor="end">
+<text class="lb" x="205" y="224">Harpoon</text><text class="st" x="205" y="234">ST02</text>
+<text class="lb" x="205" y="171">Paveway-II</text><text class="st" x="205" y="181">ST03</text>
+</g>
+<!-- labels right -->
+<g text-anchor="start">
+<text class="lb" x="595" y="224">Harpoon</text><text class="st" x="595" y="234">ST06</text>
+<text class="lb" x="595" y="171">Paveway-II</text><text class="st" x="595" y="181">ST05</text>
+</g>
+
+<!-- legend -->
+<rect x="20" y="348" width="760" height="144" fill="#00d4ff" fill-opacity=".04" stroke="#00d4ff" stroke-width="1"/>
+<text class="hd" x="36" y="368">STORE</text><text class="hd" x="250" y="368">QTY</text><text class="hd" x="330" y="368">STATIONS</text><text class="hd" x="560" y="368">UNIT KG</text><text class="hd" x="660" y="368">SUBTOTAL KG</text>
+<path d="M36,374H764" stroke="#00d4ff" stroke-opacity=".3"/>
+<text class="am" x="36" y="392">Harpoon</text><text class="rw" x="250" y="392">2</text><text class="rw" x="330" y="392">02 · 06</text><text class="rw" x="560" y="392">540 kg</text><text class="rw" x="660" y="392">1,080 kg</text>
+<text class="am" x="36" y="408">Paveway-II</text><text class="rw" x="250" y="408">2</text><text class="rw" x="330" y="408">03 · 05</text><text class="rw" x="560" y="408">500 kg</text><text class="rw" x="660" y="408">1,000 kg</text>
+<text class="am" x="36" y="459">TOTAL PAYLOAD · 2,080 kg · 4 / 7 STATIONS</text>
+<text class="am" x="764" y="459" text-anchor="end">42% OF 5,000 kg</text>
+<rect x="36" y="466" width="728" height="8" fill="none" stroke="#00d4ff" stroke-opacity=".4"/>
+<rect x="36" y="466" width="306" height="8" fill="#ffb000"/>
+<text class="st" x="36" y="486">0</text><text class="st" x="764" y="486" text-anchor="end">5,000 kg</text>
+</svg>

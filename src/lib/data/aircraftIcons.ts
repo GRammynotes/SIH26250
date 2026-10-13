@@ -1,4 +1,4 @@
-﻿// Top-down aircraft silhouettes. viewBox 0 0 40 40, nose pointing UP.
+// Top-down aircraft silhouettes. viewBox 0 0 40 40, nose pointing UP.
 // Each path is a simplified silhouette recognisable at tactical display scale.
 
 export const AIRCRAFT_SVG: Record<string, string> = {
@@ -51,6 +51,18 @@ export const AIRCRAFT_SVG: Record<string, string> = {
   'P-8I': `
     <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
       <path d="M20 1.8C21.7 1.8 22 3.6 22 6.2L22 15.4L25.4 17.1L25.4 14L28.2 14L28.2 18.5L36.4 22.6L35.8 24.6L22 26.2L22 31.4L28.4 34L28.4 35.4L21.4 35.2L20.8 36L20.7 39.6L19.3 39.6L19.2 36L18.6 35.2L11.6 35.4L11.6 34L18 31.4L18 26.2L4.2 24.6L3.6 22.6L11.8 18.5L11.8 14L14.6 14L14.6 17.1L18 15.4L18 6.2C18 3.6 18.3 1.8 20 1.8Z"/>
+    </svg>`,
+
+  'TAPAS': `
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 5 L21 16 L37 19 L37 21 L21 21 L21 34 L23 35 L17 35 L19 34 L19 21 L3 21 L3 19 L19 16 Z"
+        fill="CURRENT" stroke="CURRENT" stroke-width="0.5"/>
+    </svg>`,
+
+  'HERON': `
+    <svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 4 L21 15 L38 18 L38 20 L21 20 L21 35 L24 36 L16 36 L19 35 L19 20 L2 20 L2 18 L19 15 Z"
+        fill="CURRENT" stroke="CURRENT" stroke-width="0.5"/>
     </svg>`,
 };
 
