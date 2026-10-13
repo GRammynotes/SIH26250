@@ -9,6 +9,7 @@ import {
 import { optimalWeaponFor } from '../data/weapons';
 import { freshAirspace } from '../data/airspace';
 import { freshWeather } from '../data/weather';
+import { detectDeconflictionWarnings } from '../engine/deconfliction';
 import type { Aircraft, Mission, Threat, COA, AircraftStatus } from '../types';
 
 export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
@@ -73,6 +74,9 @@ class SystemStore {
     const blocked = this.coas[0] ? Object.values(this.coas[0].assignments).filter((a) => a.length === 0).length : 0;
     const note = blocked > 0 ? ` · ${blocked} UNCOVERED` : '';
     this.pushEvent('COMMAND', `COA RECOMPUTED · ${this.coas.length} OPTIONS${note}`, 'ok');
+    if (this.coas[0]) {
+      for (const warning of detectDeconflictionWarnings(this.coas[0], this.aircraft, this.missions)) this.pushEvent('DECONFLICT', warning, 'alert');
+    }
   }
 
   selectCOA(id: string) {

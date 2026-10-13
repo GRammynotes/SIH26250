@@ -341,6 +341,7 @@
     const threats = system.threats;
     const airspace = system.airspaceZones;
     const weather = system.weatherSystems;
+    const selectedCoa = system.coas.find((coa) => coa.id === system.selectedCoaId) ?? null;
     const selBase = system.selectedBaseId;
 
     // Update selected base styling
@@ -392,6 +393,13 @@
     }
     for (const id of ['airspace-zones', 'weather-systems']) {
       if (map.getSource(id)) map.removeSource(id);
+    }
+    for (let i = 0; i < 32; i++) {
+      for (const prefix of ['coa-route-ingress', 'coa-route-wez', 'coa-route-release', 'coa-route-egress', 'coa-route-rtb', 'fuel-range']) {
+        const id = `${prefix}-${i}`;
+        if (map.getLayer(id)) map.removeLayer(id);
+        if (map.getSource(id)) map.removeSource(id);
+      }
     }
 
     // Add upgraded aircraft trails (Layer 5)
@@ -585,6 +593,38 @@
       id: 'weather-line', type: 'line', source: 'weather-systems', layout: { visibility: showWeather ? 'visible' : 'none' },
       paint: { 'line-color': ['match', ['get', 'type'], 'storm', '#2878ff', 'fog', '#94a3b8', 'front', '#00d4ff', '#39ff14'], 'line-width': 1, 'line-opacity': 0.8 },
     });
+
+    // Selected COA spatial plan: base → ingress → WEZ → release → egress → RTB.
+    if (selectedCoa) {
+      let routeIndex = 0;
+      for (const [missionId, ids] of Object.entries(selectedCoa.assignments)) {
+        const mission = missions.find((item) => item.id === missionId);
+        if (!mission) continue;
+        for (const aircraftId of ids) {
+          const aircraft = aircraft.find((item) => item.id === aircraftId);
+          if (!aircraft) continue;
+          const start: [number, number] = [aircraft.position.lng, aircraft.position.lat];
+          const target: [number, number] = [mission.target.lng, mission.target.lat];
+          const ingress: [number, number] = [start[0] + (target[0] - start[0]) * .55, start[1] + (target[1] - start[1]) * .55];
+          const wez: [number, number] = [start[0] + (target[0] - start[0]) * .82, start[1] + (target[1] - start[1]) * .82];
+          const egress: [number, number] = [start[0] + (target[0] - start[0]) * .42, start[1] + (target[1] - start[1]) * .42];
+          const legs: Array<{ key: string; points: [number, number][]; color: string }> = [
+            { key: 'ingress', points: [start, ingress], color: C.cyan }, { key: 'wez', points: [ingress, wez], color: C.amber },
+            { key: 'release', points: [wez, target], color: C.red }, { key: 'egress', points: [target, egress], color: C.green }, { key: 'rtb', points: [egress, start], color: C.muted },
+          ];
+          for (const leg of legs) {
+            const id = `coa-route-${leg.key}-${routeIndex}`;
+            map.addSource(id, { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: leg.points } } });
+            map.addLayer({ id, type: 'line', source: id, paint: { 'line-color': leg.color, 'line-width': 2.2, 'line-opacity': .82, 'line-dasharray': leg.key === 'rtb' ? [2, 2] : [1, 0] } });
+          }
+          const range = Math.max(50, aircraft.fuel / 100 * 700);
+          const fuelId = `fuel-range-${routeIndex}`;
+          map.addSource(fuelId, { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [circlePolygon(start, range)] } } });
+          map.addLayer({ id: fuelId, type: 'line', source: fuelId, paint: { 'line-color': C.green, 'line-width': 1, 'line-opacity': .26, 'line-dasharray': [2, 2] } });
+          routeIndex++;
+        }
+      }
+    }
 
     // Upgraded Mission markers (Layer 7)
     for (const mission of missions) {
