@@ -2,6 +2,8 @@
   import { system } from '../../stores/systemStore.svelte';
   import { HISTORICAL_MISSIONS } from '../../data/historicalMissions';
   import { assessSingleAssignment, wezRingsForAircraft } from '../../engine/weaponeering';
+  import { WEAPONS, optimalWeaponFor } from '../../data/weapons';
+  import { getModeLabel } from '../../engine/optimisation';
   import type { TargetType, Position } from '../../types';
 
   let {
@@ -39,6 +41,104 @@
   const assignedAircraft = $derived(
     system.aircraft.filter((a) => assignedAircraftIds.includes(a.id))
   );
+
+  // Diagnostic reason when assignedAircraft is empty
+  interface EmptyDiagnostic {
+    caseNumber: 1 | 2 | 3;
+    title: string;
+    message: string;
+    accentColor: string;
+    platformsEvaluated: number;
+    suggestedMode?: string;
+  }
+
+  const emptyDiagnostic = $derived.by<EmptyDiagnostic | null>(() => {
+    if (!mission || assignedAircraft.length > 0) return null;
+
+    const evaluatedCount = system.aircraft.length;
+    // 1. Check if any weapon in the database supports this targetType
+    const matchingWeapons = Object.values(WEAPONS).filter((w) =>
+      w.targetTypes.includes(mission.targetType)
+    );
+
+    if (matchingWeapons.length === 0) {
+      return {
+        caseNumber: 1,
+        title: 'NO COMPATIBLE WEAPON IN INVENTORY',
+        message: `NO PLATFORM IN FLEET CARRIES A WEAPON FOR THIS TARGET CLASS (${mission.targetType.toUpperCase().replace('-', ' ')}). MISSION CANNOT BE TASKED.`,
+        accentColor: 'var(--accent-red)',
+        platformsEvaluated: evaluatedCount,
+      };
+    }
+
+    // 2. Check if weapons exist but no FMC/PMC aircraft carrying a matching weapon is within weapon launch range
+    const eligibleAircraft = system.aircraft.filter((a) => a.status !== 'NMC');
+    const platformsWithMatchingWeapon = eligibleAircraft.filter(
+      (a) => optimalWeaponFor(a.type, mission.targetType) !== null
+    );
+
+    // Compute range status for candidate platforms
+    const inRangeCandidates = platformsWithMatchingWeapon.filter((a) => {
+      const wpn = optimalWeaponFor(a.type, mission.targetType);
+      if (!wpn) return false;
+      const dist = haversine(a.position, mission.target);
+      return dist <= wpn.rangeKm;
+    });
+
+    if (inRangeCandidates.length === 0) {
+      // Find nearest platform and its weapon range
+      const weaponListStr = Array.from(new Set(matchingWeapons.map((w) => w.name))).join(', ');
+      let nearestTail = 'NONE';
+      let nearestDist = 0;
+      let nearestWpnRange = 0;
+
+      if (platformsWithMatchingWeapon.length > 0) {
+        const sorted = [...platformsWithMatchingWeapon].sort((x, y) => {
+          return haversine(x.position, mission.target) - haversine(y.position, mission.target);
+        });
+        const nearest = sorted[0];
+        const wpn = optimalWeaponFor(nearest.type, mission.targetType)!;
+        nearestTail = nearest.tailNumber;
+        nearestDist = Math.round(haversine(nearest.position, mission.target));
+        nearestWpnRange = wpn.rangeKm;
+      } else if (eligibleAircraft.length > 0) {
+        const sorted = [...eligibleAircraft].sort((x, y) => {
+          return haversine(x.position, mission.target) - haversine(y.position, mission.target);
+        });
+        const nearest = sorted[0];
+        nearestTail = nearest.tailNumber;
+        nearestDist = Math.round(haversine(nearest.position, mission.target));
+        nearestWpnRange = Math.max(...matchingWeapons.map((w) => w.rangeKm));
+      }
+
+      return {
+        caseNumber: 2,
+        title: 'PLATFORMS OUTSIDE LAUNCH ENVELOPE',
+        message: `COMPATIBLE WEAPONS EXIST (${weaponListStr}) BUT NO AIRCRAFT IS WITHIN LAUNCH ENVELOPE. NEAREST PLATFORM: ${nearestTail} AT ${nearestDist} KM, WEAPON RANGE ${nearestWpnRange} KM.`,
+        accentColor: 'var(--accent-amber)',
+        platformsEvaluated: evaluatedCount,
+      };
+    }
+
+    // 3. Aircraft available and in range, but selected COA opted out
+    const modeLabel = selectedCoa ? getModeLabel(selectedCoa) : 'CONSERVATIVE';
+    // Find alternative COA that includes this mission if any
+    const altCoa = system.coas.find(
+      (c) => c.assignments[mission.id] && c.assignments[mission.id].length > 0
+    );
+    const suggestedMode = altCoa
+      ? getModeLabel(altCoa)
+      : (modeLabel === 'CONSERVATIVE' ? 'AGGRESSIVE' : 'BALANCED');
+
+    return {
+      caseNumber: 3,
+      title: 'COA EXCLUSION / PRIORITY THRESHOLD',
+      message: `SELECTED COA (${modeLabel}) DID NOT TASK THIS MISSION. ${inRangeCandidates.length} COMPATIBLE AIRCRAFT ARE AVAILABLE — SWITCH TO ${suggestedMode} TO INCLUDE.`,
+      accentColor: 'var(--accent-cyan)',
+      platformsEvaluated: evaluatedCount,
+      suggestedMode,
+    };
+  });
 
   // Template mapping
   const templateMap: Record<string, string> = {
@@ -198,8 +298,32 @@
           </div>
 
           {#if aircraftPairings.length === 0}
-            <div class="empty-notice">
-              NO AIRCRAFT CURRENTLY ASSIGNED IN SELECTED COA FOR THIS MISSION.
+            <div class="diagnostic-wrap">
+              <div class="diag-status">
+                STATUS: UNTASKED · {emptyDiagnostic?.platformsEvaluated ?? system.aircraft.length} PLATFORMS EVALUATED
+              </div>
+              <div
+                class="diag-box corners"
+                style="border-color:{emptyDiagnostic?.accentColor ?? 'var(--border-strong)'};"
+              >
+                <div class="diag-head">
+                  <span
+                    class="diag-badge"
+                    style="color:{emptyDiagnostic?.accentColor}; border-color:{emptyDiagnostic?.accentColor};"
+                  >
+                    DIAGNOSTIC CASE {emptyDiagnostic?.caseNumber ?? 1}
+                  </span>
+                  <span
+                    class="diag-title"
+                    style="color:{emptyDiagnostic?.accentColor};"
+                  >
+                    {emptyDiagnostic?.title}
+                  </span>
+                </div>
+                <div class="diag-body">
+                  <p class="diag-msg">{emptyDiagnostic?.message}</p>
+                </div>
+              </div>
             </div>
           {:else}
             <div class="forces-list">
@@ -475,6 +599,38 @@
   .empty-notice {
     font-size: 9px; color: var(--text-muted); letter-spacing: 0.12em;
     padding: 12px; background: #070b14; border: 1px dashed var(--border-subtle);
+  }
+
+  /* DIAGNOSTIC BLOCK */
+  .diagnostic-wrap {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .diag-status {
+    font-size: 8px; letter-spacing: 0.18em; color: var(--text-muted);
+    text-transform: uppercase;
+  }
+  .diag-box {
+    background: #070b14; border: 1px solid var(--border-strong);
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+    position: relative;
+  }
+  .diag-head {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .diag-badge {
+    font-size: 8px; padding: 1px 6px; border: 1px solid;
+    letter-spacing: 0.14em; font-weight: 700; background: rgba(0,0,0,0.4);
+  }
+  .diag-title {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .diag-body {
+    border-top: 1px dashed var(--border-subtle); padding-top: 8px;
+  }
+  .diag-msg {
+    margin: 0; font-size: 9.5px; line-height: 1.5; color: var(--text-secondary);
+    letter-spacing: 0.05em;
   }
 
   /* FORCES LIST */
