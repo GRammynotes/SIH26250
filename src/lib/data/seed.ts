@@ -94,3 +94,46 @@ export function generateSystemState(): SystemState {
     timestamp: Date.now(),
   };
 }
+
+export type TargetCategory =
+  | 'hardened-bunker'
+  | 'radar-site'
+  | 'troop-concentration'
+  | 'bridge'
+  | 'c2-node';
+
+export interface SyntheticTarget {
+  id: string;
+  name: string;
+  type: TargetCategory;
+  intelConfidence: number;
+  latitude: number;
+  longitude: number;
+}
+
+export const SYNTHETIC_TARGETS: SyntheticTarget[] = [
+  {
+    id: 'TGT-001',
+    name: 'Training Target Alpha',
+    type: 'radar-site',
+    intelConfidence: 0.92,
+    latitude: 28.6139,
+    longitude: 77.209,
+  },
+  {
+    id: 'TGT-002',
+    name: 'Training Target Bravo',
+    type: 'bridge',
+    intelConfidence: 0.78,
+    latitude: 19.076,
+    longitude: 72.8777,
+  },
+  {
+    id: 'TGT-003',
+    name: 'Training Target Charlie',
+    type: 'c2-node',
+    intelConfidence: 0.65,
+    latitude: 13.0827,
+    longitude: 80.2707,
+  },
+];

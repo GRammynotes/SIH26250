@@ -1,69 +1,53 @@
 ﻿:root {
-  font-family: "Consolas", "Courier New", monospace;
-  color-scheme: dark;
+  /* Deep command center base — GodsView palette */
+  --bg-base: #05080f;
+  --bg-panel: #0a0e1a;
+  --bg-elevated: #131826;
+  --border-subtle: #1a2233;
+  --border-strong: #2a3447;
 
-  --bg-base: #080d12;
-  --bg-panel: #101820;
-  --bg-elevated: #18232d;
+  /* Text hierarchy */
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
 
-  --border-subtle: #263541;
-  --border-strong: #3b5262;
+  /* Operational accents — GodsView-inspired */
+  --accent-cyan: #00d4ff;
+  --accent-green: #39ff14;
+  --accent-amber: #ffb800;
+  --accent-red: #ff2d7c;
+  --accent-blue: #3b82f6;
+  --accent-purple: #a855f7;
 
-  --text-primary: #e6edf3;
-  --text-secondary: #a4b3bf;
-  --text-muted: #718391;
-
-  --accent-cyan: #00e5ff;
-  --accent-amber: #ffbf47;
-  --accent-red: #ff4d5e;
-  --accent-green: #39e58c;
-
-  --font-mono: "Consolas", "Courier New", monospace;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body,
-#app {
-  min-height: 100%;
-  margin: 0;
+  /* Fonts */
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  --font-sans: 'Inter', system-ui, sans-serif;
 }
 
 body {
   background: var(--bg-base);
   color: var(--text-primary);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
+  margin: 0;
+  overflow: hidden;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
+.mono { font-family: var(--font-mono); }
 
-::selection {
-  background: var(--accent-cyan);
-  color: var(--bg-base);
-}
-
-/* ========== AIR COMMAND TACTICAL ADDENDA ========== */
+/* Panel corner brackets — GodsView-style */
 .corners { position: relative; }
 .corners::before, .corners::after {
-  content: ''; position: absolute; width: 8px; height: 8px;
+  content: ''; position: absolute; width: 10px; height: 10px;
   border-color: var(--accent-cyan); border-style: solid;
-  pointer-events: none; opacity: 0.55;
+  pointer-events: none; opacity: 0.6;
 }
 .corners::before { top: 0; left: 0; border-width: 1px 0 0 1px; }
-.corners::after  { bottom: 0; right: 0; border-width: 0 1px 1px 0; }
+.corners::after { bottom: 0; right: 0; border-width: 0 1px 1px 0; }
 
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+/* Pulse animations */
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes glow { 0%,100% { box-shadow: 0 0 6px currentColor; } 50% { box-shadow: 0 0 14px currentColor; } }
+@keyframes sweep { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
 .pulse { animation: pulse 1.8s ease-in-out infinite; }
-
-@keyframes sweep {
-  0%   { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
-}
+.glow { animation: glow 2s ease-in-out infinite; }
