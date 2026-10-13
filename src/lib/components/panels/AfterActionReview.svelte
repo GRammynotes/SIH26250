@@ -71,6 +71,31 @@
     return 'var(--accent-cyan)';
   });
 
+  const battleDamage = $derived.by(() => {
+    if (!activeMission) return { status: 'UNKNOWN', confidence: 'LOW', reattack: 'ASSESS', narrative: 'No completed mission record is available for assessment.' };
+    const abortBranch = activeMission.decisionsMade.some((d) => d.branch.outcome === 'abort');
+    const status = activeMission.outcome === 'SUCCESS' && !abortBranch
+      ? 'DESTROYED'
+      : activeMission.outcome === 'PARTIAL'
+        ? 'DAMAGED'
+        : abortBranch || activeMission.outcome === 'ABORTED'
+          ? 'MISSED'
+          : 'UNKNOWN';
+    const confidence = activeMission.decisionsMade.length === 0
+      ? 'HIGH'
+      : activeMission.decisionsMade.length === 1
+        ? 'MEDIUM'
+        : 'LOW';
+    const reattack = status === 'DAMAGED' ? 'NO' : status === 'UNKNOWN' ? 'ASSESS' : 'YES';
+    const weaponName = weapon?.name ?? 'PGM';
+    return {
+      status,
+      confidence,
+      reattack,
+      narrative: `Strike package released 2 × ${weaponName} at grid ${activeMission.target.lat.toFixed(2)}N/${activeMission.target.lng.toFixed(2)}E. Post-strike telemetry ${status === 'UNKNOWN' ? 'awaiting correlation' : 'received'} at T+14. BDA confidence ${confidence}.`,
+    };
+  });
+
   function exportAAR() {
     if (!activeMission) return;
     const lines: string[] = [];
@@ -106,6 +131,11 @@
     lines.push(`   ACCUMULATED RISK DELTA: ${activeMission.riskDelta > 0 ? '+' : ''}${activeMission.riskDelta}`);
     lines.push(`   THREATS SPAWNED ENROUTE: ${threatsAddedCount}`);
     lines.push(`   DOCTRINAL BASELINE COMPARISON: ${template?.codename ?? 'STANDARD'} baseline`);
+    lines.push('\n5. BATTLE DAMAGE ASSESSMENT:');
+    lines.push(`   TARGET STATUS: ${battleDamage.status}`);
+    lines.push(`   CONFIDENCE: ${battleDamage.confidence}`);
+    lines.push(`   RE-ATTACK RECOMMENDED: ${battleDamage.reattack}`);
+    lines.push(`   ${battleDamage.narrative}`);
     lines.push('\n================================================================');
     lines.push('END OF BRIEFING · AIR COMMAND ARCHIVE RECORD');
 
@@ -286,6 +316,23 @@
             </div>
           </div>
         </section>
+
+        <!-- 5. BATTLE DAMAGE ASSESSMENT -->
+        <section class="sec bda-section">
+          <div class="sec-hdr">
+            <span class="sec-num">05</span>
+            <h3>BATTLE DAMAGE ASSESSMENT</h3>
+            <span class="sec-meta">POST-STRIKE CORRELATION</span>
+          </div>
+          <div class="bda-box">
+            <div class="bda-grid">
+              <div><span>TARGET STATUS</span><strong class="bda-status status-{battleDamage.status.toLowerCase()}">{battleDamage.status}</strong></div>
+              <div><span>CONFIDENCE</span><strong>{battleDamage.confidence}</strong></div>
+              <div><span>RE-ATTACK</span><strong>{battleDamage.reattack}</strong></div>
+            </div>
+            <p>{battleDamage.narrative}</p>
+          </div>
+        </section>
       </div>
 
       <!-- ACTION BAR -->
@@ -407,6 +454,16 @@
     background: #070b14; border: 1px dashed var(--border-subtle);
     letter-spacing: 0.1em;
   }
+
+  .bda-box { border: 1px solid var(--accent-cyan); background: rgba(0, 212, 255, 0.035); padding: 12px; }
+  .bda-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; }
+  .bda-grid div { display: flex; flex-direction: column; gap: 4px; }
+  .bda-grid span { color: var(--text-muted); font-size: 8px; letter-spacing: 0.14em; }
+  .bda-grid strong { color: var(--accent-cyan); font-size: 11px; letter-spacing: 0.1em; }
+  .bda-grid .status-destroyed { color: var(--accent-green); }
+  .bda-grid .status-damaged { color: var(--accent-amber); }
+  .bda-grid .status-missed { color: var(--accent-red); }
+  .bda-box p { margin: 10px 0 0; color: var(--text-secondary); font-size: 9px; letter-spacing: 0.06em; line-height: 1.65; }
 
   /* DECISION TABLE */
   .table-wrap { overflow-x: auto; background: #070b14; border: 1px solid var(--border-subtle); }

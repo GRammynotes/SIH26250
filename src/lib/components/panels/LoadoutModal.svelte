@@ -11,8 +11,16 @@
     onClose?: () => void;
   } = $props();
 
-  // Only Su-30MKI has a loadout diagram so far
-  const hasDiagram = $derived(aircraftType === 'Su-30MKI');
+  const LOADOUT_MAP: Record<string, string> = {
+    'Su-30MKI': '/assets/su30mki_loadout_alpha.svg',
+    'Rafale': '/assets/rafale_loadout_bravo.svg',
+    'Mirage-2000': '/assets/mirage2000_loadout_charlie.svg',
+    'Tejas': '/assets/tejas_loadout_delta.svg',
+    'Jaguar': '/assets/jaguar_loadout_echo.svg',
+    'MiG-29UPG': '/assets/mig29_loadout_foxtrot.svg',
+  };
+
+  const diagram = $derived(LOADOUT_MAP[aircraftType] ?? null);
 </script>
 
 {#if open}
@@ -26,12 +34,12 @@
         <button onclick={() => onClose?.()} aria-label="Close">×</button>
       </header>
       <div class="body">
-        {#if hasDiagram}
-          <img src="/assets/su30mki_loadout_alpha.svg" alt="Su-30MKI Loadout" />
+        {#if diagram}
+          <img src={diagram} alt={`${aircraftType} loadout`} />
         {:else}
           <div class="empty">
             <div class="empty-label">DIAGRAM PENDING</div>
-            <div class="empty-msg">Loadout diagrams are available for Su-30MKI. {aircraftType} uses the same weaponeering engine but has no graphic yet.</div>
+            <div class="empty-msg">No reference loadout graphic is available for {aircraftType}. The platform remains available to the weaponeering engine.</div>
           </div>
         {/if}
       </div>

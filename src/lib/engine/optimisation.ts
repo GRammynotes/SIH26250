@@ -32,7 +32,9 @@ function canTask(ac: Aircraft): boolean {
 
 // Critical: an aircraft is only a candidate if it carries a weapon that can kill the target type.
 function hasCompatibleWeapon(ac: Aircraft, mission: Mission): boolean {
-  return optimalWeaponFor(ac.type, mission.targetType) !== null;
+  const weapon = optimalWeaponFor(ac.type, mission.targetType);
+  if (!weapon) return false;
+  return haversine(ac.position, mission.target) <= weapon.rangeKm;
 }
 
 type Mode = 'aggressive' | 'balanced' | 'conservative';
@@ -63,7 +65,7 @@ function scoreAircraft(ac: Aircraft, mission: Mission, threats: Threat[], mode: 
     score += 30 * cfg.weaponW;
     if (weapon.standoff) score += 15 * cfg.weaponW;
     const inRange = dist <= weapon.rangeKm;
-    score += inRange ? 20 : -40;
+    score += inRange ? 20 : -80;
   }
   return score;
 }
@@ -95,7 +97,23 @@ function buildCOA(aircraft: Aircraft[], missions: Mission[], threats: Threat[], 
     if (mode === 'aggressive') need = 2;
     else if (mode === 'balanced') need = m.priority === 1 ? 2 : 1;
 
-    const chosen = candidates.slice(0, need).map((c) => c.ac.id);
+    // Keep this validation at the allocation boundary as a defensive guard:
+    // no out-of-range platform may reach a COA even if candidate construction changes.
+    const chosen = candidates
+      .slice(0, need)
+      .map((c) => c.ac)
+      .filter((ac) => {
+        const weapon = optimalWeaponFor(ac.type, m.targetType);
+        const distance = haversine(ac.position, m.target);
+        const valid = Boolean(weapon && distance <= weapon.rangeKm);
+        if (!valid) {
+          console.warn(
+            `[OPTIMISER] Removed ${ac.tailNumber} from ${m.name}: ${Math.round(distance)} km exceeds ${weapon?.rangeKm ?? 0} km weapon range.`,
+          );
+        }
+        return valid;
+      })
+      .map((ac) => ac.id);
     assignments[m.id] = chosen;
     chosen.forEach((id) => used.add(id));
   }
