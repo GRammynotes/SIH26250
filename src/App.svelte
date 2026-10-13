@@ -16,6 +16,10 @@
   import CommanderBriefing from './lib/components/panels/CommanderBriefing.svelte';
   import AfterActionReview from './lib/components/panels/AfterActionReview.svelte';
   import MetricsDashboard from './lib/components/panels/MetricsDashboard.svelte';
+  import { driver } from 'driver.js';
+  import 'driver.js/dist/driver.css';
+  import { DEMO_STEPS } from './lib/demo/demoScript';
+  import { demoConfig } from './lib/demo/demoConfig';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let flowOpen = $state(false);
@@ -68,6 +72,33 @@
     system.startMission(missionId, ids, templateId);
     briefingMissionId = null;
   }
+
+  function startDemo() {
+    const steps = DEMO_STEPS.map((s) => ({
+      element: s.element,
+      popover: {
+        title: s.title,
+        description: s.description,
+        side: s.side,
+        align: 'center' as const,
+      },
+      onHighlightStarted: () => {
+        if (s.action) {
+          s.action();
+        }
+      },
+    }));
+
+    const driverObj = driver({
+      ...demoConfig,
+      steps,
+      onDestroyStarted: () => {
+        driverObj.destroy();
+      },
+    });
+
+    driverObj.drive();
+  }
 </script>
 
 <div class="shell">
@@ -78,6 +109,7 @@
     onFlowClick={() => (flowOpen = true)}
     onReferenceClick={() => (referenceOpen = true)}
     onMetricsClick={() => (metricsOpen = true)}
+    onDemoClick={startDemo}
   />
 
   {#if system.selectedBaseId}
