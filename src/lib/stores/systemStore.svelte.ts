@@ -1,12 +1,12 @@
 ﻿import { generateSystemState } from '../data/seed';
 import { generateCOAs as optimise } from '../engine/optimisation';
 import { SCENARIOS, SCENARIO_LABELS, type ScenarioStep } from '../engine/scenario';
-import { HISTORICAL_MISSIONS, type DecisionBranch } from '../data/historicalMissions';
+import { HISTORICAL_MISSIONS } from '../data/historicalMissions';
 import {
   createActiveMission, nextPhase, phaseDuration, progressFraction, interpolatePosition,
-  type ActiveMission, type MissionPhase,
+  type ActiveMission,
 } from '../engine/missionExecutor';
-import { optimalWeaponFor, WEAPONS } from '../data/weapons';
+import { optimalWeaponFor } from '../data/weapons';
 import type { Aircraft, Mission, Threat, COA, AircraftStatus } from '../types';
 
 export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
@@ -168,8 +168,6 @@ class SystemStore {
   }
 
   cleanupCompleted() {
-    // keep completed missions visible for 30s, then archive
-    const now = Date.now();
     this.activeMissions = this.activeMissions.filter((am) => {
       if (am.phase !== 'COMPLETE' && am.phase !== 'ABORTED') return true;
       return true; // keep visible; could add timestamp filter
@@ -263,3 +261,4 @@ class SystemStore {
 }
 
 export const system = new SystemStore();
+

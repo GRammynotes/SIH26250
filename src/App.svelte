@@ -9,12 +9,24 @@
   import COAPanel from './lib/components/panels/COAPanel.svelte';
   import ExecutionPanel from './lib/components/panels/ExecutionPanel.svelte';
   import DecisionPrompt from './lib/components/panels/DecisionPrompt.svelte';
+  import MissionFlowModal from './lib/components/panels/MissionFlowModal.svelte';
+  import LoadoutModal from './lib/components/panels/LoadoutModal.svelte';
   import EventLog from './lib/components/panels/EventLog.svelte';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
+  let flowOpen = $state(false);
+  let loadoutOpen = $state(false);
+  let loadoutType = $state('Su-30MKI');
+  let loadoutTail = $state('');
 
   function handleDecision(branchId: string) {
     if (pending) system.resolveDecision(pending.id, branchId);
+  }
+
+  function openLoadout(type: string, tail: string) {
+    loadoutType = type;
+    loadoutTail = tail;
+    loadoutOpen = true;
   }
 </script>
 
@@ -23,10 +35,11 @@
     aircraftCount={system.aircraft.length}
     missionCount={system.missions.length}
     threatCount={system.threats.length}
+    onFlowClick={() => (flowOpen = true)}
   />
 
   {#if system.selectedBaseId}
-    <BaseDetailPanel />
+    <BaseDetailPanel onLoadoutClick={openLoadout} />
   {:else}
     <aside class="left">
       <AircraftPanel />
@@ -57,7 +70,7 @@
     title={pending.pendingDecision.title}
     context={pending.pendingDecision.context}
     message={pending.pendingDecision.message}
-    options={pending.pendingDecision.branches.map((b) => ({
+    options={pending.pendingDecision.options ?? pending.pendingDecision.branches.map((b) => ({
       id: b.id,
       label: b.label,
       description: b.description,
@@ -68,6 +81,9 @@
     onClose={() => system.dismissDecision(pending!.id)}
   />
 {/if}
+
+<MissionFlowModal open={flowOpen} onClose={() => (flowOpen = false)} />
+<LoadoutModal open={loadoutOpen} aircraftType={loadoutType} tailNumber={loadoutTail} onClose={() => (loadoutOpen = false)} />
 
 <style>
   :global(html, body) { margin: 0; padding: 0; overflow: hidden; background: var(--bg-base); }

@@ -1,8 +1,16 @@
 ﻿<script lang="ts">
   import { onMount } from 'svelte';
 
-  let { aircraftCount = 0, missionCount = 0, threatCount = 0 }: {
-    aircraftCount?: number; missionCount?: number; threatCount?: number;
+  let {
+    aircraftCount = 0,
+    missionCount = 0,
+    threatCount = 0,
+    onFlowClick,
+  }: {
+    aircraftCount?: number;
+    missionCount?: number;
+    threatCount?: number;
+    onFlowClick?: () => void;
   } = $props();
 
   let zulu = $state('00:00:00');
@@ -30,6 +38,8 @@
     <span>LIVE</span>
   </span>
   <span class="spacer"></span>
+  <button class="flow-btn" onclick={() => onFlowClick?.()}>◈ MISSION FLOW</button>
+  <span class="sep">//</span>
   <span class="metric">AC <b>{aircraftCount}</b></span>
   <span class="metric">MSN <b>{missionCount}</b></span>
   <span class="metric">THR <b>{threatCount}</b></span>
@@ -42,7 +52,7 @@
   .topbar {
     grid-area: topbar;
     height: 32px;
-    background: #050608;
+    background: #05080f;
     border-bottom: 1px solid var(--border-subtle);
     display: flex; align-items: center; padding: 0 16px; gap: 14px;
     font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.15em;
@@ -63,4 +73,20 @@
   .time { color: var(--accent-cyan); }
   .live { display: flex; align-items: center; gap: 5px; color: var(--accent-green); font-size: 9px; }
   .live .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+  .flow-btn {
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .flow-btn:hover {
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+  }
 </style>
