@@ -1,5 +1,7 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { system } from '../../stores/systemStore.svelte';
+
+  let { onMissionSelect }: { onMissionSelect?: (missionId: string) => void } = $props();
 
   const sorted = $derived([...system.missions].sort((a, b) => a.priority - b.priority));
 
@@ -29,6 +31,14 @@
     const templateId = map[mission.targetType] ?? 'sindoor_deep';
     system.startMission(missionId, ids, templateId);
   }
+
+  function handleExecute(missionId: string) {
+    if (onMissionSelect) {
+      onMissionSelect(missionId);
+    } else {
+      launch(missionId);
+    }
+  }
 </script>
 
 <div class="mission-block corners">
@@ -51,7 +61,7 @@
         <div class="type-row">
           <span class="target-type">{m.targetType.toUpperCase().replace('-', ' ')}</span>
           {#if m.status === 'PLANNED' && system.coas.length > 0}
-            <button class="launch" onclick={() => launch(m.id)}>
+            <button class="launch" onclick={() => handleExecute(m.id)}>
               ▸ EXECUTE
             </button>
           {:else if m.status === 'ACTIVE'}

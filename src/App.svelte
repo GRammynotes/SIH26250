@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { system } from './lib/stores/systemStore.svelte';
   import TopBar from './lib/components/layout/TopBar.svelte';
   import TacticalMap from './lib/components/map/TacticalMap.svelte';
@@ -11,13 +11,17 @@
   import DecisionPrompt from './lib/components/panels/DecisionPrompt.svelte';
   import MissionFlowModal from './lib/components/panels/MissionFlowModal.svelte';
   import LoadoutModal from './lib/components/panels/LoadoutModal.svelte';
+  import ReferenceLibrary from './lib/components/panels/ReferenceLibrary.svelte';
   import EventLog from './lib/components/panels/EventLog.svelte';
+  import CommanderBriefing from './lib/components/panels/CommanderBriefing.svelte';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let flowOpen = $state(false);
+  let referenceOpen = $state(false);
   let loadoutOpen = $state(false);
   let loadoutType = $state('Su-30MKI');
   let loadoutTail = $state('');
+  let briefingMissionId = $state<string | null>(null);
 
   function handleDecision(branchId: string) {
     if (pending) system.resolveDecision(pending.id, branchId);
@@ -28,6 +32,32 @@
     loadoutTail = tail;
     loadoutOpen = true;
   }
+
+  function handleApprove() {
+    if (!briefingMissionId) return;
+    const missionId = briefingMissionId;
+    const coa = system.coas.find((c) => c.id === system.selectedCoaId) ?? system.coas[0];
+    if (!coa) return;
+    const ids = coa.assignments[missionId] ?? [];
+    if (ids.length === 0) return;
+    const mission = system.missions.find((m) => m.id === missionId);
+    if (!mission) return;
+
+    const map: Record<string, string> = {
+      'hardened-bunker': 'sindoor_deep',
+      'radar-site': 'sead_suppression',
+      'troop-concentration': 'balakot',
+      'c2-node': 'sindoor_deep',
+      'bridge': 'sindoor_deep',
+      'fuel-depot': 'sindoor_deep',
+      'runway': 'sindoor_deep',
+      'ship': 'sead_suppression',
+      'aircraft': 'sead_suppression',
+    };
+    const templateId = map[mission.targetType] ?? 'sindoor_deep';
+    system.startMission(missionId, ids, templateId);
+    briefingMissionId = null;
+  }
 </script>
 
 <div class="shell">
@@ -36,6 +66,7 @@
     missionCount={system.missions.length}
     threatCount={system.threats.length}
     onFlowClick={() => (flowOpen = true)}
+    onReferenceClick={() => (referenceOpen = true)}
   />
 
   {#if system.selectedBaseId}
@@ -43,7 +74,7 @@
   {:else}
     <aside class="left">
       <AircraftPanel />
-      <MissionPanel />
+      <MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} />
     </aside>
   {/if}
 
@@ -84,6 +115,13 @@
 
 <MissionFlowModal open={flowOpen} onClose={() => (flowOpen = false)} />
 <LoadoutModal open={loadoutOpen} aircraftType={loadoutType} tailNumber={loadoutTail} onClose={() => (loadoutOpen = false)} />
+<ReferenceLibrary open={referenceOpen} onClose={() => (referenceOpen = false)} />
+<CommanderBriefing
+  open={briefingMissionId !== null}
+  missionId={briefingMissionId}
+  onApprove={handleApprove}
+  onClose={() => (briefingMissionId = null)}
+/>
 
 <style>
   :global(html, body) { margin: 0; padding: 0; overflow: hidden; background: var(--bg-base); }
