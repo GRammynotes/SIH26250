@@ -4,6 +4,7 @@
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { IAF_BASES } from '../../data/bases';
   import { GROUND_ASSETS, type GroundAsset } from '../../data/groundAssets';
+  import { ENEMY_ASSETS, type EnemyAsset } from '../../data/enemyAssets';
   import { getAircraftSvg } from '../../data/aircraftIcons';
   import { type AirspaceZone, type WeatherSystem } from '../../types';
   import { system } from '../../stores/systemStore.svelte';
@@ -31,6 +32,7 @@
   let showGround = $state(true);
   let showAirspace = $state(true);
   let showWeather = $state(true);
+  let showEnemy = $state(true);
 
   const C = {
     cyan: '#00d4ff',
@@ -216,6 +218,11 @@
         ${innerSvg}
       </div>
     `);
+  }
+
+  function createEnemyMarker(asset: EnemyAsset): HTMLDivElement {
+    const shape = asset.type === 'radar' ? '◆' : asset.type === 'aircraft' ? '▲' : asset.type === 'c2-node' ? '■' : '⬡';
+    return el(`<div class="enemy-marker" title="${asset.designation}" style="color:${C.red};font:18px/1 'JetBrains Mono',monospace;text-shadow:0 0 8px ${C.red};cursor:pointer;">${shape}</div>`);
   }
 
   function circlePolygon(center: [number, number], radiusKm: number, points = 64): number[][] {
@@ -655,6 +662,20 @@
         );
       }
     }
+
+    if (showEnemy) {
+      for (const asset of ENEMY_ASSETS) {
+        const markerEl = createEnemyMarker(asset);
+        dynamicMarkers.push(new maplibregl.Marker({ element: markerEl })
+          .setLngLat([asset.position.lng, asset.position.lat])
+          .setPopup(new maplibregl.Popup({ offset: 12, closeButton: false }).setHTML(
+            `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#e2e8f0;background:#0a0e1a;border:1px solid #ff2d7c;padding:10px 12px;min-width:210px;">
+              <div style="color:#ff2d7c;letter-spacing:.12em;">${asset.designation}</div>
+              <div style="color:#94a3b8;margin-top:5px;">${asset.type.toUpperCase()} · ${asset.behaviour.toUpperCase()}</div>
+              <div style="color:#64748b;margin-top:4px;">RANGE ${asset.engagementRange_km}KM · PK ${Math.round(asset.probabilityKill * 100)}% · EMISSION ${asset.emissionState.toUpperCase()}</div>
+            </div>`)).addTo(map));
+      }
+    }
   });
 
   function toggleGround() {
@@ -663,6 +684,7 @@
 
   function toggleAirspace() { showAirspace = !showAirspace; }
   function toggleWeather() { showWeather = !showWeather; }
+  function toggleEnemy() { showEnemy = !showEnemy; }
 </script>
 
 <div class="map-wrap">
@@ -731,6 +753,7 @@
     </button>
     <button class="ctrl-btn {showAirspace ? 'active' : ''}" onclick={toggleAirspace} title="Toggle Airspace" aria-label="Toggle Airspace">◈ AIRSPACE</button>
     <button class="ctrl-btn {showWeather ? 'active' : ''}" onclick={toggleWeather} title="Toggle Weather" aria-label="Toggle Weather">◈ WEATHER</button>
+    <button class="ctrl-btn {showEnemy ? 'active' : ''}" onclick={toggleEnemy} title="Toggle Enemy Order of Battle" aria-label="Toggle Enemy">◈ ENEMY</button>
   </div>
 </div>
 

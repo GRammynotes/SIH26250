@@ -1,12 +1,15 @@
 ﻿<script lang="ts">
   import { system } from '../../stores/systemStore.svelte';
   import { getModeLabel } from '../../engine/optimisation';
+  import { ENEMY_ASSETS } from '../../data/enemyAssets';
+  import { bestResponseToCOA, expectedPayoff } from '../../engine/gameTheory';
 
   function rankColor(r: number) {
     return r === 1 ? 'var(--accent-green)' : r === 2 ? 'var(--accent-amber)' : 'var(--accent-red)';
   }
 
   let coas = $derived(system.coas);
+  let view = $state<'blue' | 'red'>('blue');
   let btnLabel = $derived(
     system.computing ? '◢ COMPUTING...' : coas.length === 0 ? '▸ GENERATE COA' : '▸ RE-GENERATE COA',
   );
@@ -17,6 +20,13 @@
     <span>COA ANALYSIS</span>
     <span class="count">{coas.length > 0 ? `${coas.length} OPTIONS` : 'STANDBY'}</span>
   </div>
+
+  {#if coas.length > 0}
+    <div class="view-tabs">
+      <button class:active={view === 'blue'} onclick={() => view = 'blue'}>BLUE VIEW</button>
+      <button class:red-active={view === 'red'} onclick={() => view = 'red'}>RED VIEW</button>
+    </div>
+  {/if}
 
   <div class="body">
     {#if coas.length === 0}
@@ -38,7 +48,7 @@
         <div class="sec-label">OPTIMISATION</div>
         <div class="sec-value muted">NSGA-II MULTI-OBJECTIVE · 4 OBJECTIVES</div>
       </div>
-    {:else}
+    {:else if view === 'blue'}
       {#each coas as coa (coa.id)}
         <div
           class="coa-card"
@@ -79,6 +89,17 @@
           <div class="coa-expl">{coa.explanation}</div>
         </div>
       {/each}
+    {:else}
+      <div class="red-summary">RED FORCE MODEL · {ENEMY_ASSETS.length} ASSETS · DYNAMIC BAYESIAN THREAT BELIEF</div>
+      {#each coas as coa (coa.id)}
+        {@const response = bestResponseToCOA(coa, ENEMY_ASSETS)}
+        <div class="red-card">
+          <div class="red-hdr"><span>OPTION {coa.rank} · {getModeLabel(coa)}</span><span>{response.confidence} CONF</span></div>
+          <div class="red-action">{response.action}</div>
+          <p>{response.rationale}</p>
+          <div class="red-metrics"><span>EXPECTED RED DAMAGE <b>{response.expectedDamage}</b></span><span>BLUE PAYOFF <b>{expectedPayoff(coa, response)}</b></span></div>
+        </div>
+      {/each}
     {/if}
   </div>
 
@@ -91,6 +112,10 @@
   .panel { background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; position: relative; height: 100%; }
   .hdr { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; }
   .hdr .count { color: var(--accent-amber); }
+  .view-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border-subtle); }
+  .view-tabs button { border: 0; background: #0c1015; color: var(--text-muted); font: 9px var(--font-mono); letter-spacing: .12em; padding: 8px; cursor: pointer; }
+  .view-tabs button.active { color: var(--accent-cyan); background: rgba(0,212,255,.07); }
+  .view-tabs button.red-active { color: var(--accent-red); background: rgba(255,45,124,.07); }
   .body { flex: 1; padding: 12px; overflow-y: auto; }
   .body::-webkit-scrollbar { width: 3px; }
   .body::-webkit-scrollbar-thumb { background: var(--border-strong); }
@@ -117,6 +142,13 @@
   .ids { color: var(--text-muted); }
   .coa-expl { font-family: var(--font-mono); font-size: 9px; line-height: 1.6; color: var(--text-secondary); }
   .mono { font-family: var(--font-mono); }
+  .red-summary { color: var(--text-muted); font: 8px var(--font-mono); letter-spacing: .1em; line-height: 1.6; margin-bottom: 10px; }
+  .red-card { border: 1px solid rgba(255,45,124,.55); background: rgba(255,45,124,.035); padding: 10px; margin-bottom: 8px; font-family: var(--font-mono); }
+  .red-hdr, .red-metrics { display: flex; justify-content: space-between; gap: 8px; font-size: 8px; letter-spacing: .1em; color: var(--text-muted); }
+  .red-hdr span:first-child, .red-action { color: var(--accent-red); }
+  .red-action { margin: 8px 0 4px; font-size: 10px; letter-spacing: .08em; }
+  .red-card p { color: var(--text-secondary); font-size: 8.5px; line-height: 1.5; margin: 0 0 8px; }
+  .red-metrics { border-top: 1px solid rgba(255,45,124,.25); padding-top: 7px; } .red-metrics b { color: var(--text-primary); }
   .gen { margin: 12px; padding: 14px; background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.22em; cursor: pointer; transition: background 0.15s, box-shadow 0.15s, color 0.15s; text-align: center; }
   .gen:hover:not(:disabled) { background: rgba(0, 240, 255, 0.08); box-shadow: 0 0 16px rgba(0, 240, 255, 0.35), inset 0 0 16px rgba(0, 240, 255, 0.08); }
   .gen:disabled { opacity: 0.6; cursor: wait; }
