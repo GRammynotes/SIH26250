@@ -14,14 +14,24 @@
   import ReferenceLibrary from './lib/components/panels/ReferenceLibrary.svelte';
   import EventLog from './lib/components/panels/EventLog.svelte';
   import CommanderBriefing from './lib/components/panels/CommanderBriefing.svelte';
+  import AfterActionReview from './lib/components/panels/AfterActionReview.svelte';
+  import MetricsDashboard from './lib/components/panels/MetricsDashboard.svelte';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let flowOpen = $state(false);
   let referenceOpen = $state(false);
+  let metricsOpen = $state(false);
   let loadoutOpen = $state(false);
   let loadoutType = $state('Su-30MKI');
   let loadoutTail = $state('');
   let briefingMissionId = $state<string | null>(null);
+  let aarMissionId = $state<string | null>(null);
+
+  $effect(() => {
+    if (system.aarQueue.length > 0 && !aarMissionId) {
+      aarMissionId = system.consumeAAR();
+    }
+  });
 
   function handleDecision(branchId: string) {
     if (pending) system.resolveDecision(pending.id, branchId);
@@ -67,6 +77,7 @@
     threatCount={system.threats.length}
     onFlowClick={() => (flowOpen = true)}
     onReferenceClick={() => (referenceOpen = true)}
+    onMetricsClick={() => (metricsOpen = true)}
   />
 
   {#if system.selectedBaseId}
@@ -122,6 +133,15 @@
   onApprove={handleApprove}
   onClose={() => (briefingMissionId = null)}
 />
+<AfterActionReview
+  missionId={aarMissionId}
+  onClose={() => (aarMissionId = null)}
+  onReplay={(id) => {
+    system.replayMission(id);
+    aarMissionId = null;
+  }}
+/>
+<MetricsDashboard open={metricsOpen} onClose={() => (metricsOpen = false)} />
 
 <style>
   :global(html, body) { margin: 0; padding: 0; overflow: hidden; background: var(--bg-base); }

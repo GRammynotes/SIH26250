@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { onMount } from 'svelte';
 
   let {
@@ -7,12 +7,14 @@
     threatCount = 0,
     onFlowClick,
     onReferenceClick,
+    onMetricsClick,
   }: {
     aircraftCount?: number;
     missionCount?: number;
     threatCount?: number;
     onFlowClick?: () => void;
     onReferenceClick?: () => void;
+    onMetricsClick?: () => void;
   } = $props();
 
   let zulu = $state('00:00:00');
@@ -41,6 +43,7 @@
   </span>
   <span class="spacer"></span>
   <button class="top-btn" onclick={() => onReferenceClick?.()}>◈ REFERENCE</button>
+  <button class="top-btn" onclick={() => onMetricsClick?.()}>◈ METRICS</button>
   <button class="top-btn" onclick={() => onFlowClick?.()}>◈ MISSION FLOW</button>
   <span class="sep">//</span>
   <span class="metric">AC <b>{aircraftCount}</b></span>

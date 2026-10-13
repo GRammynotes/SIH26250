@@ -1,4 +1,4 @@
-﻿import { generateSystemState } from '../data/seed';
+import { generateSystemState } from '../data/seed';
 import { generateCOAs as optimise } from '../engine/optimisation';
 import { SCENARIOS, SCENARIO_LABELS, type ScenarioStep } from '../engine/scenario';
 import { HISTORICAL_MISSIONS } from '../data/historicalMissions';
@@ -24,6 +24,10 @@ class SystemStore {
   computing = $state(false);
   activeScenario = $state<string | null>(null);
   activeMissions = $state<ActiveMission[]>([]);
+  coaGenerationCount = $state(0);
+  coaSelectionCount = $state(0);
+  lastCoaComputeMs = $state(0);
+  aarQueue = $state<string[]>([]);
   tickHandle: number | null = null;
 
   constructor() {
@@ -53,16 +57,22 @@ class SystemStore {
   async generateCOAs() {
     if (this.computing) return;
     this.computing = true;
+    const startT = performance.now();
     await new Promise((r) => setTimeout(r, 850));
     this.coas = optimise(this.aircraft, this.missions, this.threats);
     this.selectedCoaId = this.coas[0]?.id ?? null;
     this.computing = false;
+    this.coaGenerationCount += 1;
+    this.lastCoaComputeMs = Math.round(performance.now() - startT);
     const blocked = this.coas[0] ? Object.values(this.coas[0].assignments).filter((a) => a.length === 0).length : 0;
     const note = blocked > 0 ? ` · ${blocked} UNCOVERED` : '';
     this.pushEvent('COMMAND', `COA RECOMPUTED · ${this.coas.length} OPTIONS${note}`, 'ok');
   }
 
-  selectCOA(id: string) { this.selectedCoaId = id; }
+  selectCOA(id: string) {
+    this.selectedCoaId = id;
+    this.coaSelectionCount += 1;
+  }
 
   selectBase(id: string | null) {
     this.selectedBaseId = id;
@@ -153,6 +163,10 @@ class SystemStore {
           for (const acId of am.aircraftIds) {
             this.setAircraftStatus(acId, 'FMC');
           }
+          // Queue for After-Action Review
+          if (!this.aarQueue.includes(am.id)) {
+            this.aarQueue = [...this.aarQueue, am.id];
+          }
         } else {
           nextAm.phase = np;
           nextAm.phaseStartTime = Date.now();
@@ -172,6 +186,19 @@ class SystemStore {
       if (am.phase !== 'COMPLETE' && am.phase !== 'ABORTED') return true;
       return true; // keep visible; could add timestamp filter
     });
+  }
+
+  consumeAAR(): string | null {
+    if (this.aarQueue.length === 0) return null;
+    const [first, ...rest] = this.aarQueue;
+    this.aarQueue = rest;
+    return first;
+  }
+
+  replayMission(missionId: string) {
+    const prev = this.activeMissions.find((m) => m.id === missionId || m.missionId === missionId);
+    if (!prev) return;
+    this.startMission(prev.missionId, prev.aircraftIds, prev.templateId);
   }
 
   resolveDecision(missionId: string, branchId: string) {
@@ -204,6 +231,9 @@ class SystemStore {
       this.missions = this.missions.map((m) => m.id === am.missionId ? { ...m, status: 'ABORTED' as const } : m);
       for (const acId of am.aircraftIds) this.setAircraftStatus(acId, 'FMC');
       this.pushEvent('EXEC', `MISSION ABORTED · ${am.missionName}`, 'warn');
+      if (!this.aarQueue.includes(am.id)) {
+        this.aarQueue = [...this.aarQueue, am.id];
+      }
     } else {
       this.pushEvent('DECISION', `RESOLVED · ${branch.label}`, branch.outcome === 'success' ? 'ok' : 'warn');
       this.pushEvent('EXEC', branch.consequence, 'info');
