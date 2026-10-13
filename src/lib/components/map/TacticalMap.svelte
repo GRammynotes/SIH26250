@@ -5,6 +5,7 @@
   import { IAF_BASES } from '../../data/bases';
   import { GROUND_ASSETS, type GroundAsset } from '../../data/groundAssets';
   import { getAircraftSvg } from '../../data/aircraftIcons';
+  import { type AirspaceZone, type WeatherSystem } from '../../types';
   import { system } from '../../stores/systemStore.svelte';
 
   let {
@@ -28,6 +29,8 @@
   let showTrails = $state(true);
   let showThreats = $state(true);
   let showGround = $state(true);
+  let showAirspace = $state(true);
+  let showWeather = $state(true);
 
   const C = {
     cyan: '#00d4ff',
@@ -227,6 +230,14 @@
     return coords;
   }
 
+  function polygonFeatures(items: Array<AirspaceZone | WeatherSystem>): GeoJSON.Feature[] {
+    return items.map((item) => ({
+      type: 'Feature',
+      properties: 'status' in item ? { id: item.id, type: item.type, status: item.status } : { id: item.id, type: item.type, severity: item.severity },
+      geometry: { type: 'Polygon', coordinates: [[...item.polygon.map((point) => [point.lng, point.lat]), [item.polygon[0].lng, item.polygon[0].lat]]] },
+    }));
+  }
+
   onMount(() => {
     // Expose global loadout handler for popup clicks
     (window as any).__airCommandLoadout = (type: string, tail: string) => {
@@ -321,6 +332,8 @@
     const aircraft = system.aircraft;
     const missions = system.missions;
     const threats = system.threats;
+    const airspace = system.airspaceZones;
+    const weather = system.weatherSystems;
     const selBase = system.selectedBaseId;
 
     // Update selected base styling
@@ -367,6 +380,12 @@
     }
     if (map.getSource('threat-zones')) map.removeSource('threat-zones');
     if (map.getSource('threat-centers')) map.removeSource('threat-centers');
+    for (const id of ['airspace-fill', 'airspace-line', 'weather-fill', 'weather-line']) {
+      if (map.getLayer(id)) map.removeLayer(id);
+    }
+    for (const id of ['airspace-zones', 'weather-systems']) {
+      if (map.getSource(id)) map.removeSource(id);
+    }
 
     // Add upgraded aircraft trails (Layer 5)
     aircraft.forEach((ac, i) => {
@@ -540,6 +559,26 @@
       },
     });
 
+    // Operational airspace and weather layers are recreated from the current store state.
+    map.addSource('airspace-zones', { type: 'geojson', data: { type: 'FeatureCollection', features: polygonFeatures(airspace) } });
+    map.addLayer({
+      id: 'airspace-fill', type: 'fill', source: 'airspace-zones', layout: { visibility: showAirspace ? 'visible' : 'none' },
+      paint: { 'fill-color': ['match', ['get', 'type'], 'corridor', C.cyan, 'kill-box', C.amber, 'restricted', C.red, '#64748b'], 'fill-opacity': ['case', ['==', ['get', 'status'], 'CLOSED'], 0.16, 0.08] },
+    });
+    map.addLayer({
+      id: 'airspace-line', type: 'line', source: 'airspace-zones', layout: { visibility: showAirspace ? 'visible' : 'none' },
+      paint: { 'line-color': ['match', ['get', 'type'], 'corridor', C.cyan, 'kill-box', C.amber, 'restricted', C.red, '#64748b'], 'line-width': 1.3, 'line-dasharray': [3, 2] },
+    });
+    map.addSource('weather-systems', { type: 'geojson', data: { type: 'FeatureCollection', features: polygonFeatures(weather) } });
+    map.addLayer({
+      id: 'weather-fill', type: 'fill', source: 'weather-systems', layout: { visibility: showWeather ? 'visible' : 'none' },
+      paint: { 'fill-color': ['match', ['get', 'type'], 'storm', '#2878ff', 'fog', '#94a3b8', 'front', '#00d4ff', '#39ff14'], 'fill-opacity': ['interpolate', ['linear'], ['get', 'severity'], 1, 0.025, 5, 0.18] },
+    });
+    map.addLayer({
+      id: 'weather-line', type: 'line', source: 'weather-systems', layout: { visibility: showWeather ? 'visible' : 'none' },
+      paint: { 'line-color': ['match', ['get', 'type'], 'storm', '#2878ff', 'fog', '#94a3b8', 'front', '#00d4ff', '#39ff14'], 'line-width': 1, 'line-opacity': 0.8 },
+    });
+
     // Upgraded Mission markers (Layer 7)
     for (const mission of missions) {
       dynamicMarkers.push(
@@ -621,6 +660,9 @@
   function toggleGround() {
     showGround = !showGround;
   }
+
+  function toggleAirspace() { showAirspace = !showAirspace; }
+  function toggleWeather() { showWeather = !showWeather; }
 </script>
 
 <div class="map-wrap">
@@ -687,6 +729,8 @@
     >
       ◈ GROUND
     </button>
+    <button class="ctrl-btn {showAirspace ? 'active' : ''}" onclick={toggleAirspace} title="Toggle Airspace" aria-label="Toggle Airspace">◈ AIRSPACE</button>
+    <button class="ctrl-btn {showWeather ? 'active' : ''}" onclick={toggleWeather} title="Toggle Weather" aria-label="Toggle Weather">◈ WEATHER</button>
   </div>
 </div>
 

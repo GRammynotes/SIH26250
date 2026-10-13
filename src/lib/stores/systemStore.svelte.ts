@@ -7,6 +7,8 @@ import {
   type ActiveMission,
 } from '../engine/missionExecutor';
 import { optimalWeaponFor } from '../data/weapons';
+import { freshAirspace } from '../data/airspace';
+import { freshWeather } from '../data/weather';
 import type { Aircraft, Mission, Threat, COA, AircraftStatus } from '../types';
 
 export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
@@ -16,6 +18,8 @@ class SystemStore {
   aircraft = $state<Aircraft[]>([]);
   missions = $state<Mission[]>([]);
   threats = $state<Threat[]>([]);
+  airspaceZones = $state<import('../types').AirspaceZone[]>([]);
+  weatherSystems = $state<import('../types').WeatherSystem[]>([]);
   coas = $state<COA[]>([]);
   selectedCoaId = $state<string | null>(null);
   selectedBaseId = $state<string | null>(null);
@@ -35,6 +39,8 @@ class SystemStore {
     this.aircraft = s.aircraft;
     this.missions = s.missions;
     this.threats = s.threats;
+    this.airspaceZones = freshAirspace();
+    this.weatherSystems = freshWeather();
     this.pushEvent('SYSTEM', 'INITIALIZED', 'ok');
     this.pushEvent('FUSION', 'ENGINE ONLINE', 'ok');
     this.pushEvent('TRACK', `${s.aircraft.length} AIRCRAFT TRACKED`, 'info');
@@ -59,7 +65,7 @@ class SystemStore {
     this.computing = true;
     const startT = performance.now();
     await new Promise((r) => setTimeout(r, 850));
-    this.coas = optimise(this.aircraft, this.missions, this.threats);
+    this.coas = optimise(this.aircraft, this.missions, this.threats, this.airspaceZones, this.weatherSystems);
     this.selectedCoaId = this.coas[0]?.id ?? null;
     this.computing = false;
     this.coaGenerationCount += 1;
@@ -84,6 +90,15 @@ class SystemStore {
   }
 
   addThreat(t: Threat) { this.threats = [...this.threats, t]; }
+  closeAirspace(id: string) {
+    this.airspaceZones = this.airspaceZones.map((zone) => zone.id === id ? { ...zone, status: 'CLOSED' as const } : zone);
+    const zone = this.airspaceZones.find((item) => item.id === id);
+    if (zone) this.pushEvent('AIRSPACE', `CORRIDOR CLOSED · ${zone.name}`, 'warn');
+  }
+  addWeather(system: import('../types').WeatherSystem) {
+    this.weatherSystems = [...this.weatherSystems.filter((item) => item.id !== system.id), system];
+    this.pushEvent('WEATHER', `SYSTEM UPDATED · ${system.id.toUpperCase()} · VIS ${system.visibility_km}KM`, system.severity >= 4 ? 'warn' : 'info');
+  }
   setMode(m: 'NORMAL' | 'DEGRADED') { this.mode = m; }
 
   // ============ MISSION EXECUTION ============
@@ -270,6 +285,8 @@ class SystemStore {
       case 'log':        this.pushEvent(step.payload.source, step.payload.msg, step.payload.level); break;
       case 'set_status': this.setAircraftStatus(step.payload.id, step.payload.status); break;
       case 'add_threat': this.addThreat(step.payload.threat); break;
+      case 'close_airspace': this.closeAirspace(step.payload.id); break;
+      case 'add_weather': this.addWeather(step.payload.system); break;
       case 'recompute':  this.generateCOAs(); break;
       case 'set_mode':   this.setMode(step.payload.mode); break;
     }
@@ -280,6 +297,8 @@ class SystemStore {
     this.aircraft = s.aircraft;
     this.missions = s.missions;
     this.threats = s.threats;
+    this.airspaceZones = freshAirspace();
+    this.weatherSystems = freshWeather();
     this.coas = [];
     this.selectedCoaId = null;
     this.selectedBaseId = null;

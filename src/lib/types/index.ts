@@ -43,6 +43,33 @@ export interface Threat {
   confidence: number;
 }
 
+export type AirspaceZoneType = 'corridor' | 'restricted' | 'kill-box' | 'altitude-block';
+export type AirspaceStatus = 'OPEN' | 'CLOSED' | 'CONDITIONAL';
+
+export interface AirspaceZone {
+  id: string;
+  name: string;
+  type: AirspaceZoneType;
+  polygon: Position[];
+  altitudeBand: { min: number; max: number };
+  status: AirspaceStatus;
+  controllingAuthority: string;
+}
+
+export type WeatherType = 'front' | 'storm' | 'fog' | 'clear';
+
+export interface WeatherSystem {
+  id: string;
+  type: WeatherType;
+  polygon: Position[];
+  severity: 1 | 2 | 3 | 4 | 5;
+  visibility_km: number;
+  ceiling_ft: number;
+  windDir_deg: number;
+  windSpeed_kt: number;
+  validUntil: string;
+}
+
 export interface COA {
   id: string;
   rank: number;

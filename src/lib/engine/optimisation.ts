@@ -1,5 +1,6 @@
 ﻿import type { Aircraft, Mission, COA, Threat, Position } from '../types';
 import { optimalWeaponFor, WEAPONS } from '../data/weapons';
+import type { AirspaceZone, WeatherSystem } from '../types';
 
 function haversine(a: Position, b: Position): number {
   const R = 6371;
@@ -28,6 +29,37 @@ function routeRisk(from: Position, to: Position, threats: Threat[]): number {
 
 function canTask(ac: Aircraft): boolean {
   return ac.status !== 'NMC' && ac.fuel >= 30 && ac.crewRest >= 2;
+}
+
+function pointInPolygon(point: Position, polygon: Position[]): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i], b = polygon[j];
+    const crosses = ((a.lng > point.lng) !== (b.lng > point.lng))
+      && point.lat < ((b.lat - a.lat) * (point.lng - a.lng)) / (b.lng - a.lng) + a.lat;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
+function routeBlocked(from: Position, to: Position, zones: AirspaceZone[]): AirspaceZone | null {
+  const closed = zones.filter((zone) => zone.status === 'CLOSED');
+  for (let step = 0; step <= 32; step++) {
+    const fraction = step / 32;
+    const point = { lat: from.lat + (to.lat - from.lat) * fraction, lng: from.lng + (to.lng - from.lng) * fraction };
+    const blocker = closed.find((zone) => pointInPolygon(point, zone.polygon));
+    if (blocker) return blocker;
+  }
+  return null;
+}
+
+function weatherRestriction(ac: Aircraft, mission: Mission, systems: WeatherSystem[]): string | null {
+  const limits: Record<string, number> = { 'Su-30MKI': 45, Rafale: 50, 'Mirage-2000': 38, Tejas: 32, Jaguar: 35, 'MiG-29UPG': 40 };
+  for (const weather of systems) {
+    const intersects = routeBlocked(ac.position, mission.target, [{ id: weather.id, name: weather.id, polygon: weather.polygon, status: 'CLOSED', type: 'restricted', altitudeBand: { min: 0, max: 0 }, controllingAuthority: 'WEATHER' }]);
+    if (intersects && weather.windSpeed_kt > (limits[ac.type] ?? 35)) return `${weather.id.toUpperCase()} WIND ${weather.windSpeed_kt}KT`;
+  }
+  return null;
 }
 
 // Critical: an aircraft is only a candidate if it carries a weapon that can kill the target type.
@@ -70,7 +102,7 @@ function scoreAircraft(ac: Aircraft, mission: Mission, threats: Threat[], mode: 
   return score;
 }
 
-function buildCOA(aircraft: Aircraft[], missions: Mission[], threats: Threat[], mode: Mode): COA {
+function buildCOA(aircraft: Aircraft[], missions: Mission[], threats: Threat[], mode: Mode, airspace: AirspaceZone[], weather: WeatherSystem[]): COA {
   const cfg = MODES[mode];
   const assignments: Record<string, string[]> = {};
   const used = new Set<string>();
@@ -84,13 +116,18 @@ function buildCOA(aircraft: Aircraft[], missions: Mission[], threats: Threat[], 
 
     const candidates = aircraft
       .filter((a) => !used.has(a.id) && canTask(a) && hasCompatibleWeapon(a, m))
+      .filter((a) => !routeBlocked(a.position, m.target, airspace))
+      .filter((a) => !weatherRestriction(a, m, weather))
       .filter((a) => a.fuel >= cfg.minFuel)
       .filter((a) => a.crewRest >= cfg.minCrew)
       .map((a) => ({ ac: a, s: scoreAircraft(a, m, threats, mode) }))
       .sort((x, y) => y.s - x.s);
 
     if (candidates.length === 0) {
-      blockers.push(`${m.name}: no aircraft with compatible weapon (needs ${m.targetType}).`);
+      const closed = aircraft.map((a) => routeBlocked(a.position, m.target, airspace)).find(Boolean);
+      const weatherBlocked = aircraft.map((a) => weatherRestriction(a, m, weather)).find(Boolean);
+      const reason = closed ? `ROUTE BLOCKED · ${closed.name}` : weatherBlocked ? `WEATHER RESTRICTED · ${weatherBlocked}` : `no aircraft with compatible weapon (needs ${m.targetType})`;
+      blockers.push(`${m.name}: ${reason}.`);
     }
 
     let need = 1;
@@ -164,11 +201,11 @@ function buildCOA(aircraft: Aircraft[], missions: Mission[], threats: Threat[], 
   };
 }
 
-export function generateCOAs(aircraft: Aircraft[], missions: Mission[], threats: Threat[]): COA[] {
+export function generateCOAs(aircraft: Aircraft[], missions: Mission[], threats: Threat[], airspace: AirspaceZone[] = [], weather: WeatherSystem[] = []): COA[] {
   const coas: COA[] = [
-    buildCOA(aircraft, missions, threats, 'aggressive'),
-    buildCOA(aircraft, missions, threats, 'balanced'),
-    buildCOA(aircraft, missions, threats, 'conservative'),
+    buildCOA(aircraft, missions, threats, 'aggressive', airspace, weather),
+    buildCOA(aircraft, missions, threats, 'balanced', airspace, weather),
+    buildCOA(aircraft, missions, threats, 'conservative', airspace, weather),
   ];
   coas.sort((a, b) => (b.successProbability - b.riskScore * 0.7) - (a.successProbability - a.riskScore * 0.7));
   coas.forEach((c, i) => (c.rank = i + 1));
