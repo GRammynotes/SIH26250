@@ -1,6 +1,12 @@
 ﻿import { generateSystemState } from '../data/seed';
 import { generateCOAs as optimise } from '../engine/optimisation';
 import { SCENARIOS, SCENARIO_LABELS, type ScenarioStep } from '../engine/scenario';
+import { HISTORICAL_MISSIONS, type DecisionBranch } from '../data/historicalMissions';
+import {
+  createActiveMission, nextPhase, phaseDuration, progressFraction, interpolatePosition,
+  type ActiveMission, type MissionPhase,
+} from '../engine/missionExecutor';
+import { optimalWeaponFor, WEAPONS } from '../data/weapons';
 import type { Aircraft, Mission, Threat, COA, AircraftStatus } from '../types';
 
 export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
@@ -12,10 +18,13 @@ class SystemStore {
   threats = $state<Threat[]>([]);
   coas = $state<COA[]>([]);
   selectedCoaId = $state<string | null>(null);
+  selectedBaseId = $state<string | null>(null);
   events = $state<EventEntry[]>([]);
   mode = $state<'NORMAL' | 'DEGRADED'>('NORMAL');
   computing = $state(false);
   activeScenario = $state<string | null>(null);
+  activeMissions = $state<ActiveMission[]>([]);
+  tickHandle: number | null = null;
 
   constructor() {
     const s = generateSystemState();
@@ -28,11 +37,17 @@ class SystemStore {
     this.pushEvent('MISSION', `${s.missions.length} MISSIONS QUEUED`, 'info');
     this.pushEvent('THREAT', `${s.threats.length} ZONES ACTIVE`, 'warn');
     this.pushEvent('COMMAND', 'AWAITING COMMANDER INPUT', 'info');
+    this.startTicker();
+  }
+
+  startTicker() {
+    if (this.tickHandle !== null) return;
+    this.tickHandle = window.setInterval(() => this.tickExecutions(), 1000);
   }
 
   pushEvent(source: string, msg: string, level: EventLevel = 'info') {
     const time = new Date().toISOString().slice(11, 19);
-    this.events = [...this.events, { time, source, msg, level }].slice(-50);
+    this.events = [...this.events, { time, source, msg, level }].slice(-80);
   }
 
   async generateCOAs() {
@@ -42,18 +57,172 @@ class SystemStore {
     this.coas = optimise(this.aircraft, this.missions, this.threats);
     this.selectedCoaId = this.coas[0]?.id ?? null;
     this.computing = false;
-    this.pushEvent('COMMAND', `COA RECOMPUTED · ${this.coas.length} OPTIONS · ${this.aircraft.length} AC ELIGIBLE`, 'ok');
+    const blocked = this.coas[0] ? Object.values(this.coas[0].assignments).filter((a) => a.length === 0).length : 0;
+    const note = blocked > 0 ? ` · ${blocked} UNCOVERED` : '';
+    this.pushEvent('COMMAND', `COA RECOMPUTED · ${this.coas.length} OPTIONS${note}`, 'ok');
   }
 
   selectCOA(id: string) { this.selectedCoaId = id; }
+
+  selectBase(id: string | null) {
+    this.selectedBaseId = id;
+    if (id) this.pushEvent('MAP', `BASE SELECTED · ${id.toUpperCase()}`, 'info');
+  }
 
   setAircraftStatus(id: string, status: AircraftStatus) {
     this.aircraft = this.aircraft.map((a) => (a.id === id ? { ...a, status } : a));
   }
 
   addThreat(t: Threat) { this.threats = [...this.threats, t]; }
-
   setMode(m: 'NORMAL' | 'DEGRADED') { this.mode = m; }
+
+  // ============ MISSION EXECUTION ============
+
+  startMission(missionId: string, aircraftIds: string[], templateId: string) {
+    const mission = this.missions.find((m) => m.id === missionId);
+    if (!mission) return;
+    const template = HISTORICAL_MISSIONS[templateId];
+    if (!template) return;
+    const aircraft = this.aircraft.filter((a) => aircraftIds.includes(a.id));
+    if (aircraft.length === 0) return;
+
+    const weapon = optimalWeaponFor(aircraft[0].type, mission.targetType);
+    const active = createActiveMission(mission, aircraft, template, weapon?.id ?? null);
+    this.activeMissions = [...this.activeMissions, active];
+
+    // Mark mission active
+    this.missions = this.missions.map((m) => m.id === missionId ? { ...m, status: 'ACTIVE' as const } : m);
+
+    // Mark aircraft enroute
+    for (const ac of aircraft) {
+      this.aircraft = this.aircraft.map((x) => x.id === ac.id ? { ...x, status: 'PMC' as AircraftStatus } : x);
+    }
+
+    const wpn = weapon ? weapon.name : 'UNARMED';
+    this.pushEvent('EXEC', `MISSION LAUNCHED · ${mission.name} · ${aircraft.length} AC · ${wpn}`, 'ok');
+    this.pushEvent('EXEC', `TEMPLATE: ${template.reference}`, 'info');
+  }
+
+  tickExecutions() {
+    if (this.activeMissions.length === 0) return;
+    const updated: ActiveMission[] = [];
+
+    for (const am of this.activeMissions) {
+      if (am.phase === 'COMPLETE' || am.phase === 'ABORTED') { updated.push(am); continue; }
+
+      if (am.pendingDecision) { updated.push(am); continue; }
+
+      const dur = phaseDuration(am.phase);
+      am.elapsedMin += 1 / 60; // ticks every second; show fraction of a minute
+      const phaseElapsed = (Date.now() - am.phaseStartTime) / 60000;
+
+      // Update positions along path
+      const frac = progressFraction(am.phase, phaseElapsed, dur);
+      const nextAm = { ...am, positions: { ...am.positions } };
+      for (const acId of am.aircraftIds) {
+        const ac = this.aircraft.find((a) => a.id === acId);
+        if (!ac) continue;
+        const start = ac.position;
+        nextAm.positions[acId] = interpolatePosition(start, am.target, frac);
+      }
+      this.aircraft = this.aircraft.map((a) => {
+        const p = nextAm.positions[a.id];
+        return p ? { ...a, position: p } : a;
+      });
+
+      // Check for decision trigger at this phase
+      const pending = am.decisions.find((d) =>
+        d.atPhase === am.phase && !am.decisionsMade.some((m) => m.point.title === d.title)
+      );
+      if (pending && phaseElapsed > 0.3) {
+        nextAm.pendingDecision = pending;
+        this.pushEvent('DECISION', `AWAITING COMMAND · ${pending.title}`, 'alert');
+        updated.push(nextAm);
+        continue;
+      }
+
+      // Phase transition
+      if (phaseElapsed >= dur) {
+        const np = nextPhase(am.phase);
+        if (np === 'COMPLETE') {
+          nextAm.phase = 'COMPLETE';
+          nextAm.outcome = am.decisionsMade.some((d) => d.branch.outcome === 'abort') ? 'ABORTED' : 'SUCCESS';
+          this.pushEvent('EXEC', `MISSION COMPLETE · ${am.missionName} · OUTCOME ${nextAm.outcome}`, nextAm.outcome === 'ABORTED' ? 'warn' : 'ok');
+          this.missions = this.missions.map((m) => m.id === am.missionId ? { ...m, status: 'COMPLETE' as const } : m);
+          // Recover aircraft
+          for (const acId of am.aircraftIds) {
+            this.setAircraftStatus(acId, 'FMC');
+          }
+        } else {
+          nextAm.phase = np;
+          nextAm.phaseStartTime = Date.now();
+          this.pushEvent('EXEC', `${am.missionName} ENTERED ${np}`, 'info');
+        }
+      }
+
+      updated.push(nextAm);
+    }
+
+    this.activeMissions = updated;
+    this.cleanupCompleted();
+  }
+
+  cleanupCompleted() {
+    // keep completed missions visible for 30s, then archive
+    const now = Date.now();
+    this.activeMissions = this.activeMissions.filter((am) => {
+      if (am.phase !== 'COMPLETE' && am.phase !== 'ABORTED') return true;
+      return true; // keep visible; could add timestamp filter
+    });
+  }
+
+  resolveDecision(missionId: string, branchId: string) {
+    const am = this.activeMissions.find((m) => m.id === missionId);
+    if (!am || !am.pendingDecision) return;
+    const branch = am.pendingDecision.branches.find((b) => b.id === branchId);
+    if (!branch) return;
+
+    am.decisionsMade = [...am.decisionsMade, { point: am.pendingDecision, branch, at: new Date().toISOString().slice(11, 19) }];
+    am.narrative = [...am.narrative, `[${am.pendingDecision.atPhase}] ${branch.label} → ${branch.consequence}`];
+    am.riskDelta += branch.effect.riskDelta ?? 0;
+
+    if (branch.effect.missionDelayMin) {
+      am.phaseStartTime -= branch.effect.missionDelayMin * 60000;
+    }
+    if (branch.effect.addThreat) {
+      this.addThreat({
+        id: `th-auto-${Date.now()}`,
+        type: 'SAM',
+        position: am.target,
+        radius: 50,
+        probability: 70,
+        confidence: 60,
+      });
+    }
+
+    if (branch.outcome === 'abort') {
+      am.phase = 'ABORTED';
+      am.outcome = 'ABORTED';
+      this.missions = this.missions.map((m) => m.id === am.missionId ? { ...m, status: 'ABORTED' as const } : m);
+      for (const acId of am.aircraftIds) this.setAircraftStatus(acId, 'FMC');
+      this.pushEvent('EXEC', `MISSION ABORTED · ${am.missionName}`, 'warn');
+    } else {
+      this.pushEvent('DECISION', `RESOLVED · ${branch.label}`, branch.outcome === 'success' ? 'ok' : 'warn');
+      this.pushEvent('EXEC', branch.consequence, 'info');
+    }
+
+    am.pendingDecision = null;
+    // Force reactivity
+    this.activeMissions = [...this.activeMissions];
+  }
+
+  dismissDecision(missionId: string) {
+    const am = this.activeMissions.find((m) => m.id === missionId);
+    if (am) am.pendingDecision = null;
+    this.activeMissions = [...this.activeMissions];
+  }
+
+  // ============ SCENARIOS ============
 
   runScenario(name: string) {
     const steps = SCENARIOS[name];
@@ -85,8 +254,10 @@ class SystemStore {
     this.threats = s.threats;
     this.coas = [];
     this.selectedCoaId = null;
+    this.selectedBaseId = null;
     this.mode = 'NORMAL';
     this.activeScenario = null;
+    this.activeMissions = [];
     this.pushEvent('SYSTEM', 'STATE RESET · BASELINE RESTORED', 'ok');
   }
 }

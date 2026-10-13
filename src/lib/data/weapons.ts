@@ -1,8 +1,6 @@
-﻿export type WeaponDomain = 'air-air' | 'air-ground' | 'air-surface';
+﻿import type { TargetType } from '../types';
+export type WeaponDomain = 'air-air' | 'air-ground' | 'air-surface';
 export type GuidanceType = 'active-radar' | 'IR' | 'INS-GPS' | 'INS-GPS-IIR' | 'anti-radiation' | 'dual-mode';
-export type TargetType =
-  | 'aircraft' | 'hardened-bunker' | 'radar-site' | 'troop-concentration'
-  | 'bridge' | 'c2-node' | 'ship' | 'runway' | 'fuel-depot';
 
 export interface Weapon {
   id: string;
@@ -160,3 +158,4 @@ export function getTargetLabel(t: TargetType): string {
   };
   return labels[t] ?? t.toUpperCase();
 }
+

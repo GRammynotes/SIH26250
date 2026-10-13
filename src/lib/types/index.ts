@@ -2,6 +2,10 @@
 export type MissionStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETE' | 'ABORTED';
 export type ThreatType = 'SAM' | 'RADAR' | 'AIR' | 'EW';
 
+export type TargetType =
+  | 'aircraft' | 'hardened-bunker' | 'radar-site' | 'troop-concentration'
+  | 'bridge' | 'c2-node' | 'ship' | 'runway' | 'fuel-depot';
+
 export interface Position { lat: number; lng: number; }
 
 export interface Aircraft {
@@ -23,6 +27,7 @@ export interface Mission {
   name: string;
   priority: 1 | 2 | 3;
   target: Position;
+  targetType: TargetType;
   requiredWeapons: string[];
   assignedAircraft: string[];
   status: MissionStatus;

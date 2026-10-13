@@ -1,6 +1,6 @@
 ﻿import { AIRCRAFT_TYPES } from './aircraft';
 import { IAF_BASES } from './bases';
-import type { Aircraft, Mission, Threat, Position, AircraftStatus, ThreatType, SystemState } from '../types';
+import type { Aircraft, Mission, Threat, Position, AircraftStatus, ThreatType, TargetType, SystemState } from '../types';
 
 type Rand = () => number;
 
@@ -45,21 +45,29 @@ function generateAircraft(rand: Rand): Aircraft[] {
   return out;
 }
 
+interface MissionSpec {
+  name: string;
+  target: Position;
+  targetType: TargetType;
+  priority: 1 | 2 | 3;
+}
+
+const MISSION_SPECS: MissionSpec[] = [
+  { name: 'SWIFT STRIKE',  target: { lat: 34.1520, lng: 77.5770 }, targetType: 'hardened-bunker',     priority: 1 },
+  { name: 'IRON VEIL',     target: { lat: 34.0800, lng: 78.1200 }, targetType: 'radar-site',          priority: 1 },
+  { name: 'SILENT HAWK',   target: { lat: 33.9500, lng: 78.6500 }, targetType: 'c2-node',             priority: 2 },
+  { name: 'DESERT FALCON', target: { lat: 34.3000, lng: 76.9000 }, targetType: 'bridge',              priority: 2 },
+  { name: 'MOUNTAIN GUARD',target: { lat: 33.8000, lng: 79.1000 }, targetType: 'troop-concentration', priority: 3 },
+  { name: 'NIGHT LANCE',   target: { lat: 34.5000, lng: 78.2000 }, targetType: 'fuel-depot',          priority: 3 },
+];
+
 function generateMissions(rand: Rand): Mission[] {
-  const targets: Position[] = [
-    { lat: 34.1520, lng: 77.5770 },
-    { lat: 34.0800, lng: 78.1200 },
-    { lat: 33.9500, lng: 78.6500 },
-    { lat: 34.3000, lng: 76.9000 },
-    { lat: 33.8000, lng: 79.1000 },
-    { lat: 34.5000, lng: 78.2000 },
-  ];
-  const names = ['SWIFT STRIKE', 'IRON VEIL', 'SILENT HAWK', 'DESERT FALCON', 'MOUNTAIN GUARD', 'NIGHT LANCE'];
-  return targets.map((t, i) => ({
+  return MISSION_SPECS.map((spec, i) => ({
     id: `ms-${String(i + 1).padStart(3, '0')}`,
-    name: names[i],
-    priority: (i < 2 ? 1 : i < 4 ? 2 : 3) as 1 | 2 | 3,
-    target: t,
+    name: spec.name,
+    priority: spec.priority,
+    target: spec.target,
+    targetType: spec.targetType,
     requiredWeapons: [pick(rand, ['Meteor', 'Astra', 'R-77']), pick(rand, ['SCALP', 'BrahMos-A', 'Spice-2000'])],
     assignedAircraft: [],
     status: 'PLANNED',
@@ -94,46 +102,3 @@ export function generateSystemState(): SystemState {
     timestamp: Date.now(),
   };
 }
-
-export type TargetCategory =
-  | 'hardened-bunker'
-  | 'radar-site'
-  | 'troop-concentration'
-  | 'bridge'
-  | 'c2-node';
-
-export interface SyntheticTarget {
-  id: string;
-  name: string;
-  type: TargetCategory;
-  intelConfidence: number;
-  latitude: number;
-  longitude: number;
-}
-
-export const SYNTHETIC_TARGETS: SyntheticTarget[] = [
-  {
-    id: 'TGT-001',
-    name: 'Training Target Alpha',
-    type: 'radar-site',
-    intelConfidence: 0.92,
-    latitude: 28.6139,
-    longitude: 77.209,
-  },
-  {
-    id: 'TGT-002',
-    name: 'Training Target Bravo',
-    type: 'bridge',
-    intelConfidence: 0.78,
-    latitude: 19.076,
-    longitude: 72.8777,
-  },
-  {
-    id: 'TGT-003',
-    name: 'Training Target Charlie',
-    type: 'c2-node',
-    intelConfidence: 0.65,
-    latitude: 13.0827,
-    longitude: 80.2707,
-  },
-];

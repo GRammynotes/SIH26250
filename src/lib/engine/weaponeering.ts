@@ -1,4 +1,5 @@
-﻿import { WEAPONS, optimalWeaponFor, type TargetType } from '../data/weapons';
+﻿import { WEAPONS, optimalWeaponFor } from '../data/weapons';
+import type { TargetType } from '../types';
 import type { Aircraft, Threat, Position } from '../types';
 
 function haversine(a: Position, b: Position): number {
@@ -182,4 +183,5 @@ export function wezRingsForAircraft(aircraft: Aircraft, targetType: TargetType):
       type: w.standoff ? 'optimal' : 'feasible',
     }));
 }
+
 
