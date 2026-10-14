@@ -28,6 +28,7 @@
   import SystemGuide from './lib/components/panels/SystemGuide.svelte';
 import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   import ComprehensiveDemo from './lib/components/rail/ComprehensiveDemo.svelte';
+  import ArcViewer from './lib/components/rail/ArcViewer.svelte';
   import { narrateUtterance } from './lib/engine/voice';
   import { distanceKm, focusMapElements } from './lib/engine/mapNarrative';
   import type { DecisionBranch } from './lib/data/historicalMissions';
@@ -66,6 +67,8 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let railMode = $state<'demo' | 'training' | 'sim' | null>(null);
   let railCollapsed = $state(false);
   let railWidth = $state(380);
+  let arcViewer = $state<{ entityType: 'aircraft' | 'missile'; entityId: string; missionId: string } | null>(null);
+  let railExitTimer: ReturnType<typeof setTimeout> | undefined;
   let railResizing = $state(false);
   type PastDecision = { at: number; title: string; choice: string };
   let pastDecisions = $state<PastDecision[]>([]);
@@ -273,6 +276,10 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     window.addEventListener('aircommand:select-right-tab', handleSelectRightTab);
     window.addEventListener('aircommand:map-open-panel', handleMapOpenPanel);
     window.addEventListener('aircommand:tour-target', handleTourTarget);
+    const handleArcViewer = (event: Event) => { arcViewer = (event as CustomEvent<NonNullable<typeof arcViewer>>).detail; };
+    const clearArcViewer = () => arcViewer = null;
+    window.addEventListener('aircommand:arc-viewer', handleArcViewer);
+    window.addEventListener('aircommand:arc-viewer-clear', clearArcViewer);
     const saved = readCollapsedState();
     leftCollapsed = saved.left ?? false; rightCollapsed = saved.right ?? false; logCollapsed = saved.log ?? false;
     panelVisibility = { ...panelVisibility, ...(saved.visibility ?? {}) };
@@ -281,7 +288,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       if (rightCollapsed) rightPane?.resize(3);
       if (logCollapsed) logPane?.resize(3);
     });
-    return () => { window.removeEventListener('aircommand:mission-brief', handleMissionBrief); window.removeEventListener('aircommand:select-right-tab', handleSelectRightTab); window.removeEventListener('aircommand:map-open-panel', handleMapOpenPanel); window.removeEventListener('aircommand:tour-target', handleTourTarget); };
+    return () => { window.removeEventListener('aircommand:mission-brief', handleMissionBrief); window.removeEventListener('aircommand:select-right-tab', handleSelectRightTab); window.removeEventListener('aircommand:map-open-panel', handleMapOpenPanel); window.removeEventListener('aircommand:tour-target', handleTourTarget); window.removeEventListener('aircommand:arc-viewer', handleArcViewer); window.removeEventListener('aircommand:arc-viewer-clear', clearArcViewer); };
   });
 
   function toggleLeftPane() { leftCollapsed = !leftCollapsed; persistCollapsedState(); leftPane?.resize(leftCollapsed ? 3 : 15); }
@@ -428,6 +435,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   function startDemo() {
     closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false;
     demoActive = true;
+    system.enterFocusMode(system.scenarioMissions[0]?.id ?? null);
     railMode = 'demo'; railCollapsed = false;
     comprehensiveDemoOpen = true;
   }
@@ -440,10 +448,10 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     simulationOpen = true;
   }
 
-  function startProbabilisticSimulation() { closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false; demoActive = false; railMode = 'sim'; railCollapsed = false; comprehensiveDemoOpen = false; probabilisticSimOpen = true; }
+  function startProbabilisticSimulation() { closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false; demoActive = false; system.enterFocusMode(system.scenarioMissions[0]?.id ?? null); railMode = 'sim'; railCollapsed = false; comprehensiveDemoOpen = false; probabilisticSimOpen = true; }
   function closeWelcome() { welcomeOpen = false; try { localStorage.setItem('aircommand.seen', 'true'); } catch {} }
   function replayWelcome() { try { localStorage.removeItem('aircommand.seen'); } catch {} welcomeOpen = true; }
-  function closeExperienceRail() { railMode = null; demoActive = false; comprehensiveDemoOpen = false; }
+  function closeExperienceRail() { railMode = null; demoActive = false; comprehensiveDemoOpen = false; arcViewer = null; system.exitFocusMode(); if (railExitTimer) clearTimeout(railExitTimer); }
   function resizeRail(event: PointerEvent) { if (railResizing) railWidth = Math.min(500, Math.max(320, innerWidth - event.clientX)); }
   function endRailResize() { railResizing = false; }
   function selectRailMode(mode: 'demo' | 'training' | 'sim') {
@@ -486,6 +494,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     if (event.ctrlKey && event.key.toLowerCase() === 'k') { event.preventDefault(); commandPaletteOpen = true; return; }
     const target = event.target as HTMLElement | null;
     if (event.key === 'Escape') {
+      if (system.focusMode?.active) { system.exitFocusMode(); event.stopImmediatePropagation(); return; }
+      if (comprehensiveDemoOpen || railMode) { closeExperienceRail(); return; }
+      if (mapFullscreen) { toggleMapFullscreen(); return; }
       const topModal = [...modalStack].reverse().find((id) => activeModalIds.includes(id) && !minimizedModals.includes(id));
       if (topModal) { closeModal(topModal); return; }
       if (commandPaletteOpen) { commandPaletteOpen = false; return; }
@@ -558,7 +569,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
 <TooltipLayer />
 <CaptionLayer />
 <FocusPointer />
-<div class="shell" class:fullscreen={mapFullscreen} class:scenario-hidden={!panelVisibility.scenarioBar} class:focus-mode={focusMode} class:demo-locked={comprehensiveDemoOpen} class:rail-open={!!railMode && !mapFullscreen} style={`--rail-width:${railCollapsed ? 32 : railWidth}px`} data-fullscreen={mapFullscreen ? 'true' : 'false'}>
+<div class="shell" class:fullscreen={mapFullscreen} class:scenario-hidden={!panelVisibility.scenarioBar} class:focus-mode={focusMode} class:demo-locked={comprehensiveDemoOpen} class:rail-open={!!railMode && !mapFullscreen} style={`--rail-width:${railCollapsed ? 32 : arcViewer ? 420 : railWidth}px`} data-fullscreen={mapFullscreen ? 'true' : 'false'}>
   {#if !mapFullscreen}
   <TopBar
     aircraftCount={system.aircraft.length}
@@ -672,7 +683,8 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
           <button class="rail-close" title="Close rail" aria-label="Close experience rail" onclick={closeExperienceRail}>×</button>
         </div>
         <div class="mode-orientation" class:training={railMode === 'training'} class:sim={railMode === 'sim'} title={railMode === 'training' ? 'Practice a historical mission and make commander decisions.' : railMode === 'sim' ? 'Evaluate plan robustness through weighted probabilistic outcomes.' : 'Watch a guided walkthrough of system capabilities.'}>[{railMode === 'training' ? 'TRAINING' : railMode === 'sim' ? 'SIM' : 'DEMO'}]</div>
-        <div class="rail-content" class:rail-hidden={railMode !== 'demo'}><ComprehensiveDemo open={comprehensiveDemoOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} onComplete={() => { demoCompleteOpen = true; closeExperienceRail(); }} /></div>
+        {#if arcViewer}<ArcViewer {...arcViewer} />{/if}
+        <div class="rail-content" class:rail-hidden={railMode !== 'demo'}><ComprehensiveDemo open={comprehensiveDemoOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} onComplete={() => { if (railExitTimer) clearTimeout(railExitTimer); railExitTimer = setTimeout(closeExperienceRail, 5000); }} /></div>
         <div class="rail-content" class:rail-hidden={railMode !== 'training'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if SimulationModal}<SimulationModal open={simulationOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
         <div class="rail-content" class:rail-hidden={railMode !== 'sim'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if ProbabilisticSimulation}<ProbabilisticSimulation open={probabilisticSimOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
         {#if railMode !== 'demo' && pending?.pendingDecision}
