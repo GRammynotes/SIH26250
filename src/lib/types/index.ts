@@ -32,6 +32,7 @@ export interface Mission {
   assignedAircraft: string[];
   status: MissionStatus;
   riskLevel: number;
+  feasible: boolean;
 }
 
 export interface Threat {

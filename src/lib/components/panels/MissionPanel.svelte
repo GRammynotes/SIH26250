@@ -51,7 +51,12 @@
       <div class="row">
         <div class="line1">
           <span class="name">{m.name}</span>
-          <span class="pri" style="color:{priColor(m.priority)};border-color:{priColor(m.priority)};">P{m.priority}</span>
+          <div class="line1-right">
+            {#if !m.feasible}
+              <span class="infeasible-badge">INFEASIBLE</span>
+            {/if}
+            <span class="pri" style="color:{priColor(m.priority)};border-color:{priColor(m.priority)};">P{m.priority}</span>
+          </div>
         </div>
         <div class="line2">
           <span class="coords">{m.target.lat.toFixed(3)}N · {m.target.lng.toFixed(3)}E</span>
@@ -86,6 +91,12 @@
   .row:hover { background: var(--bg-elevated); }
   .line1 { display: flex; justify-content: space-between; align-items: center; }
   .name { color: var(--accent-amber); font-size: 10px; letter-spacing: 0.08em; }
+  .line1-right { display: flex; gap: 6px; align-items: center; }
+  .infeasible-badge {
+    font-size: 7px; padding: 1px 5px; border: 1px solid var(--accent-red);
+    color: var(--accent-red); letter-spacing: 0.1em; font-weight: 700;
+    background: rgba(255, 45, 124, 0.08);
+  }
   .pri { font-size: 9px; padding: 1px 5px; border: 1px solid; letter-spacing: 0.1em; }
   .line2 { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
   .coords { color: var(--text-muted); font-size: 9px; }

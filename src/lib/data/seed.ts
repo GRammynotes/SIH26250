@@ -72,6 +72,7 @@ function generateMissions(rand: Rand): Mission[] {
     assignedAircraft: [],
     status: 'PLANNED',
     riskLevel: Math.round(between(rand, 20, 80)),
+    feasible: spec.name !== 'IRON VEIL',
   }));
 }
 

@@ -536,8 +536,8 @@
   .rk-sub { font-size: 7.5px; color: var(--text-muted); letter-spacing: 0.1em; }
   .comparison { display: flex; flex-direction: column; gap: 6px; }
   .cmp-text { display: flex; flex-direction: column; gap: 4px; font-size: 8.5px; }
-  .cmp-line { line-height: 1.4; color: var(--text-secondary); }
-  .cmp-line.muted { color: var(--text-muted); font-size: 8px; }
+  .cmp-line { line-height: 1.4; color: var(--text-secondary); overflow-wrap: break-word; word-break: break-word; max-width: 100%; }
+  .cmp-line.muted { color: var(--text-muted); font-size: 8px; overflow-wrap: break-word; word-break: break-word; max-width: 100%; }
 
   /* FOOTER */
   footer {
