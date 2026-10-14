@@ -113,7 +113,7 @@
 
 {#if open}
   <section class="sim" aria-labelledby="sim-title">
-      <header><div><span class="eyebrow">AUTONOMOUS TRAINING RUN · HISTORICAL CASE STUDY</span><h2 id="sim-title">OP SINDOOR · DEEP STRIKE</h2><p>{history.date} · {history.targetType.toUpperCase()} · SIMULATED, NOT LIVE DATA</p></div><div class="rail-controls"><button class:active={autoDecision} onclick={() => { autoDecision = !autoDecision; if (!autoDecision && decisionTimer) clearTimeout(decisionTimer); }}>AUTO {autoDecision ? 'ON' : 'OFF'}</button><span>{simSpeed === 0 ? 'PAUSED' : `${simSpeed}X`}</span><button class="close" aria-label="Close simulation" onclick={() => onClose?.()}>×</button></div></header>
+      <header><div><span class="eyebrow">AUTONOMOUS TRAINING RUN · HISTORICAL CASE STUDY</span><h2 id="sim-title">OP SINDOOR · DEEP STRIKE</h2><p>{history.date} · {history.targetType.toUpperCase()} · SIMULATED, NOT LIVE DATA</p></div><div class="rail-controls"><button class:active={autoDecision} onclick={() => { autoDecision = !autoDecision; if (!autoDecision && decisionTimer) clearTimeout(decisionTimer); }}>AUTO {autoDecision ? 'ON' : 'OFF'}</button><button class:active={simSpeed === 2} onclick={() => onSpeedChange?.(simSpeed === 2 ? 1 : 2)} aria-label="Toggle 2x speed">⏩ {simSpeed === 2 ? '2x ON' : '2x'}</button><button class="close" aria-label="Close simulation" onclick={() => onClose?.()}>×</button></div></header>
       <div class="story"><strong>MISSION BRIEF</strong><p>{history.narrative}</p><button onclick={jumpToMap}>⌖ FOCUS TRAINING AREA</button></div>
       <div class="body">
         <section class="dialogue" aria-label="Commander and operations agent dialogue">
@@ -144,3 +144,4 @@
   footer { display:flex; justify-content:space-between; align-items:center; gap:5px; padding:9px 10px; border-top:1px solid var(--border-subtle); } footer span { margin-right:auto; color:var(--text-muted); font:7px var(--font-mono); letter-spacing:.05em; }
   @media(max-width:760px) { footer { flex-wrap:wrap; } footer span { width:100%; } }
 </style>
+

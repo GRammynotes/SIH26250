@@ -1,6 +1,4 @@
 import { system } from '../stores/systemStore.svelte';
-import { GROUND_ASSETS } from '../data/groundAssets';
-import { ENEMY_ASSETS } from '../data/enemyAssets';
 
 export interface NarrativeMarker { kind: string; label: string; id: string; lat: number; lng: number }
 

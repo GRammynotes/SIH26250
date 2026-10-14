@@ -28,11 +28,12 @@
       timer = window.setTimeout(() => { markers = []; plainText = ''; }, Math.min(3000, detail.duration || 3000));
       refresh();
     };
+    const clear = () => { markers = []; plainText = ''; window.clearTimeout(timer); };
     window.addEventListener('aircommand:map-narrative-markers', receive);
-    window.addEventListener('aircommand:focus-clear', () => { markers = []; plainText = ''; window.clearTimeout(timer); });
+    window.addEventListener('aircommand:focus-clear', clear);
     map.on('move', refresh);
     window.addEventListener('resize', refresh);
-    return () => { window.removeEventListener('aircommand:map-narrative-markers', receive); map.off('move', refresh); window.removeEventListener('resize', refresh); window.clearTimeout(timer); cancelAnimationFrame(refreshFrame); };
+    return () => { window.removeEventListener('aircommand:map-narrative-markers', receive); window.removeEventListener('aircommand:focus-clear', clear); map.off('move', refresh); window.removeEventListener('resize', refresh); window.clearTimeout(timer); cancelAnimationFrame(refreshFrame); };
   });
 </script>
 

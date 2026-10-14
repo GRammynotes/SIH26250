@@ -362,7 +362,7 @@
           >
             {voiceEnabled ? '◉ VOICE ON' : '○ VOICE OFF'}
           </button>
-          <span class="control-speed" aria-live="polite">{simSpeed === 0 ? 'PAUSED' : `${simSpeed}X PLAYBACK`}</span>
+          <button class="control-btn" class:active={simSpeed === 2} onclick={() => onSpeedChange?.(simSpeed === 2 ? 1 : 2)} aria-label="Toggle 2x speed">⏩ {simSpeed === 2 ? '2x ON' : '2x'}</button>
           <button
             class="control-btn"
             onclick={togglePause}
