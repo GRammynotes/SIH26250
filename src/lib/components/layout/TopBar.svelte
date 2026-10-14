@@ -7,7 +7,7 @@
     aircraftCount = 0, missionCount = 0, threatCount = 0,
     onFlowClick, onReferenceClick, onMetricsClick, onDemoClick, onSimulationClick, onMapLegendClick,
     onGlossaryClick, onShortcutHelpClick, onGuideClick, onGenerate, onReset, onDegradedToggle,
-    onLayerToggle, demoActive = false, modalCount = 0,
+    onLayerToggle, demoActive = false, modalCount = 0, onResetLayout, onToggleFocusLock, focusLocked = true, railActive = false, panelVisibility = {},
     onPanelToggle, onShowAllPanels, onHideAllPanels,
   }: {
     aircraftCount?: number; missionCount?: number; threatCount?: number;
@@ -16,6 +16,7 @@
     onGenerate?: () => void; onReset?: () => void; onDegradedToggle?: () => void;
     onLayerToggle?: (layer: string) => void; demoActive?: boolean; modalCount?: number;
     onPanelToggle?: (key: string, visible: boolean) => void; onShowAllPanels?: () => void; onHideAllPanels?: () => void;
+    onResetLayout?: () => void; onToggleFocusLock?: () => void; focusLocked?: boolean; railActive?: boolean; panelVisibility?: Record<string, boolean>;
   } = $props();
 
   let zulu = $state('00:00:00');
@@ -58,13 +59,11 @@
         {#if openMenu === menu}
           <div class="menu-panel" role="menu" onclick={(event) => event.stopPropagation()}>
             {#if menu === 'VIEW'}
-              {#each layers as [label, key]}
-                <button role="menuitemcheckbox" aria-checked="false" onclick={() => action(() => onLayerToggle?.(key))}><span>◈ {label}</span><span class="menu-arrow">›</span></button>
-              {/each}
-              <div class="menu-divider"></div><div class="panel-visibility" aria-label="Panel visibility controls">
-                {#each panels as [label, key]}<button role="menuitem" onclick={() => action(() => onPanelToggle?.(key, true))}>SHOW {label}</button>{/each}
-                <button role="menuitem" onclick={() => action(onShowAllPanels)}>SHOW ALL</button><button role="menuitem" onclick={() => action(onHideAllPanels)}>HIDE ALL</button>
-              </div>
+              <details class="submenu"><summary>MAP LAYERS ▸</summary>{#each layers as [label, key]}<button role="menuitemcheckbox" aria-checked="false" onclick={() => onLayerToggle?.(key)}><span>☐ {label}</span></button>{/each}</details>
+              <details class="submenu"><summary>PANELS ▸</summary>{#each panels as [label, key]}<button role="menuitemcheckbox" aria-checked={panelVisibility[key] !== false} onclick={() => onPanelToggle?.(key, panelVisibility[key] === false)}><span>{panelVisibility[key] === false ? '☐' : '☑'} {label}</span></button>{/each}</details>
+              <div class="menu-divider"></div>
+              <button role="menuitem" onclick={() => action(onShowAllPanels)}>RESTORE ALL PANELS</button>
+              <button role="menuitem" onclick={() => action(onResetLayout)}>RESET LAYOUT <kbd>Ctrl+Shift+R</kbd></button>
             {:else if menu === 'TOOLS'}
               <button role="menuitem" onclick={() => action(onGenerate)}>▸ GENERATE COA <kbd>G</kbd></button>
               <button role="menuitem" class:enabled={system.continuousReoptimization} onclick={() => action(() => system.toggleContinuousReoptimization())}>◈ AUTO-OPT {system.continuousReoptimization ? 'ON' : 'OFF'}</button>
@@ -72,15 +71,16 @@
               <button role="menuitem" onclick={() => action(onReferenceClick)}>◈ REFERENCE <kbd>R</kbd></button>
               <button role="menuitem" onclick={() => action(onFlowClick)}>◈ MISSION FLOW <kbd>F</kbd></button>
             {:else if menu === 'HELP'}
-              <button role="menuitem" onclick={() => action(onGlossaryClick)}>◈ GLOSSARY</button>
-              <button role="menuitem" onclick={() => action(onShortcutHelpClick)}>⌨ SHORTCUTS</button>
-              <button role="menuitem" onclick={() => action(onMapLegendClick)}>◈ MAP LEGEND <kbd>L</kbd></button>
               <button role="menuitem" onclick={() => action(onDemoClick)}>◈ COMPREHENSIVE DEMO <kbd>D</kbd></button>
               <button role="menuitem" onclick={() => action(onSimulationClick)}>◈ TRAINING SIMULATION <kbd>S</kbd></button>
-              <button role="menuitem" onclick={() => action(onGuideClick)}>◈ SYSTEM GUIDE</button>
+              <div class="menu-divider"></div>
+              <button role="menuitem" onclick={() => action(onShortcutHelpClick)}>⌨ KEYBOARD SHORTCUTS <kbd>?</kbd></button>
+              <button role="menuitem" onclick={() => action(onGlossaryClick)}>◈ GLOSSARY <kbd>⌘</kbd></button>
             {:else}
               <button role="menuitem" onclick={() => action(onReset)}>↻ RESET SYSTEM</button>
               <button role="menuitem" class:enabled={system.mode === 'DEGRADED'} onclick={() => action(onDegradedToggle)}>◈ DEGRADED MODE {system.mode === 'DEGRADED' ? 'ON' : 'OFF'}</button>
+              <button role="menuitem" disabled={!railActive} onclick={() => action(onToggleFocusLock)}>◈ TOGGLE FOCUS LOCK {focusLocked ? 'ON' : 'OFF'}</button>
+              <button role="menuitem" onclick={() => action(onResetLayout)}>↻ GLOBAL LAYOUT RESET <kbd>Ctrl+Shift+R</kbd></button>
             {/if}
           </div>
         {/if}
@@ -112,9 +112,13 @@
   .menu-trigger { position:relative; height:100%; padding:0 10px; background:transparent; border:0; color:var(--text-secondary); font:9px var(--font-mono); letter-spacing:.16em; cursor:pointer; }
   .menu-trigger::after { content:''; position:absolute; bottom:5px; left:10px; right:10px; height:1px; background:var(--accent-cyan); transform:scaleX(0); transition:transform .18s ease; }
   .menu-trigger:hover::after,.menu-trigger.open::after { transform:scaleX(1); } .menu-trigger:hover,.menu-trigger.open { color:var(--accent-cyan); }
-  .menu-panel { position:absolute; top:31px; left:0; min-width:190px; padding:5px; background:var(--bg-panel); border:1px solid var(--accent-cyan); box-shadow:0 8px 24px rgba(0,0,0,.55); display:flex; flex-direction:column; gap:2px; z-index:50; }
+  .menu-panel { position:absolute; top:31px; left:0; min-width:230px; max-height:min(75vh,620px); overflow:auto; padding:5px; background:var(--bg-panel); border:1px solid var(--accent-cyan); box-shadow:0 8px 24px rgba(0,0,0,.55); display:flex; flex-direction:column; gap:2px; z-index:50; }
+  .submenu summary { padding:9px 10px; color:var(--accent-cyan); cursor:pointer; list-style:none; border:1px solid var(--border-subtle); }
+  .submenu summary::-webkit-details-marker { display:none; }
+  .submenu button { width:100%; padding-left:18px; }
   .menu-panel button { display:flex; justify-content:space-between; align-items:center; padding:9px 10px; border:1px solid transparent; background:transparent; color:var(--text-secondary); text-align:left; font:9px var(--font-mono); letter-spacing:.1em; cursor:pointer; }
   .menu-panel button:hover,.menu-panel button:focus-visible { border-color:var(--border-strong); color:var(--accent-cyan); outline:none; } .menu-panel button.enabled { color:var(--accent-green); } .menu-arrow { color:var(--text-muted); }
+  .menu-panel button:disabled { opacity:.4; cursor:not-allowed; }
   .menu-divider { height:1px; background:var(--border-subtle); margin:4px 0; }.panel-visibility { max-height:260px; overflow:auto; }
   .indicators { display:flex; align-items:center; gap:6px; margin:0 4px; } .indicator { font-size:8px; font-weight:700; animation:indicator-pulse 1.5s infinite; } .indicator.link { color:var(--accent-green); } .indicator.recompute { color:var(--accent-amber); } .indicator.degraded { color:var(--accent-red); } .indicator.demo { color:var(--accent-cyan); } kbd { margin-left:7px; padding:1px 3px; border:1px solid var(--border-strong); color:var(--accent-cyan); font:8px var(--font-mono); }
   .security-status { display:flex; align-items:center; gap:4px; color:var(--accent-green); white-space:nowrap; font-size:8px; }.security-status i { display:grid; place-items:center; width:12px; height:12px; border:1px solid currentColor; font-style:normal; font-weight:700; }.security-status.warn { color:var(--accent-amber); }.security-status.bad { color:var(--accent-red); }.operator { white-space:nowrap; color:var(--accent-cyan); font-size:8px; }
