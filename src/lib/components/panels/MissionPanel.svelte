@@ -163,4 +163,13 @@
   .launch:hover { background: rgba(57,255,20,0.1); box-shadow: 0 0 8px rgba(57,255,20,0.4); }
   .state-active { color: var(--accent-cyan); font-size: 8px; letter-spacing: 0.15em; animation: pulse 1.4s ease-in-out infinite; }
   .state-complete { color: var(--accent-green); font-size: 8px; letter-spacing: 0.15em; }
+  @media (max-width: 1100px) {
+    .hdr { gap: 3px; padding: 8px 6px 5px; font-size: 7px; letter-spacing: .08em; white-space: nowrap; }
+    .hdr .count { display: none; }
+    .hdr-actions { gap: 1px; }
+    .chevron { padding: 2px; }
+    .mission-tools { padding: 5px; }
+    .chips { flex-wrap: wrap; }
+    .chips button { padding: 3px 4px; font-size: 6px; }
+  }
 </style>

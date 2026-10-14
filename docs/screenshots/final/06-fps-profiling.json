@@ -1,8 +1,9 @@
 {
-  "fcp": 1056,
-  "fps_mean": 4.23,
-  "fps_min": 3.8,
-  "bundle_kb": 2098.28,
+  "fcp": 660,
+  "fps_mean": 6.94,
+  "fps_min": 6,
+  "bundle_kb": 2098.41,
   "mission_started": true,
-  "url": "https://ps2-sih-26250.vercel.app/"
+  "measurement": "Headless Chromium requestAnimationFrame samples during scripted map panning",
+  "url": "http://localhost:5173/"
 }

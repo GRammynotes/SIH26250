@@ -517,7 +517,9 @@
       if (map.getLayer('hillshade-base')) map.setLayoutProperty('hillshade-base', 'visibility', hillshadeVisibility);
       if (map.getLayer('hillshade-detail')) map.setLayoutProperty('hillshade-detail', 'visibility', hillshadeVisibility);
       for (const base of baseMarkersList) {
-        base.el.style.display = zoom < 3.2 ? 'none' : '';
+        // At theater scale show the aggregate force badge only; individual
+        // installations and units become useful once the operator zooms in.
+        base.el.style.display = zoom < 4 ? 'none' : '';
         const symbol = base.el.querySelector<HTMLElement>('.mil-symbol');
         if (symbol) { symbol.style.transform = `scale(${Math.max(.55, Math.min(1, .55 + (zoom - 3.2) * .16))})`; symbol.style.transformOrigin = 'center'; }
         const sweep = base.el.querySelector<HTMLElement>('.radar-sweep');
@@ -1071,6 +1073,11 @@
             </div>`)).addTo(map));
       }
     }
+    // Markers can be added by a store update after the last zoom event. Apply
+    // the theater-scale declutter rule here as well as in the zoom listener.
+    const hideIndividualMarkers = map.getZoom() < 4;
+    for (const marker of dynamicMarkers) marker.getElement().style.display = hideIndividualMarkers ? 'none' : '';
+    for (const marker of aircraftDomMarkers.values()) marker.getElement().style.display = hideIndividualMarkers ? 'none' : '';
       });
     }, 150);
     return () => { window.clearTimeout(debounce); if (frame) window.cancelAnimationFrame(frame); };

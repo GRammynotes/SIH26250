@@ -51,11 +51,11 @@ async function main() {
   page.on('pageerror', (error) => runtimeErrors.add(error.message));
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.locator('.maplibregl-canvas').waitFor({ state: 'visible', timeout: 60000 });
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(6000);
 
   async function save(relative, selector) {
     const path = resolve(output, relative);
-    if (selector) await page.locator(selector).waitFor({ state: 'visible', timeout: 7000 });
+    if (selector) await page.locator(selector).first().waitFor({ state: 'visible', timeout: 15000 });
     await page.screenshot({ path, fullPage: false, animations: 'disabled' });
     const info = await stat(path);
     if (info.size < 1000) throw new Error('Screenshot file is unexpectedly small');
@@ -71,15 +71,39 @@ async function main() {
   const clickLeftTab = async (name) => page.locator('.left-tabs button').filter({ hasText: name }).first().click();
   const clickRightTab = async (name) => page.locator('.right-tabs button[role="tab"]').filter({ hasText: name }).first().click();
   const scenario = (name) => page.locator('.scenario-bar button').filter({ hasText: name }).first();
-  const closeOverlays = async () => { await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(250); };
+  const selectScenario = async (name) => scenario(name).evaluate((element) => element.click());
+  const closeOverlays = async () => {
+    await page.evaluate(() => document.activeElement?.blur());
+    for (let i = 0; i < 3; i++) await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForTimeout(250);
+  };
+  const startTraining = async () => {
+    await page.locator('.menu-trigger').filter({ hasText: 'HELP' }).click();
+    await page.getByRole('menuitem', { name: /TRAINING SIMULATION/i }).click();
+    await page.getByRole('button', { name: /START SIMULATION/i }).click();
+    await page.waitForTimeout(1200);
+  };
+  const advanceTrainingUntil = async (predicate, limit = 48) => {
+    const phase = page.locator('.sim .state b');
+    const advance = page.getByRole('button', { name: /ADVANCE EXERCISE/i });
+    for (let i = 0; i < limit; i++) {
+      const current = (await phase.textContent().catch(() => ''))?.trim() ?? '';
+      if (predicate(current)) return current;
+      if (await advance.isEnabled().catch(() => false)) {
+        await advance.click();
+        await page.waitForTimeout(180);
+      } else await page.waitForTimeout(4800);
+    }
+    throw new Error(`Training did not reach requested state; last phase ${(await phase.textContent().catch(() => 'unknown'))?.trim()}`);
+  };
 
   await attempt('base/01-console-global-view.png', async () => {
-    await scenario('GLOBAL VIEW').click();
-    await page.waitForTimeout(1000);
+    await selectScenario('GLOBAL VIEW');
+    await page.waitForTimeout(4500);
   }, '.scenario-bar');
   await attempt('base/02-console-scenario-active.png', async () => {
-    await scenario('AIRCRAFT NMC').click();
-    await page.waitForTimeout(1200);
+    await selectScenario('AIRCRAFT NMC');
+    await page.waitForTimeout(6000);
   }, '.scenario-bar button[aria-pressed="true"]');
   await attempt('base/03-scenario-bar-closeup.png', async () => {}, '.scenario-bar');
   if (captured.includes('base/03-scenario-bar-closeup.png')) {
@@ -91,25 +115,19 @@ async function main() {
     await closeOverlays();
     await clickLeftTab('MISSIONS');
     await page.locator('.mission-block .quick-actions button').filter({ hasText: 'BRIEF' }).first().click();
-  }, '.layer:not(.hidden) [role="dialog"]');
+  }, '.layer:not(.hidden) .frame');
 
   await attempt('modals/05-decision-prompt.png', async () => {
     await closeOverlays();
-    await scenario('TRACK LOSS').click();
+    await selectScenario('TRACK LOSS');
     await page.waitForTimeout(500);
   }, '.layer:not(.hidden) [role="dialog"]');
 
   await attempt('modals/06-after-action-review.png', async () => {
     await closeOverlays();
-    await clickLeftTab('MISSIONS');
-    await page.locator('.mission-block .quick-actions button').filter({ hasText: 'BRIEF' }).first().click();
-    await page.waitForTimeout(400);
-    const choices = await page.locator('.layer:not(.hidden) button').allTextContents();
-    const execute = page.locator('.layer:not(.hidden) button').filter({ hasText: /EXECUTE|APPROVE|LAUNCH/i }).first();
-    if (!choices.some((text) => /EXECUTE|APPROVE|LAUNCH/i.test(text))) throw new Error('Mission briefing has no launch action');
-    await execute.click();
-    await page.waitForTimeout(22000);
-  }, '.layer:not(.hidden) [role="dialog"]');
+    await startTraining();
+    await advanceTrainingUntil((phase) => phase === 'COMPLETE');
+  }, '.layer:not(.hidden) :text("POST-MISSION INTELLIGENCE & EVALUATION")');
 
   await attempt('modals/07-metrics-dashboard.png', async () => {
     await closeOverlays();
@@ -123,8 +141,8 @@ async function main() {
 
   await attempt('modals/09-glossary.png', async () => {
     await closeOverlays();
-    await clickButton('HELP');
-    await clickButton('GLOSSARY');
+    await page.locator('.menu-trigger').filter({ hasText: 'HELP' }).click();
+    await page.getByRole('menuitem', { name: /GLOSSARY/i }).click();
   }, '.layer:not(.hidden) [aria-label="Glossary"]');
 
   await attempt('modals/10-shortcut-help.png', async () => {
@@ -133,24 +151,40 @@ async function main() {
   }, '.layer:not(.hidden) [aria-label="Keyboard shortcuts"]');
 
   await attempt('features/11-trajectory-mid-flight.png', async () => {
-    await closeOverlays();
-    await page.locator('.mission-block .quick-actions button').filter({ hasText: 'EXECUTE' }).first().click();
-    await page.waitForTimeout(2500);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('.maplibregl-canvas').waitFor({ state: 'visible', timeout: 60000 });
+    await page.waitForTimeout(3000);
+    await startTraining();
+    await page.waitForFunction(() => document.querySelector('.sim .state b')?.textContent?.trim() === 'WEZ', undefined, { timeout: 60000 });
+    await page.locator('.sim header button.close').click();
+    await page.waitForTimeout(250);
   }, '.trajectory-dot');
 
   await attempt('features/12-trajectory-impact.png', async () => {
-    await page.waitForTimeout(15000);
-  }, '.trajectory-impact-pulse');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('.maplibregl-canvas').waitFor({ state: 'visible', timeout: 60000 });
+    await page.waitForTimeout(3000);
+    await startTraining();
+    await page.waitForFunction(() => document.querySelector('.sim .state b')?.textContent?.trim() === 'RELEASE', undefined, { timeout: 90000 });
+    await page.locator('.sim header button.close').click();
+    await page.waitForTimeout(100);
+  }, '.impact-marker');
 
   await attempt('features/13-voice-caption-active.png', async () => {
-    await clickButton('AIR SUPERIORITY');
-    await page.locator('.mission-block .quick-actions button').filter({ hasText: 'BRIEF' }).first().click();
-    await page.waitForTimeout(350);
-    await page.locator('.layer:not(.hidden) button').filter({ hasText: /APPROVE|EXECUTE|LAUNCH/i }).first().click();
-  }, '.caption');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(5000);
+    await page.locator('.menu-trigger').filter({ hasText: 'HELP' }).click();
+    await page.getByRole('menuitem', { name: /TRAINING SIMULATION/i }).click();
+    await page.getByRole('button', { name: /START SIMULATION/i }).click();
+    await page.waitForTimeout(700);
+  }, '.captions .caption:first-of-type');
 
   await attempt('features/14-focus-pointer.png', async () => {
-    await page.waitForTimeout(800);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(5000);
+    await page.locator('.menu-trigger').filter({ hasText: 'TOOLS' }).click();
+    await page.getByRole('menuitem', { name: /GENERATE COA/i }).click();
+    await page.waitForTimeout(1200);
   }, '.focus-layer .ring');
 
   await attempt('features/15-weapon-matrix.png', async () => {
@@ -168,39 +202,52 @@ async function main() {
 
   await attempt('features/18-3d-terrain.png', async () => {
     await closeOverlays();
-    await page.getByRole('checkbox', { name: /3D terrain/i }).click();
-    await page.waitForTimeout(800);
+    await page.locator('.terrain-btn').click();
+    await page.waitForTimeout(3000);
   }, '.map-wrap');
 
   await attempt('states/19-track-loss-decision.png', async () => {
-    await closeOverlays();
-    await scenario('TRACK LOSS').click();
-    await page.waitForTimeout(700);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('.maplibregl-canvas').waitFor({ state: 'visible', timeout: 60000 });
+    await page.waitForTimeout(3000);
+    await selectScenario('GLOBAL VIEW');
+    await selectScenario('TRACK LOSS');
+    await page.waitForTimeout(1500);
   }, '.layer:not(.hidden) [role="dialog"]');
 
   await attempt('states/20-data-poisoning-detected.png', async () => {
-    await closeOverlays();
-    await scenario('DATA POISONING').click();
-    await page.waitForTimeout(2600);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('.maplibregl-canvas').waitFor({ state: 'visible', timeout: 60000 });
+    await page.waitForTimeout(3000);
+    if (await page.locator('.voice-toggle').getAttribute('aria-pressed') === 'true') await page.locator('.voice-toggle').click();
+    await selectScenario('DATA POISONING');
+    await page.getByText(/CROSS-SENSOR VALIDATION FAILED · TRACK ID 4421 FLAGGED SPOOFED · CONFIDENCE 92%/i).waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForTimeout(120);
   }, '.map-wrap');
 
   await attempt('states/21-degraded-mode.png', async () => {
     await closeOverlays();
-    await scenario('RADAR LOSS').click();
+    await selectScenario('RADAR LOSS');
     await page.waitForTimeout(900);
   }, '.map-wrap .degraded');
 
   await attempt('states/22-loadout-su30.png', async () => {
     await closeOverlays();
+    await selectScenario('GLOBAL VIEW');
     await clickLeftTab('FORCE ROSTER');
-    await page.locator('.list .row').filter({ hasText: 'Su-30MKI' }).first().locator('button', { hasText: 'LOADOUT' }).click();
-  }, '.layer:not(.hidden) [role="dialog"]');
+    await page.locator('.aircraft-viewport').evaluate((element) => element.scrollTo({ top: 0 }));
+    await page.waitForTimeout(350);
+    await page.locator('.list .row').filter({ hasText: 'SB-301' }).first().locator('button', { hasText: 'LOADOUT' }).click();
+  }, '.layer:not(.hidden) .frame');
 
   await attempt('states/23-loadout-rafale.png', async () => {
     await closeOverlays();
+    await selectScenario('GLOBAL VIEW');
     await clickLeftTab('FORCE ROSTER');
-    await page.locator('.list .row').filter({ hasText: 'Rafale' }).first().locator('button', { hasText: 'LOADOUT' }).click();
-  }, '.layer:not(.hidden) [role="dialog"]');
+    await page.locator('.aircraft-viewport').evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+    await page.waitForTimeout(500);
+    await page.locator('.list .row').filter({ hasText: 'RB-202' }).first().locator('button', { hasText: 'LOADOUT' }).click();
+  }, '.layer:not(.hidden) .frame');
 
   await browser.close();
   const failureLines = failed.map(({ file, reason }) => `${file}: ${reason}`);

@@ -411,4 +411,20 @@
     background: rgba(0, 212, 255, 0.2);
     box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
   }
+  .frame.inline { min-width:0; max-width:100%; }
+  .frame.inline header { min-width:0; padding:9px 11px; }
+  .frame.inline .title-row { flex-wrap:wrap; gap:5px; }
+  .frame.inline header h2 { font-size:11px; line-height:1.35; letter-spacing:.08em; }
+  .frame.inline .live-pill { white-space:normal; font-size:7px; }
+  .frame.inline .sub { font-size:7px; line-height:1.4; letter-spacing:.06em; }
+  .frame.inline .body-scroll { min-width:0; overflow-x:hidden; padding:10px; gap:12px; }
+  .frame.inline .sec-hdr { flex-wrap:wrap; }
+  .frame.inline .sec-hdr h3 { flex:1; font-size:9px; line-height:1.35; letter-spacing:.08em; }
+  .frame.inline .sec-meta { width:100%; margin-left:18px; }
+  .frame.inline .grid-4,.frame.inline .grid-3 { grid-template-columns:minmax(0,1fr); gap:6px; }
+  .frame.inline .stat-card { min-width:0; padding:8px; overflow-wrap:anywhere; }
+  .frame.inline .time-main { flex-direction:column; align-items:stretch; }
+  .frame.inline .time-box { padding:9px; gap:9px; }
+  .frame.inline footer { padding:8px; gap:5px; flex-wrap:wrap; }
+  .frame.inline .footer-left { font-size:7px; line-height:1.4; }
 </style>

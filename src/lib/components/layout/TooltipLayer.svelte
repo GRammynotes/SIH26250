@@ -38,7 +38,11 @@
     }, 400);
   }
 
-  function hide() { clearTimeout(timer); activeTarget = null; text = ''; }
+  function hide() {
+    clearTimeout(timer);
+    activeTarget = null;
+    queueMicrotask(() => text = '');
+  }
 
   onMount(() => {
     document.querySelectorAll<HTMLButtonElement>('button[title]').forEach(labelButton);

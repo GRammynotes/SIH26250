@@ -96,6 +96,7 @@
   .row:hover,.row:focus-visible { background: var(--bg-elevated); outline:1px solid var(--accent-cyan); outline-offset:-1px; }
   .quick-actions { display:flex; justify-content:flex-end; gap:4px; margin-top:4px; opacity:0; transition:opacity .15s; }
   .row:hover .quick-actions,.row:focus-within .quick-actions { opacity:1; }
+  @media (max-width:1100px) { .hdr { gap:3px; padding:8px 6px 5px; font-size:7px; letter-spacing:.08em; white-space:nowrap; }.hdr .count { display:none; }.hdr-actions { gap:1px; }.chevron { padding:2px; }.sub { justify-content:space-between; gap:3px; padding:0 6px 6px; font-size:6px; letter-spacing:0; }.asset-tools { justify-content:flex-start; }.chips { flex-wrap:wrap; gap:2px; }.chips button,.sort-toggle { padding:3px; font-size:6px; } }
   .quick-actions button,.mission-choices button { padding:3px 5px; border:1px solid var(--border-strong); color:var(--accent-cyan); background:transparent; font:7px var(--font-mono); cursor:pointer; }
   .mission-choices { display:flex; flex-wrap:wrap; gap:4px; padding-top:5px; }
   .mission-choices span,.details { color:var(--text-muted); font:8px var(--font-mono); padding-top:5px; }

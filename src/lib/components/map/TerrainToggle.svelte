@@ -7,7 +7,7 @@ function toggle() {
 }
 </script>
 
-<button class="terrain-btn" class:active={enabled} aria-pressed={enabled} onclick={toggle} title="Toggle 3D terrain">
+<button class="terrain-btn" class:active={enabled} aria-label="Toggle 3D terrain" aria-pressed={enabled} onclick={toggle} title="Toggle 3D terrain">
   ◢ {enabled ? '3D ON' : '3D'}
 </button>
 
