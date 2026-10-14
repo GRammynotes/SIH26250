@@ -11,6 +11,7 @@
   import { system } from '../../stores/systemStore.svelte';
   import { SCENARIO_AREAS } from '../../engine/scenario';
   import { createTrailPathDeriver } from '../../engine/mapTrailCache';
+  import { experienceBounds } from '../../data/scenarioBounds';
   import TacticalReadout from './TacticalReadout.svelte';
 
   let {
@@ -32,6 +33,7 @@
   let container: HTMLDivElement;
   let map: maplibregl.Map | null = null;
   let mapReady = $state(false);
+  let mapFocusLocked = false;
   let mapZoom = $state(3.8);
   let mapCenterLabel = $state('31.0°N / 79.0°E');
   let aircraftLayerClickAttached = false;
@@ -322,6 +324,25 @@
   }
 
   onMount(() => {
+    const applyFocusLock = (locked: boolean) => {
+      mapFocusLocked = locked;
+      if (!map) return;
+      if (locked) { map.dragPan.disable(); map.scrollZoom.disable(); map.doubleClickZoom.disable(); map.keyboard.disable(); }
+      else { map.dragPan.enable(); map.scrollZoom.enable(); map.doubleClickZoom.enable(); map.keyboard.enable(); }
+    };
+    const handleFocusLock = (event: Event) => applyFocusLock(Boolean((event as CustomEvent<boolean>).detail));
+    const refocus = () => map?.fitBounds(experienceBounds(system.activeScenarioFilter ?? 'deep_strike'), { padding: 80, duration: 1200 });
+    const handleExperienceMode = (event: Event) => {
+      const { mode, scenario } = (event as CustomEvent<{ mode: string | null; scenario: string | null }>).detail;
+      if (mode) {
+        const key = scenario ?? (mode === 'training' ? 'deep_strike' : null);
+        map?.fitBounds(experienceBounds(key), { padding: 80, duration: 1200 });
+        applyFocusLock(true);
+      }
+    };
+    window.addEventListener('aircommand:focus-lock', handleFocusLock);
+    window.addEventListener('aircommand:refocus', refocus);
+    window.addEventListener('aircommand:experience-mode', handleExperienceMode);
     const handleLayerToggle = (event: Event) => {
       const layer = (event as CustomEvent<string>).detail;
       const toggles: Record<string, () => void> = {
@@ -468,6 +489,9 @@
 
     return () => {
       window.removeEventListener('aircommand:diagram-focus', onDiagramFocus);
+      window.removeEventListener('aircommand:focus-lock', handleFocusLock);
+      window.removeEventListener('aircommand:refocus', refocus);
+      window.removeEventListener('aircommand:experience-mode', handleExperienceMode);
       if (diagramExplanationTimer) clearTimeout(diagramExplanationTimer);
       window.removeEventListener('aircommand:map-layer', handleLayerToggle);
       window.removeEventListener('aircommand:terrain-3d', handleTerrain3d);
@@ -530,7 +554,7 @@
     const aircraft = system.scenarioAircraft;
     const missions = system.scenarioMissions;
     const threats = system.scenarioThreats;
-    const area = scenarioKey ? SCENARIO_AREAS[scenarioKey] : null;
+    const area = scenarioKey ? (SCENARIO_AREAS[scenarioKey] ?? experienceBounds(scenarioKey)) : null;
     const inArea = (points: { lng: number; lat: number }[]) => !area || points.some((p) => p.lng >= area[0][0] && p.lng <= area[1][0] && p.lat >= area[0][1] && p.lat <= area[1][1]);
     const airspace = scenarioKey ? system.airspaceZones.filter((zone) => inArea(zone.polygon)) : system.airspaceZones;
     const weather = scenarioKey ? system.weatherSystems.filter((item) => inArea(item.polygon)) : system.weatherSystems;

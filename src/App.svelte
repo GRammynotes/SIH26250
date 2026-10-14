@@ -27,7 +27,7 @@
   import FocusPointer from './lib/components/overlay/FocusPointer.svelte';
   import SystemGuide from './lib/components/panels/SystemGuide.svelte';
 import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
-  import ComprehensiveDemo from './lib/components/panels/ComprehensiveDemo.svelte';
+  import ComprehensiveDemo from './lib/components/rail/ComprehensiveDemo.svelte';
   import MapLegend from './lib/components/map/MapLegend.svelte';
   import { narrateUtterance } from './lib/engine/voice';
 
@@ -58,6 +58,12 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let demoCompleteOpen = $state(false);
   let demoActive = $state(false);
   let comprehensiveDemoOpen = $state(false);
+  let railMode = $state<'demo' | 'training' | 'sim' | null>(null);
+  let railCollapsed = $state(false);
+  let railWidth = $state(380);
+  let railResizing = $state(false);
+  let doubleSpeed = $state(false);
+  let mapFocusLocked = $state(true);
   let mapLegendOpen = $state(false);
   let commandPaletteOpen = $state(false);
   let modalStack = $state<string[]>([]);
@@ -95,13 +101,13 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     ...IAF_BASES.map((item) => ({ id: `base-${item.id}`, label: `${item.name} · ${item.code}`, category: 'BASE', keywords: item.id, kind: 'base' as const, targetId: item.id })),
   ]);
   let activeModalIds = $derived([
-    ...(pending && !simulationOpen ? ['decision'] : []), ...(trackLossOpen ? ['track-loss'] : []),
+    ...(pending && !railMode ? ['decision'] : []), ...(trackLossOpen ? ['track-loss'] : []),
     ...(flowOpen ? ['mission-flow'] : []), ...(loadoutOpen ? ['loadout'] : []),
     ...(referenceOpen ? ['reference'] : []), ...(briefingMissionId ? ['briefing'] : []),
     ...(aarMissionId ? ['aar'] : []), ...(metricsOpen ? ['metrics'] : []),
     ...(shortcutHelpOpen ? ['shortcuts'] : []), ...(glossaryOpen ? ['glossary'] : []),
     ...(demoCompleteOpen ? ['demo-complete'] : []), ...(commandPaletteOpen ? ['command-palette'] : []),
-    ...(simulationOpen ? ['simulation'] : []), ...(probabilisticSimOpen ? ['probabilistic-sim'] : []), ...(comprehensiveDemoOpen ? ['comprehensive-demo'] : []),
+    ...(comprehensiveDemoOpen ? ['comprehensive-demo'] : []),
     ...(mapLegendOpen ? ['map-legend'] : []),
   ]);
   let previousModalIds: string[] = [];
@@ -191,8 +197,8 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     if (loadoutOpen && !LoadoutModal) void import('./lib/components/panels/LoadoutModal.svelte').then((module) => LoadoutModal = module.default);
     if (referenceOpen && !ReferenceLibrary) void import('./lib/components/panels/ReferenceLibrary.svelte').then((module) => ReferenceLibrary = module.default);
     if (aarMissionId && !AfterActionReview) void import('./lib/components/panels/AfterActionReview.svelte').then((module) => AfterActionReview = module.default);
-    if (simulationOpen && !SimulationModal) void import('./lib/components/panels/SimulationModal.svelte').then((module) => SimulationModal = module.default);
-    if (probabilisticSimOpen && !ProbabilisticSimulation) void import('./lib/components/panels/ProbabilisticSimulation.svelte').then((module) => ProbabilisticSimulation = module.default);
+    if (simulationOpen && !SimulationModal) void import('./lib/components/rail/SimulationModal.svelte').then((module) => SimulationModal = module.default);
+    if (probabilisticSimOpen && !ProbabilisticSimulation) void import('./lib/components/rail/ProbabilisticSimulation.svelte').then((module) => ProbabilisticSimulation = module.default);
     if ((metricsOpen || rightTab === 'metrics') && !MetricsDashboard) void import('./lib/components/panels/MetricsDashboard.svelte').then((module) => MetricsDashboard = module.default);
   });
 
@@ -235,6 +241,17 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
 
   function handleDecision(branchId: string) {
     if (pending) system.resolveDecision(pending.id, branchId);
+  }
+
+  function handleRailDecision(option: { id: string }) {
+    if (!pending?.pendingDecision) return;
+    const activeMission = pending;
+    const branch = activeMission.pendingDecision.branches.find((item) => item.id === option.id);
+    if (!branch) return;
+    system.resolveDecision(activeMission.id, branch.id);
+    narrateUtterance(`Commander selected ${branch.label}. ${branch.consequence}`, { source: 'COMMANDER', speaker: 'commander' });
+    window.dispatchEvent(new CustomEvent('aircommand:rail-decision-resolved', { detail: { missionId: activeMission.missionId, branchId: branch.id } }));
+    window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: 'COMMANDER', text: branch.consequence } }));
   }
 
   function handleTrackLossDecision(option: { id: string; label: string }) {
@@ -304,15 +321,26 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
 
   function startDemo() {
     demoActive = true;
+    railMode = 'demo'; railCollapsed = false;
     comprehensiveDemoOpen = true;
   }
 
   function startSimulation() {
-    demoActive = true;
+    demoActive = false;
+    railMode = 'training'; railCollapsed = false;
+    comprehensiveDemoOpen = false;
     simulationOpen = true;
   }
 
-  function startProbabilisticSimulation() { demoActive = true; probabilisticSimOpen = true; }
+  function startProbabilisticSimulation() { demoActive = false; railMode = 'sim'; railCollapsed = false; comprehensiveDemoOpen = false; probabilisticSimOpen = true; }
+  function closeExperienceRail() { railMode = null; demoActive = false; comprehensiveDemoOpen = false; }
+  function resizeRail(event: PointerEvent) { if (railResizing) railWidth = Math.min(500, Math.max(320, innerWidth - event.clientX)); }
+  function endRailResize() { railResizing = false; }
+  function selectRailMode(mode: 'demo' | 'training' | 'sim') {
+    if (mode === 'demo') startDemo();
+    else if (mode === 'training') startSimulation();
+    else startProbabilisticSimulation();
+  }
 
   function navigateGuide(panel: string) {
     systemGuideOpen = false;
@@ -349,7 +377,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     if (target?.matches('input, textarea, [contenteditable]')) return;
     if (!event.ctrlKey && !event.altKey && event.key.toLowerCase() === 'f') { focusMode = !focusMode; return; }
     if (event.key === 'Escape') {
-      if (demoActive) { demoActive = false; simulationOpen = false; probabilisticSimOpen = false; comprehensiveDemoOpen = false; return; }
+      if (comprehensiveDemoOpen || railMode) { closeExperienceRail(); return; }
       if (mapFullscreen) { toggleMapFullscreen(); return; }
       const topModal = [...modalStack].reverse().find((id) => activeModalIds.includes(id) && !minimizedModals.includes(id));
       if (topModal) { closeModal(topModal); return; }
@@ -406,13 +434,25 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   function toggleMapLayer(layer: string) {
     window.dispatchEvent(new CustomEvent('aircommand:map-layer', { detail: layer }));
   }
+
+  function setMapFocusLock(locked: boolean) {
+    mapFocusLocked = locked;
+    window.dispatchEvent(new CustomEvent('aircommand:focus-lock', { detail: locked }));
+  }
+  function refocusMap() { window.dispatchEvent(new CustomEvent('aircommand:refocus')); }
+  $effect(() => {
+    const mode = railMode;
+    const scenario = system.activeScenarioFilter;
+    window.dispatchEvent(new CustomEvent('aircommand:experience-mode', { detail: { mode, scenario } }));
+    if (mode) setMapFocusLock(true);
+  });
 </script>
 
-<svelte:window onkeydown={handleGlobalKeydown} />
+<svelte:window onkeydown={handleGlobalKeydown} onpointermove={resizeRail} onpointerup={endRailResize} />
 <TooltipLayer />
 <CaptionLayer />
 <FocusPointer />
-<div class="shell" class:fullscreen={mapFullscreen} class:scenario-hidden={!panelVisibility.scenarioBar} class:focus-mode={focusMode} class:demo-locked={demoActive} data-fullscreen={mapFullscreen ? 'true' : 'false'}>
+<div class="shell" class:fullscreen={mapFullscreen} class:scenario-hidden={!panelVisibility.scenarioBar} class:focus-mode={focusMode} class:demo-locked={comprehensiveDemoOpen} class:rail-open={!!railMode && !mapFullscreen} style={`--rail-width:${railCollapsed ? 32 : railWidth}px`} data-fullscreen={mapFullscreen ? 'true' : 'false'}>
   {#if !mapFullscreen}
   <TopBar
     aircraftCount={system.aircraft.length}
@@ -499,6 +539,35 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       </PaneGroup>
     </Pane>{/if}
   </PaneGroup>
+  {#if railMode && !mapFullscreen}
+    <aside class="rail-right" class:collapsed={railCollapsed} aria-label="Experience rail">
+      <nav class="rail-tabs-collapsed" aria-label="Experience modes">
+        <button class:active={railMode === 'demo'} onclick={() => selectRailMode('demo')} aria-label="Open demo rail">DEMO</button>
+        <button class:active={railMode === 'training'} onclick={() => selectRailMode('training')} aria-label="Open training rail">TRAINING</button>
+        <button class:active={railMode === 'sim'} onclick={() => selectRailMode('sim')} aria-label="Open simulation rail">SIM</button>
+      </nav>
+      <div class="rail-expanded" class:rail-hidden={railCollapsed}>
+        <button class="rail-resize" aria-label="Resize experience rail" title="Drag to resize rail" onpointerdown={(event) => { railResizing = true; event.preventDefault(); }}></button>
+        <div class="rail-toolbar">
+          <div class="rail-mode-tabs" role="tablist" aria-label="Experience mode">
+            <button class:active={railMode === 'demo'} role="tab" aria-selected={railMode === 'demo'} onclick={() => selectRailMode('demo')}>DEMO</button>
+            <button class:active={railMode === 'training'} role="tab" aria-selected={railMode === 'training'} onclick={() => selectRailMode('training')}>TRAINING</button>
+            <button class:active={railMode === 'sim'} role="tab" aria-selected={railMode === 'sim'} onclick={() => selectRailMode('sim')}>SIM</button>
+          </div>
+          <button class="rail-collapse" title="Collapse rail" aria-label="Collapse experience rail" onclick={() => railCollapsed = true}>›</button>
+          <button class="rail-close" title="Close rail" aria-label="Close experience rail" onclick={closeExperienceRail}>×</button>
+        </div>
+          <button class:active={mapFocusLocked} class="rail-focus-lock" aria-pressed={mapFocusLocked} onclick={() => setMapFocusLock(!mapFocusLocked)}>{mapFocusLocked ? '🔒 FOCUS LOCK' : '🔓 FOCUS LOCK'}</button>
+          <button class="rail-refocus" onclick={refocusMap}>⌖ RE-FOCUS</button>
+        <div class="rail-content" class:rail-hidden={railMode !== 'demo'}><ComprehensiveDemo open={comprehensiveDemoOpen} speed2x={doubleSpeed} onSpeedToggle={() => doubleSpeed = !doubleSpeed} onClose={closeExperienceRail} onComplete={() => { demoCompleteOpen = true; closeExperienceRail(); }} /></div>
+        <div class="rail-content" class:rail-hidden={railMode !== 'training'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if SimulationModal}<SimulationModal open={simulationOpen} speed2x={doubleSpeed} onSpeedToggle={() => doubleSpeed = !doubleSpeed} onClose={closeExperienceRail} />{/if}</div>
+        <div class="rail-content" class:rail-hidden={railMode !== 'sim'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if ProbabilisticSimulation}<ProbabilisticSimulation open={probabilisticSimOpen} speed2x={doubleSpeed} onSpeedToggle={() => doubleSpeed = !doubleSpeed} onClose={closeExperienceRail} />{/if}</div>
+        {#if railMode !== 'demo' && pending?.pendingDecision}
+          <div class="rail-decision"><DecisionPrompt open={true} rail title={pending.pendingDecision.title} context={pending.pendingDecision.context} message={pending.pendingDecision.message} options={pending.pendingDecision.options ?? pending.pendingDecision.branches.map((branch) => ({ id: branch.id, label: branch.label, description: branch.description, tag: branch.tag, tagColor: branch.tagColor }))} onSelect={handleRailDecision} onClose={() => system.dismissDecision(pending!.id)} /></div>
+        {/if}
+      </div>
+    </aside>
+  {/if}
 </div>
 
 <nav class="experience-dock" aria-label="Demo and training controls">
@@ -506,9 +575,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   <button onclick={startSimulation} aria-label="Start historical training">▷ TRAINING</button>
   <button onclick={startProbabilisticSimulation} aria-label="Start probabilistic simulation">◈ SIM</button>
 </nav>
-{#if demoActive}<div class="lock-bar"><span>SYSTEM LOCKED · PRESS ESC TO EXIT</span></div>{/if}
+{#if comprehensiveDemoOpen}<div class="lock-bar"><span>SYSTEM LOCKED · PRESS ESC TO EXIT</span></div>{/if}
 
-{#if pending?.pendingDecision && !simulationOpen}
+{#if pending?.pendingDecision && !railMode}
   <ModalLayer label={modalLabels.decision} zIndex={modalZ('decision')} visible={isModalVisible('decision')} onMinimize={() => minimizeModal('decision')}><DecisionPrompt
     open={true}
     title={pending.pendingDecision.title}
@@ -563,9 +632,6 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
 {#if shortcutHelpOpen}<ModalLayer label={modalLabels.shortcuts} zIndex={modalZ('shortcuts')} visible={isModalVisible('shortcuts')} onMinimize={() => minimizeModal('shortcuts')}><ShortcutHelp open={shortcutHelpOpen} onClose={() => shortcutHelpOpen = false} /></ModalLayer>{/if}
 {#if glossaryOpen}<ModalLayer label={modalLabels.glossary} zIndex={modalZ('glossary')} visible={isModalVisible('glossary')} onMinimize={() => minimizeModal('glossary')}><GlossaryModal open={glossaryOpen} onClose={() => glossaryOpen = false} /></ModalLayer>{/if}
 {#if commandPaletteOpen}<ModalLayer label={modalLabels['command-palette']} zIndex={modalZ('command-palette')} visible={isModalVisible('command-palette')} onMinimize={() => minimizeModal('command-palette')}><CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={() => commandPaletteOpen = false} onSelect={selectPaletteCommand} /></ModalLayer>{/if}
-{#if simulationOpen && SimulationModal}<ModalLayer label={modalLabels.simulation} zIndex={modalZ('simulation')} visible={isModalVisible('simulation')} onMinimize={() => minimizeModal('simulation')}><SimulationModal open={simulationOpen} onClose={() => { simulationOpen = false; demoActive = false; narrateUtterance('Historical simulation closed.', { source: 'SYSTEM', speaker: 'agent' }); }} /></ModalLayer>{/if}
-{#if probabilisticSimOpen && ProbabilisticSimulation}<ModalLayer label={modalLabels['probabilistic-sim']} zIndex={modalZ('probabilistic-sim')} visible={isModalVisible('probabilistic-sim')} onMinimize={() => minimizeModal('probabilistic-sim')}><ProbabilisticSimulation open={probabilisticSimOpen} onClose={() => { probabilisticSimOpen = false; demoActive = false; }} /></ModalLayer>{/if}
-{#if comprehensiveDemoOpen}<ComprehensiveDemo open={comprehensiveDemoOpen} onClose={() => { comprehensiveDemoOpen = false; demoActive = false; narrateUtterance('Comprehensive demo closed.', { source: 'SYSTEM', speaker: 'agent' }); }} onComplete={() => { demoCompleteOpen = true; comprehensiveDemoOpen = false; }} />{/if}
 <SystemGuide open={systemGuideOpen} onClose={() => { systemGuideOpen = false; narrateUtterance('System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }} onNavigate={navigateGuide} />
 {#if mapLegendOpen}<MapLegend open={mapLegendOpen} onClose={() => { mapLegendOpen = false; narrateUtterance('Map legend closed.', { source: 'SYSTEM', speaker: 'agent' }); }} />{/if}
 {#if demoCompleteOpen}
@@ -591,7 +657,32 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     background: #1a242e;
     gap: 0;
   }
+  .shell.rail-open { grid-template-columns:minmax(0,1fr) var(--rail-width); }
+  :global(.shell > .topbar), :global(.shell > .scenario-menu) { grid-column:1 / -1; }
   :global(.workspace-layout) { grid-row:3; width:100%; height:100%; min-height:0; }
+  .shell.rail-open :global(.workspace-layout) { grid-column:1; grid-row:3; }
+  .rail-right { position:relative; grid-column:2; grid-row:3; min-width:0; min-height:0; display:flex; flex-direction:column; background:var(--bg-panel); border-left:1px solid var(--border-strong); overflow:visible; }
+  .rail-right.collapsed { overflow:hidden; }
+  .rail-expanded { min-height:0; flex:1; display:flex; flex-direction:column; position:relative; }
+  .rail-expanded.rail-hidden { display:none; }
+  .rail-content.rail-hidden { display:none; }
+  .rail-tabs-collapsed { display:none; }
+  .rail-right.collapsed .rail-tabs-collapsed { display:flex; flex-direction:column; height:100%; }
+  .rail-right.collapsed .rail-expanded { display:none; }
+  .rail-resize { position:absolute; top:0; bottom:0; left:-4px; width:8px; z-index:20; cursor:col-resize; border:0; background:transparent; touch-action:none; }
+  .rail-resize:hover,.rail-resize:active { background:var(--accent-cyan); opacity:.4; }
+  .rail-toolbar { min-height:35px; display:flex; align-items:stretch; border-bottom:1px solid var(--border-subtle); background:var(--bg-base); }
+  .rail-mode-tabs { display:flex; flex:1; min-width:0; }
+  .rail-mode-tabs button { flex:1; min-width:0; padding:8px 3px; border:0; border-bottom:2px solid transparent; color:var(--text-muted); background:transparent; font:8px var(--font-mono); cursor:pointer; }
+  .rail-mode-tabs button.active { color:var(--accent-cyan); border-bottom-color:var(--accent-cyan); }
+  .rail-toolbar .rail-focus-lock,.rail-toolbar .rail-refocus { flex:none; padding:4px 5px; border:0; border-left:1px solid var(--border-subtle); color:var(--text-muted); background:transparent; font:6px var(--font-mono); white-space:nowrap; cursor:pointer; }
+  .rail-toolbar .rail-focus-lock.active { color:var(--accent-cyan); }
+  .rail-collapse,.rail-close { width:32px; border:0; border-left:1px solid var(--border-subtle); background:transparent; color:var(--text-secondary); font:16px var(--font-mono); cursor:pointer; }
+  .rail-content { min-height:0; flex:1; overflow:auto; }
+  .rail-decision { flex:none; max-height:60%; overflow:auto; border-top:1px solid var(--border-strong); }
+  .background-chip { margin:8px 10px 0; padding:5px 7px; width:max-content; color:var(--accent-green); border:1px solid var(--border-subtle); font:7px var(--font-mono); letter-spacing:.1em; }
+  .rail-tabs-collapsed button { flex:1; padding:8px 4px; writing-mode:vertical-rl; transform:rotate(180deg); border:0; border-bottom:1px solid var(--border-subtle); color:var(--text-muted); background:var(--bg-panel); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; }
+  .rail-tabs-collapsed button.active { color:var(--accent-cyan); }
   .shell.scenario-hidden { grid-template-rows:32px 0 minmax(0,1fr); }
   .shell.fullscreen { grid-template-rows:1fr; grid-template-columns:minmax(0,1fr); grid-template-areas:"center"; gap:0; }
   .shell { min-width:0; overflow:hidden; }

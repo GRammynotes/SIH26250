@@ -3,7 +3,7 @@
   import { COMPREHENSIVE_DEMO_STEPS, getStepGlossaryTerms } from '../../demo/comprehensiveDemoScript';
   import { narrateUtterance, stopVoice } from '../../engine/voice';
 
-  let { open = false, onClose, onComplete }: { open?: boolean; onClose?: () => void; onComplete?: () => void } = $props();
+  let { open = false, speed2x = false, onSpeedToggle, onClose, onComplete }: { open?: boolean; speed2x?: boolean; onSpeedToggle?: () => void; onClose?: () => void; onComplete?: () => void } = $props();
 
   // Demo state
   let currentStepIndex = $state(0);
@@ -82,7 +82,7 @@
     const duration = currentStep?.duration || 5000;
     stepTimer = setTimeout(() => {
       advanceStep();
-    }, duration);
+    }, speed2x ? duration / 2 : duration);
   }
 
   // Advance to next step
@@ -233,7 +233,7 @@
 </script>
 
 {#if open}
-  <div class="demo-overlay" role="dialog" aria-modal="true" aria-label="AIR COMMAND Demo">
+  <div class="demo-overlay" aria-label="AIR COMMAND Demo">
     <!-- Demo Control Panel -->
     <div class="demo-panel">
       <!-- Header -->
@@ -339,6 +339,7 @@
           >
             {voiceEnabled ? '◉ VOICE ON' : '○ VOICE OFF'}
           </button>
+          <button class="control-btn" class:active={speed2x} onclick={() => onSpeedToggle?.()} aria-label="Toggle 2x demo speed">⏩ {speed2x ? '2X ON' : '2X'}</button>
           <button
             class="control-btn"
             onclick={togglePause}
@@ -369,14 +370,6 @@
       </footer>
     </div>
 
-    <!-- System Lock Overlay -->
-    <div class="system-lock">
-      <div class="lock-indicator">
-        <span class="lock-icon">🔒</span>
-        <span>SYSTEM LOCKED</span>
-        <small>Demo in progress - Press ESC to exit</small>
-      </div>
-    </div>
   </div>
 {/if}
 
@@ -385,24 +378,17 @@
   :global(body.demo-active .demo-overlay), :global(body.demo-active .demo-panel), :global(body.demo-active .demo-panel button), :global(body.demo-active .captions) { pointer-events: auto; }
   :global(body.demo-active .focus-layer) { z-index: 501; }
 
-  .demo-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 500;
-    display: grid;
-    place-items: center;
-    background: rgba(3, 6, 12, 0.92);
-    backdrop-filter: blur(6px);
-  }
+  .demo-overlay { position:relative; inset:auto; z-index:auto; display:block; height:100%; background:transparent; backdrop-filter:none; }
 
   .demo-panel {
-    width: min(900px, 94vw);
-    max-height: 90vh;
+    width: 100%;
+    height: 100%;
+    max-height: none;
     display: flex;
     flex-direction: column;
     background: var(--bg-panel);
-    border: 2px solid var(--accent-cyan);
-    box-shadow: 0 0 60px color-mix(in srgb, var(--accent-cyan) 30%, transparent);
+    border: 0;
+    box-shadow: none;
     font-family: var(--font-mono);
     overflow: hidden;
   }

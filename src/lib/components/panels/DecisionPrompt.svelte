@@ -17,6 +17,7 @@
     options = [],
     onSelect,
     onClose,
+    rail = false,
   }: {
     open?: boolean;
     title?: string;
@@ -25,12 +26,13 @@
     options?: DecisionOption[];
     onSelect?: (option: DecisionOption) => void;
     onClose?: () => void;
+    rail?: boolean;
   } = $props();
 </script>
 
 {#if open}
-  <div class="overlay">
-    <section class="panel" role="dialog" aria-modal="true" aria-label={title}>
+  <div class="overlay" class:rail>
+    <section class="panel" role="dialog" aria-modal={!rail} aria-label={title}>
       <header>
         <div class="hdr-left">
           <span class="eyebrow">COMMANDER DECISION</span>
@@ -77,6 +79,11 @@
     z-index: 100;
     animation: fadein 0.15s ease-out;
   }
+  .overlay.rail { position:relative; inset:auto; background:transparent; backdrop-filter:none; display:block; z-index:auto; animation:none; }
+  .overlay.rail .panel { width:100%; max-height:none; overflow:visible; border:1px solid var(--border-strong); box-shadow:none; }
+  .overlay.rail header { padding:10px 12px; }
+  .overlay.rail .context,.overlay.rail .message { padding:9px 12px; }
+  .overlay.rail .option { padding:10px 12px; }
   @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 
   .panel {
