@@ -11,7 +11,7 @@ import { freshAirspace } from '../data/airspace';
 import { freshWeather } from '../data/weather';
 import { detectDeconflictionWarnings } from '../engine/deconfliction';
 import { analyzeTrackLoss, type TrackLossAnalysis } from '../engine/trackLossEngine';
-import { narrateEvent } from '../engine/voice';
+import { clearVoiceDedupe, narrateEvent } from '../engine/voice';
 import type { Aircraft, Mission, Threat, COA, AircraftStatus } from '../types';
 
 export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
@@ -243,6 +243,7 @@ class SystemStore {
   // ============ MISSION EXECUTION ============
 
   startMission(missionId: string, aircraftIds: string[], templateId: string) {
+    clearVoiceDedupe();
     const mission = this.missions.find((m) => m.id === missionId);
     if (!mission) return;
     const template = HISTORICAL_MISSIONS[templateId];
@@ -339,6 +340,16 @@ class SystemStore {
 
     this.activeMissions = updated;
     this.cleanupCompleted();
+  }
+
+  /** Fast-forward exercise mission time for the scripted training simulation. */
+  advanceSimulationClock(minutes = 5) {
+    if (!Number.isFinite(minutes) || minutes <= 0) return;
+    this.activeMissions = this.activeMissions.map((mission) => ({
+      ...mission,
+      phaseStartTime: mission.phaseStartTime - minutes * 60000,
+    }));
+    this.tickExecutions();
   }
 
   cleanupCompleted() {
