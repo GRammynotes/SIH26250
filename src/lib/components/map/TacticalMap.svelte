@@ -965,7 +965,7 @@
 <div class="map-wrap">
   <div class="map-canvas" class:impact-shake={getSimulationFrame().impacts.some((impact) => impact.flash)} bind:this={container}></div>
   {#if mapZoom < 5 && overviewFmcCount > 0}<div class="theater-aircraft-count" title={`${overviewFmcCount} FMC aircraft in this theater view`}>{overviewFmcCount}</div>{/if}
-  {#each narrativeMarkers as marker, index (`${marker.label}-${index}`)}<div class="narrative-focus-marker" style={`left:${marker.x}px;top:${marker.y}px;opacity:${marker.opacity}`}><span>{marker.label}</span></div>{/each}
+  {#each narrativeMarkers as marker, index (`${marker.label}-${index}`)}<div class="narrative-focus-marker" role="img" aria-label={`Map focus: ${marker.label}`} style={`left:${marker.x}px;top:${marker.y}px;opacity:${marker.opacity}`}><span aria-hidden="true">{marker.label}</span></div>{/each}
   {#if mapReady && map}<TrajectoryLayer {map} />{/if}
   {#if theaterMapVisible}<TacticalReadout />{/if}
 
