@@ -186,40 +186,15 @@
 
   // Ground Asset Marker factory (Tank, UAV, SAM, Radar)
   function createGroundAssetMarker(asset: GroundAsset): HTMLDivElement {
-    let innerSvg = '';
-    if (asset.type === 'tank') {
-      // solid square 10x10 with green fill at 30% + green border
-      innerSvg = `<div style="width:10px;height:10px;background:rgba(57,255,20,0.3);border:1.2px solid ${C.green};box-shadow:0 0 6px ${C.green};"></div>`;
-    } else if (asset.type === 'uav') {
-      // hollow triangle similar to aircraft
-      innerSvg = `
-        <svg viewBox="0 0 20 20" style="width:14px;height:14px;">
-          <polygon points="10,2 18,17 10,14 2,17" fill="none" stroke="${C.cyan}" stroke-width="1.5" />
-        </svg>`;
-    } else if (asset.type === 'sam') {
-      // circle with crosshairs at N/E/S/W
-      innerSvg = `
-        <svg viewBox="0 0 20 20" style="width:14px;height:14px;">
-          <circle cx="10" cy="10" r="5" fill="none" stroke="${C.amber}" stroke-width="1.2" />
-          <line x1="10" y1="1" x2="10" y2="4" stroke="${C.amber}" stroke-width="1.2" />
-          <line x1="10" y1="16" x2="10" y2="19" stroke="${C.amber}" stroke-width="1.2" />
-          <line x1="1" y1="10" x2="4" y2="10" stroke="${C.amber}" stroke-width="1.2" />
-          <line x1="16" y1="10" x2="19" y2="10" stroke="${C.amber}" stroke-width="1.2" />
-        </svg>`;
-    } else {
-      // radar arc segment marker (half circle)
-      innerSvg = `
-        <svg viewBox="0 0 20 20" style="width:14px;height:14px;">
-          <path d="M3,15 A7,7 0 0,1 17,15" fill="none" stroke="${C.cyan}" stroke-width="1.5" />
-          <circle cx="10" cy="15" r="2" fill="${C.cyan}" />
-        </svg>`;
-    }
-
-    return el(`
-      <div class="ground-marker-wrap" style="cursor:pointer; display:grid; place-items:center;">
-        ${innerSvg}
-      </div>
-    `);
+    const wrapper = militarySymbolElement(asset.type === 'uav' ? 'friendlyAir' : 'friendlyInstallation', 28);
+    wrapper.classList.add('ground-marker-wrap');
+    wrapper.title = `${asset.designation} · ${asset.status}`;
+    const glyph = document.createElement('span');
+    glyph.className = `ground-status-glyph status-${asset.status.toLowerCase()}`;
+    glyph.textContent = asset.status === 'ACTIVE' ? '✓' : asset.status === 'STANDBY' ? '◐' : '×';
+    glyph.setAttribute('aria-label', asset.status);
+    wrapper.append(glyph);
+    return wrapper;
   }
 
   function createEnemyMarker(asset: EnemyAsset): HTMLDivElement {
@@ -621,17 +596,17 @@
       },
     });
 
-    // Center marker: solid 3px dot
+    // Hostile assessment marker: diamond glyph keeps the indicator readable without color.
     map.addLayer({
       id: 'threat-center-dot',
-      type: 'circle',
+      type: 'symbol',
       source: 'threat-centers',
       filter: ['!', ['get', 'spoofed']],
-      layout: { visibility: threatVis },
+      layout: { visibility: threatVis, 'text-field': '◆', 'text-size': 11, 'text-allow-overlap': true, 'text-ignore-placement': true },
       paint: {
-        'circle-radius': 3,
-        'circle-color': C.red,
-        'circle-opacity': 0.95,
+        'text-color': C.red,
+        'text-halo-color': '#05080f',
+        'text-halo-width': 1,
       },
     });
 
@@ -982,6 +957,8 @@
   :global(.aircraft-status-fmc) { color: var(--accent-green); }
   :global(.aircraft-status-pmc) { color: var(--accent-amber); }
   :global(.aircraft-status-nmc) { color: var(--accent-red); }
+  :global(.ground-status-glyph) { position:absolute; right:-3px; bottom:-3px; min-width:11px; height:11px; display:grid; place-items:center; border:1px solid currentColor; background:#05080f; font:8px/1 var(--font-mono); }
+  :global(.status-active) { color:var(--accent-green); }:global(.status-standby) { color:var(--accent-amber); }:global(.status-offline) { color:var(--accent-red); }
   :global(.matrix-highlight-marker) { transform:scale(1.35); filter:drop-shadow(0 0 9px var(--accent-cyan)); z-index:10; }
 
   :global(.maplibregl-popup) {
