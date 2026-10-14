@@ -16,6 +16,9 @@
   import type { MapFocusElement } from '../../engine/mapNarrative';
   import TacticalReadout from './TacticalReadout.svelte';
   import MapNarrativePointer from './MapNarrativePointer.svelte';
+  import MapContextMenu from './MapContextMenu.svelte';
+  import { greatCircleCoordinates } from '../../engine/trajectory';
+  import { WEAPONS } from '../../data/weapons';
 
   let {
     onBaseSelect,
@@ -49,6 +52,11 @@
   let mapFocusTimer: ReturnType<typeof setTimeout> | undefined;
   let mapFocusClearTimer: ReturnType<typeof setTimeout> | undefined;
   let narrativeMarkers = $state<Array<{ x: number; y: number; label: string; opacity: number }>>([]);
+  let hoverTimer: ReturnType<typeof setTimeout> | undefined;
+  let mapTooltip = $state<{ x: number; y: number; title: string; state: string } | null>(null);
+  let mapContext = $state<{ x: number; y: number; kind: string; id: string; title: string } | null>(null);
+  let selectedMapCard = $state<{ kind: string; id: string; title: string; lines: string[] } | null>(null);
+  let dimTimer: ReturnType<typeof setTimeout> | undefined;
   const circlePolygonCache = new Map<string, number[][]>();
   const threatPolyCache = new Map<string, number[][]>();
 
@@ -274,9 +282,7 @@
     if (!aircraftLayerClickAttached) {
       map.on('click', 'aircraft-gl-symbols', (event) => {
         const feature = event.features?.[0];
-        const props = feature?.properties;
-        if (!props || !event.lngLat) return;
-        new maplibregl.Popup({ offset: 14, closeButton: false }).setLngLat(event.lngLat).setHTML(`<div style="font:10px 'JetBrains Mono',monospace;color:${C.text};background:${C.base};border:1px solid ${C.border};padding:9px 12px"><b style="color:${C.cyan}">${props.tailNumber}</b><br>${props.type} · ${props.status}<br>FUEL ${props.fuel}% · BASE ${props.base}</div>`).addTo(map!);
+        if (feature && event.lngLat) selectMapFeature(feature, event.lngLat);
       });
       map.on('mouseenter', 'aircraft-gl-symbols', () => { if (map) map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'aircraft-gl-symbols', () => { if (map) map.getCanvas().style.cursor = ''; });
@@ -302,9 +308,7 @@
         if (!feature || !event.lngLat || !map) return;
         const props = feature.properties ?? {};
         if (feature.source === 'bases-gl') onBaseSelect?.(String(props.id));
-        const heading = String(props.label ?? props.code ?? 'OPERATIONAL TRACK');
-        const details = Object.entries(props).filter(([key]) => !['label', 'code', 'color', 'opacity'].includes(key)).map(([key, value]) => `${key.toUpperCase()}: ${String(value)}`).join('<br>');
-        new maplibregl.Popup({ offset: 12, closeButton: false }).setLngLat(event.lngLat).setHTML(`<div style="font:9px 'JetBrains Mono',monospace;color:${C.text};background:${C.base};border:1px solid ${C.border};padding:9px 12px"><b style="color:${String(props.color ?? C.cyan)}">${heading}</b><br>${details}</div>`).addTo(map);
+        selectMapFeature(feature, event.lngLat);
       });
     }
   }
@@ -531,6 +535,26 @@
     map.on('load', () => {
       const m = map!;
       ensureOperationalPointLayers();
+      m.addSource('interaction-route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addSource('interaction-impact', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'interaction-impact-pulse', type: 'circle', source: 'interaction-impact', paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 9, 8, 20], 'circle-color': C.red, 'circle-opacity': .12, 'circle-stroke-color': C.red, 'circle-stroke-width': 2, 'circle-stroke-opacity': .95 } });
+      m.addLayer({ id: 'interaction-route-line', type: 'line', source: 'interaction-route', paint: { 'line-color': C.cyan, 'line-width': 3, 'line-opacity': .9, 'line-dasharray': [1.5, 1] } });
+      m.on('mousemove', showMapTooltip);
+      m.on('mouseout', () => { mapTooltip = null; if (hoverTimer) clearTimeout(hoverTimer); });
+      m.on('movestart', () => { mapTooltip = null; if (hoverTimer) clearTimeout(hoverTimer); });
+      m.on('click', (event) => {
+        const feature = m.queryRenderedFeatures(event.point).find((item) => featureKind(item) !== 'map');
+        if (feature) { selectMapFeature(feature, event.lngLat); return; }
+        selectedMapCard = null;
+        (m.getSource('interaction-route') as maplibregl.GeoJSONSource).setData({ type: 'FeatureCollection', features: [] });
+      });
+      m.on('contextmenu', (event) => {
+        event.preventDefault();
+        const feature = m.queryRenderedFeatures(event.point).find((item) => featureKind(item) !== 'map');
+        if (!feature) { mapContext = null; return; }
+        const kind = featureKind(feature), props = feature.properties ?? {};
+        mapContext = { x: event.originalEvent.clientX, y: event.originalEvent.clientY, kind, id: String(props.id ?? props.tailNumber ?? props.code ?? ''), title: String(props.tailNumber ?? props.code ?? props.label ?? props.type ?? kind.toUpperCase()) };
+      });
       m.addSource('scenario-area', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'scenario-area-fill', type: 'fill', source: 'scenario-area', paint: { 'fill-color': C.cyan, 'fill-opacity': 0.035 } });
       m.addLayer({ id: 'scenario-area-outline', type: 'line', source: 'scenario-area', paint: { 'line-color': C.cyan, 'line-width': 1.6, 'line-opacity': 0.78, 'line-dasharray': [1.2, 1.6] } });
@@ -968,6 +992,98 @@
   function toggleAirspace() { showAirspace = !showAirspace; }
   function toggleWeather() { showWeather = !showWeather; }
   function toggleEnemy() { showEnemy = !showEnemy; }
+
+  function featureKind(feature: maplibregl.MapGeoJSONFeature | undefined): string {
+    const source = feature?.source ?? '';
+    if (source.includes('aircraft') || source === 'aircraft-gl') return 'aircraft';
+    if (source.includes('base')) return 'base';
+    if (source.includes('mission')) return 'mission';
+    if (source.includes('threat')) return 'threat';
+    if (source.includes('missile')) return 'missile';
+    if (source.includes('enemy')) return 'enemy';
+    if (source.includes('asset')) return 'ground';
+    return 'map';
+  }
+
+  function showMapTooltip(event: maplibregl.MapMouseEvent) {
+    if (!map || map.isMoving()) { mapTooltip = null; return; }
+    const feature = map.queryRenderedFeatures(event.point).find((item) => featureKind(item) !== 'map');
+    if (!feature) { mapTooltip = null; if (hoverTimer) clearTimeout(hoverTimer); return; }
+    const kind = featureKind(feature);
+    const p = feature.properties ?? {};
+    const title = `${kind.toUpperCase()} · ${p.tailNumber ?? p.code ?? p.id ?? p.label ?? 'TRACK'}`;
+    const state = kind === 'aircraft' ? `${p.status ?? 'UNKNOWN'} · FUEL ${p.fuel ?? '—'}% · BASE ${p.base ?? '—'}`
+      : kind === 'threat' ? `RANGE ${p.radius ?? '—'}km · Pk ${p.probability ?? '—'}%`
+      : kind === 'base' ? `${p.aircraftCount ?? 'AIR'} aircraft · ${p.fmcCount ?? 'READINESS'} FMC`
+      : `${p.status ?? p.type ?? p.label ?? 'OPERATIONAL TRACK'}`;
+    if (hoverTimer) clearTimeout(hoverTimer);
+    const x = event.point.x, y = event.point.y;
+    hoverTimer = setTimeout(() => { if (map && !map.isMoving()) mapTooltip = { x, y, title, state }; }, 400);
+  }
+
+  function selectMapFeature(feature: maplibregl.MapGeoJSONFeature, point: maplibregl.LngLat) {
+    if (!map) return;
+    const kind = featureKind(feature), props = feature.properties ?? {}, id = String(props.id ?? props.tailNumber ?? props.code ?? '');
+    const lines: string[] = [];
+    if (kind === 'aircraft') {
+      const aircraft = system.aircraft.find((item) => item.id === id || item.tailNumber === props.tailNumber);
+      if (!aircraft) return;
+      const active = system.activeMissions.find((item) => item.aircraftIds.includes(aircraft.id) && !['COMPLETE','ABORTED'].includes(item.phase));
+      const planned = system.missions.find((mission) => system.coas.some((coa) => coa.assignments[mission.id]?.includes(aircraft.id)));
+      const mission = active ?? planned;
+      lines.push(`TYPE ${aircraft.type}`, `STATUS ${aircraft.status}`, `BASE ${aircraft.base}`, `WEAPONS ${aircraft.weapons.join(', ')}`, `FUEL ${aircraft.fuel}%`, `CREW REST ${aircraft.crewRest}H`, `MISSION ${mission?.missionName ?? mission?.name ?? 'UNASSIGNED'}`);
+      if (mission) {
+        const route = greatCircleCoordinates(aircraft.position, mission.target, 90);
+        (map.getSource('interaction-route') as maplibregl.GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route } }] });
+        map.fitBounds([[aircraft.position.lng, aircraft.position.lat], [mission.target.lng, mission.target.lat]], { padding: 100, maxZoom: 7.6, duration: 900 });
+      } else map.flyTo({ center: [aircraft.position.lng, aircraft.position.lat], zoom: Math.max(map.getZoom(), 6), duration: 700 });
+      selectedMapCard = { kind, id: aircraft.id, title: aircraft.tailNumber, lines };
+      if (dimTimer) clearTimeout(dimTimer);
+      if (map.getLayer('aircraft-gl-symbols')) map.setPaintProperty('aircraft-gl-symbols', 'icon-opacity', ['case', ['==', ['get', 'id'], aircraft.id], 1, .3]);
+      dimTimer = setTimeout(() => { if (map?.getLayer('aircraft-gl-symbols')) map.setPaintProperty('aircraft-gl-symbols', 'icon-opacity', ['interpolate', ['linear'], ['zoom'], 4, 0, 5, .7, 6, 1]); }, 3000);
+    } else if (kind === 'mission') {
+      const mission = system.missions.find((item) => item.id === id);
+      if (!mission) return;
+      const assigned = system.coas.find((item) => item.id === system.selectedCoaId)?.assignments[mission.id] ?? [];
+      const routes = assigned.flatMap((aircraftId) => { const aircraft = system.aircraft.find((item) => item.id === aircraftId); return aircraft ? [{ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: greatCircleCoordinates(aircraft.position, mission.target, 90) } }] : []; });
+      (map.getSource('interaction-route') as maplibregl.GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: routes });
+      lines.push(`TARGET ${mission.targetType}`, `PRIORITY P${mission.priority}`, `STATUS ${mission.status}`, `ASSIGNED ${assigned.length} AIRCRAFT`, `RISK ${mission.riskLevel}%`);
+      selectedMapCard = { kind, id: mission.id, title: mission.name, lines };
+      map.flyTo({ center: [mission.target.lng, mission.target.lat], zoom: 6.5, duration: 900 });
+    } else if (kind === 'missile') {
+      const active = system.activeMissions.find((mission) => mission.phase === 'RELEASE');
+      const weapon = active?.weaponId ? WEAPONS[active.weaponId] : null;
+      if (active) {
+        (map.getSource('interaction-route') as maplibregl.GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: greatCircleCoordinates(active.origins[active.aircraftIds[0]] ?? active.target, active.target, 90) } }] });
+        (map.getSource('interaction-impact') as maplibregl.GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [active.target.lng, active.target.lat] } }] });
+        map.flyTo({ center: [active.target.lng, active.target.lat], zoom: 6.8, duration: 700 });
+      }
+      const releaseElapsed = active ? Math.max(0, Date.now() - active.phaseStartTime) : 0;
+      const impactSeconds = Math.max(0, Math.ceil((2000 - releaseElapsed) / 1000));
+      lines.push(`TIME TO IMPACT 00:0${impactSeconds}`, `WEAPON ${weapon?.name ?? 'STANDOFF WEAPON'}`, `WARHEAD ${weapon?.warheadKg ?? '—'} KG`, `CEP ${weapon?.cepMeters ?? '—'} M`);
+      selectedMapCard = { kind, id, title: 'WEAPON RELEASE', lines };
+    } else {
+      lines.push(...Object.entries(props).slice(0, 8).map(([key, value]) => `${key.toUpperCase()} ${String(value)}`));
+      selectedMapCard = { kind, id, title: String(props.label ?? props.code ?? props.type ?? kind.toUpperCase()), lines };
+    }
+    mapTooltip = null;
+  }
+
+  function handleMapContextAction(action: string) {
+    if (!mapContext) return;
+    const { kind, id } = mapContext;
+    const aircraft = system.aircraft.find((item) => item.id === id || item.tailNumber === id);
+    if (action === 'loadout' && aircraft) onLoadoutClick?.(aircraft.type, aircraft.tailNumber);
+    else if (action === 'roster' && kind === 'base') onBaseSelect?.(id);
+    else if (action === 'briefing') window.dispatchEvent(new CustomEvent('aircommand:mission-brief', { detail: id }));
+    else if (action === 'missions' || action === 'assign') window.dispatchEvent(new CustomEvent('aircommand:map-open-panel', { detail: action === 'assign' ? 'roster' : 'missions' }));
+    else if (action === 'execute') { const mission = system.missions.find((item) => item.id === id); if (mission) window.dispatchEvent(new CustomEvent('aircommand:mission-brief', { detail: mission.id })); }
+    else if (action === 'rings' || action === 'cone') showThreats = true;
+    if (action === 'details' || action === 'trajectory' || action === 'impact' || action === 'track' || action === 'specs' || action === 'aircraft') {
+      const feature = map?.queryRenderedFeatures().find((item) => String(item.properties?.id ?? item.properties?.tailNumber ?? item.properties?.code) === id);
+      if (feature && map) selectMapFeature(feature, map.getCenter());
+    }
+  }
 </script>
 
 <div class="map-wrap" data-tour="map">
@@ -993,11 +1109,14 @@
   </div>
 
   <div class="coord tl mono">THEATER MAP · {mapCenterLabel}</div>
-  <button class="theater-toggle" aria-label={theaterMapVisible ? 'Hide theater data panel' : 'Show theater data panel'} title="Toggle theater data panel; map remains visible" onclick={() => onToggleTheaterVisibility?.()}>◉</button>
+  <button class="theater-toggle" class:picture-hidden={!theaterMapVisible} aria-label={theaterMapVisible ? 'Hide tactical picture overlay' : 'Show tactical picture overlay'} title="Toggle tactical picture overlay" onclick={() => onToggleTheaterVisibility?.()}>{theaterMapVisible ? '◧' : '◱'}</button>
   <div class="coord tr mono">ZOOM {mapZoom.toFixed(1)} · MERCATOR</div>
   <div class="trail-controls"><button aria-pressed={showTrails} onclick={toggleTrails}>◈ TRAILS {showTrails ? 'ON' : 'OFF'}</button><button onclick={clearTrails}>× CLEAR TRAILS</button></div>
   <button class="fullscreen-btn" aria-label={fullscreen ? 'Exit map fullscreen' : 'Enter map fullscreen'} title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen map'} onclick={() => onFullscreenClick?.()}>{fullscreen ? '⛶ EXIT FULLSCREEN' : '⛶ FULLSCREEN'}</button>
   <TerrainToggle />
+  {#if mapTooltip}<aside class="map-hover-tooltip" style={`left:${Math.min(mapTooltip.x + 12, 600)}px;top:${Math.max(40, mapTooltip.y + 12)}px`}><b>{mapTooltip.title}</b><span>{mapTooltip.state}</span><small>[CLICK FOR DETAIL]</small></aside>{/if}
+  {#if selectedMapCard}<aside class="map-selection-card"><header><span>{selectedMapCard.kind.toUpperCase()} · {selectedMapCard.title}</span><button aria-label="Dismiss map detail card" onclick={() => selectedMapCard = null}>×</button></header>{#each selectedMapCard.lines as line}<p>{line}</p>{/each}</aside>{/if}
+  <MapContextMenu open={mapContext !== null} x={mapContext?.x ?? 0} y={mapContext?.y ?? 0} kind={mapContext?.kind ?? 'map'} title={mapContext?.title ?? 'MAP ITEM'} onAction={handleMapContextAction} onClose={() => mapContext = null} />
   <div class="coord bl mono">SCALE · WGS84</div>
   <div class="coord br mono">WGS84 · EGM96</div>
   {#if diagramExplanation}<aside class="diagram-explanation" aria-live="polite"><span>TACTICAL PICTURE · DIAGRAM CONTEXT</span><p>{diagramExplanation}</p></aside>{/if}
@@ -1016,6 +1135,16 @@
     overflow: hidden;
     background: var(--bg-base);
   }
+  .theater-toggle.picture-hidden { color:var(--text-muted); border-color:var(--border-subtle); }
+  .map-hover-tooltip,.map-selection-card { position:absolute; z-index:14; pointer-events:auto; padding:8px 10px; border:1px solid var(--accent-cyan); background:rgba(5,8,15,.96); box-shadow:0 4px 14px rgba(0,0,0,.5); font-family:var(--font-mono); }
+  .map-hover-tooltip { max-width:200px; display:flex; flex-direction:column; gap:4px; }
+  .map-hover-tooltip b,.map-selection-card header { color:var(--accent-cyan); font-size:8px; letter-spacing:.08em; }
+  .map-hover-tooltip span,.map-hover-tooltip small { color:var(--text-secondary); font-size:7px; }
+  .map-hover-tooltip small { color:var(--text-muted); }
+  .map-selection-card { top:42px; left:12px; width:min(250px,40vw); max-height:42%; overflow:auto; }
+  .map-selection-card header { display:flex; justify-content:space-between; gap:8px; border-bottom:1px solid var(--border-subtle); padding-bottom:5px; }
+  .map-selection-card header button { border:0; color:var(--accent-cyan); background:transparent; cursor:pointer; }
+  .map-selection-card p { margin:5px 0; color:var(--text-secondary); font:8px var(--font-mono); }
   .map-canvas {
     position: absolute;
     inset: 0;
