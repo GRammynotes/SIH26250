@@ -6,6 +6,7 @@
   import { GROUND_ASSETS, type GroundAsset } from '../../data/groundAssets';
   import { ENEMY_ASSETS, type EnemyAsset } from '../../data/enemyAssets';
   import { militarySymbolElement, type MilitarySymbolKind } from '../../data/militarySymbols';
+  import TerrainToggle from './TerrainToggle.svelte';
   import { type AirspaceZone, type WeatherSystem } from '../../types';
   import { system } from '../../stores/systemStore.svelte';
 
@@ -258,7 +259,21 @@
       };
       toggles[layer]?.();
     };
+    const handleTerrain3d = (event: Event) => {
+      const enabled = (event as CustomEvent<boolean>).detail;
+      if (!map) return;
+      if (enabled) {
+        map.setTerrain({ source: 'terrain-dem', exaggeration: 1.5 });
+        map.setPitch(45);
+        map.dragRotate.enable();
+      } else {
+        map.setTerrain(null);
+        map.setPitch(0);
+        map.dragRotate.disable();
+      }
+    };
     window.addEventListener('aircommand:map-layer', handleLayerToggle);
+    window.addEventListener('aircommand:terrain-3d', handleTerrain3d);
     // Expose global loadout handler for popup clicks
     (window as any).__airCommandLoadout = (type: string, tail: string) => {
       onLoadoutClick?.(type, tail);
@@ -299,6 +314,7 @@
 
     return () => {
       window.removeEventListener('aircommand:map-layer', handleLayerToggle);
+      window.removeEventListener('aircommand:terrain-3d', handleTerrain3d);
       delete (window as any).__airCommandLoadout;
       map?.remove();
       map = null;
@@ -805,6 +821,7 @@
   <div class="coord tl mono">GRID 34°N / 78°E · SECTOR KASHMIR</div>
   <div class="coord tr mono">ZOOM 4.2 · MERCATOR</div>
   <button class="fullscreen-btn" aria-label={fullscreen ? 'Exit map fullscreen' : 'Enter map fullscreen'} title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen map'} onclick={() => onFullscreenClick?.()}>{fullscreen ? '⛶ EXIT FULLSCREEN' : '⛶ FULLSCREEN'}</button>
+  <TerrainToggle />
   <div class="coord bl mono">SCALE 1:5,000,000</div>
   <div class="coord br mono">WGS84 · EGM96</div>
 
