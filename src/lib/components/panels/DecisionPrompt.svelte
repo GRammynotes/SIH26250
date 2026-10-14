@@ -31,8 +31,8 @@
 </script>
 
 {#if open}
-  <div class="overlay" class:rail>
-    <section class="panel" role="dialog" aria-modal={!rail} aria-label={title}>
+  <div class="overlay" class:rail aria-live={rail ? 'polite' : undefined}>
+    <section class="panel" role={rail ? 'group' : 'dialog'} aria-modal={!rail ? 'true' : undefined} aria-label={title}>
       <header>
         <div class="hdr-left">
           <span class="eyebrow">COMMANDER DECISION</span>
@@ -49,7 +49,7 @@
         <p class="message">{message}</p>
       {/if}
 
-      <div class="options">
+      <div class="options" role="group" aria-label="Decision options">
         {#each options as option (option.id)}
           <button class="option" type="button" onclick={() => onSelect?.(option)}>
             <div class="opt-top">
@@ -80,7 +80,7 @@
     animation: fadein 0.15s ease-out;
   }
   .overlay.rail { position:relative; inset:auto; background:transparent; backdrop-filter:none; display:block; z-index:auto; animation:none; }
-  .overlay.rail .panel { width:100%; max-height:none; overflow:visible; border:1px solid var(--border-strong); box-shadow:none; }
+  .overlay.rail .panel { width:100%; max-height:100%; overflow-y:auto; border:1px solid var(--border-strong); box-shadow:none; }
   .overlay.rail header { padding:10px 12px; }
   .overlay.rail .context,.overlay.rail .message { padding:9px 12px; }
   .overlay.rail .option { padding:10px 12px; }
