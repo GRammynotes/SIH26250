@@ -24,6 +24,8 @@
   import { PaneGroup, Pane, PaneResizer } from 'paneforge';
   import ShortcutHelp from './lib/components/panels/ShortcutHelp.svelte';
   import GlossaryModal from './lib/components/panels/GlossaryModal.svelte';
+  import CommandPalette, { type PaletteCommand } from './lib/components/panels/CommandPalette.svelte';
+  import { IAF_BASES } from './lib/data/bases';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let flowOpen = $state(false);
@@ -39,6 +41,7 @@
   let shortcutHelpOpen = $state(false);
   let glossaryOpen = $state(false);
   let demoCompleteOpen = $state(false);
+  let commandPaletteOpen = $state(false);
   let leftCollapsed = $state(false);
   let rightCollapsed = $state(false);
   let logCollapsed = $state(false);
@@ -48,6 +51,21 @@
   let logPane: { resize: (size: number) => void } | undefined;
   let shortcutToast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  let paletteCommands = $derived<PaletteCommand[]>([
+    { id: 'act-generate', label: 'Generate COA', category: 'ACTION', keywords: 'plan optimise course of action', kind: 'action' },
+    { id: 'act-reference', label: 'Open Reference Library', category: 'ACTION', keywords: 'doctrine reference', kind: 'action' },
+    { id: 'act-flow', label: 'Open Mission Flow', category: 'ACTION', keywords: 'timeline phases', kind: 'action' },
+    { id: 'act-metrics', label: 'Open Metrics Dashboard', category: 'ACTION', keywords: 'analytics stats', kind: 'action' },
+    { id: 'act-glossary', label: 'Open Glossary', category: 'ACTION', keywords: 'terms definitions help', kind: 'action' },
+    { id: 'act-shortcuts', label: 'Show Keyboard Shortcuts', category: 'ACTION', keywords: 'hotkeys help', kind: 'action' },
+    { id: 'act-demo', label: 'Start Demo', category: 'ACTION', keywords: 'tour walkthrough', kind: 'action' },
+    { id: 'act-auto', label: 'Toggle Auto-Opt', category: 'ACTION', keywords: 'continuous reoptimisation', kind: 'action' },
+    { id: 'act-degraded', label: 'Toggle Degraded Mode', category: 'ACTION', keywords: 'sensor edge mode', kind: 'action' },
+    { id: 'act-reset', label: 'Reset System', category: 'ACTION', keywords: 'restore baseline', kind: 'action' },
+    ...system.missions.map((item) => ({ id: `mission-${item.id}`, label: item.name, category: 'MISSION', keywords: `${item.id} ${item.targetType} priority ${item.priority}`, kind: 'mission' as const, targetId: item.id })),
+    ...system.aircraft.map((item) => ({ id: `aircraft-${item.id}`, label: `${item.tailNumber} · ${item.type}`, category: 'AIRCRAFT', keywords: `${item.base} ${item.status} ${item.type}`, kind: 'aircraft' as const, targetId: item.id })),
+    ...IAF_BASES.map((item) => ({ id: `base-${item.id}`, label: `${item.name} · ${item.code}`, category: 'BASE', keywords: item.id, kind: 'base' as const, targetId: item.id })),
+  ]);
 
   function readCollapsedState() {
     try { return JSON.parse(localStorage.getItem('aircommand.panels.v1') ?? '{}') as { left?: boolean; right?: boolean; log?: boolean }; }
@@ -201,6 +219,7 @@
   }
 
   function handleGlobalKeydown(event: KeyboardEvent) {
+    if (event.ctrlKey && event.key.toLowerCase() === 'k') { event.preventDefault(); commandPaletteOpen = true; return; }
     const target = event.target as HTMLElement | null;
     if (target?.matches('input, textarea, [contenteditable]')) return;
     if (event.key === 'Escape') {
@@ -229,6 +248,26 @@
       return;
     }
     runShortcut(event.key.toLowerCase());
+  }
+
+  function selectPaletteCommand(command: PaletteCommand) {
+    commandPaletteOpen = false;
+    if (command.kind === 'mission' && command.targetId) { briefingMissionId = command.targetId; return; }
+    if (command.kind === 'aircraft' && command.targetId) {
+      const aircraft = system.aircraft.find((item) => item.id === command.targetId);
+      if (aircraft) openLoadout(aircraft.type, aircraft.tailNumber);
+      return;
+    }
+    if (command.kind === 'base' && command.targetId) { system.selectBase(command.targetId); return; }
+    const actions: Record<string, () => void> = {
+      'act-generate': () => system.generateCOAs(), 'act-reference': () => referenceOpen = true,
+      'act-flow': () => flowOpen = true, 'act-metrics': () => metricsOpen = true,
+      'act-glossary': () => glossaryOpen = true, 'act-shortcuts': () => shortcutHelpOpen = true,
+      'act-demo': startDemo, 'act-auto': () => system.toggleContinuousReoptimization(),
+      'act-degraded': () => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED'),
+      'act-reset': () => system.reset(),
+    };
+    actions[command.id]?.();
   }
 
   function toggleMapLayer(layer: string) {
@@ -354,6 +393,7 @@
 <MetricsDashboard open={metricsOpen} onClose={() => (metricsOpen = false)} />
 <ShortcutHelp open={shortcutHelpOpen} onClose={() => shortcutHelpOpen = false} />
 <GlossaryModal open={glossaryOpen} onClose={() => glossaryOpen = false} />
+<CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={() => commandPaletteOpen = false} onSelect={selectPaletteCommand} />
 {#if demoCompleteOpen}
   <div class="overlay" role="presentation">
     <section class="demo-complete" role="dialog" aria-modal="true" aria-label="Demo complete">
