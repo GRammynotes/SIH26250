@@ -1,6 +1,7 @@
 <script lang="ts">
   import { narrateUtterance } from '../../engine/voice';
   import { onDestroy } from 'svelte';
+  import { system } from '../../stores/systemStore.svelte';
   import { HISTORICAL_MISSIONS } from '../../data/historicalMissions';
   let { open = false, simSpeed = 1, onSpeedChange, onClose }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onSpeedChange?: (speed: 0 | 1 | 2 | 4) => void; onClose?: () => void } = $props();
   let autoEnabled = $state(true);
@@ -21,6 +22,7 @@
     selectedOutcome = forcedIndex ?? outcomes.findIndex((item) => { total += item.chance; return roll < total; });
     const result = outcomes[selectedOutcome];
     runCount++;
+    system.pushEvent('SIMULATION', `${result.name} · ${result.chance}% MODELED PROBABILITY`, result.name.includes('DESTROYED') || result.name.includes('SUPPRESSED') ? 'ok' : 'info');
     narrateUtterance(`Simulation branch selected: ${result.name}. ${result.consequence}`, { source: 'SIMULATION', speaker: 'agent' });
     window.dispatchEvent(new CustomEvent('aircommand:diagram-focus', { detail: { bounds: [[72.7, 29.5], [77.2, 34.3]], text: `${result.name}. ${result.consequence}` } }));
     window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: 'SIMULATION', text: `${result.name} · ${result.chance}% modeled probability` } }));

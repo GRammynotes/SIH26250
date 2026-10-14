@@ -14,6 +14,7 @@
   import { experienceBounds } from '../../data/scenarioBounds';
   import { getSimulationFrame, setSimulationAnimationActive } from '../../engine/simAnimation.svelte';
   import TacticalReadout from './TacticalReadout.svelte';
+  import MapNarrativePointer from './MapNarrativePointer.svelte';
 
   let {
     onBaseSelect,
@@ -940,6 +941,7 @@
 <div class="map-wrap">
   <div class="map-canvas" class:impact-shake={getSimulationFrame().impacts.some((impact) => impact.flash)} bind:this={container}></div>
   {#if mapReady && map}<TrajectoryLayer {map} />{/if}
+  {#if mapReady && map}<MapNarrativePointer {map} />{/if}
   {#if theaterMapVisible}<TacticalReadout />{/if}
 
   <!-- LAYER 3: Scanline & Vignette Overlay -->
