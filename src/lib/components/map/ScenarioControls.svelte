@@ -5,6 +5,7 @@
     { key: 'aircraft_nmc', label: 'AIRCRAFT NMC' },
     { key: 'multi_crisis', label: 'MULTI-CRISIS' },
     { key: 'radar_loss', label: 'RADAR LOSS' },
+    { key: 'track_loss', label: 'TRACK LOSS' },
   ];
 </script>
 

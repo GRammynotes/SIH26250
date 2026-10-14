@@ -1,6 +1,6 @@
 ﻿import type { Threat, AircraftStatus } from '../types';
 
-export type ScenarioAction = 'log' | 'set_status' | 'add_threat' | 'close_airspace' | 'add_weather' | 'recompute' | 'set_mode';
+export type ScenarioAction = 'log' | 'set_status' | 'add_threat' | 'close_airspace' | 'add_weather' | 'recompute' | 'set_mode' | 'track_loss';
 
 export interface ScenarioStep {
   delay: number;
@@ -12,6 +12,7 @@ export const SCENARIO_LABELS: Record<string, string> = {
   aircraft_nmc: 'AIRCRAFT NMC',
   multi_crisis: 'MULTI-CRISIS',
   radar_loss: 'RADAR LOSS',
+  track_loss: 'TRACK LOSS',
 };
 
 export const SCENARIOS: Record<string, ScenarioStep[]> = {
@@ -40,5 +41,10 @@ export const SCENARIOS: Record<string, ScenarioStep[]> = {
     { delay: 1200, action: 'log',      payload: { source: 'SYSTEM',  msg: 'EDGE MODE ACTIVE · FALLBACK TO LOCAL SENSOR FUSION',     level: 'warn'  } },
     { delay: 2000, action: 'log',      payload: { source: 'FUSION',  msg: 'THREAT PICTURE CONFIDENCE · HIGH TO MEDIUM',             level: 'warn'  } },
     { delay: 3000, action: 'log',      payload: { source: 'COMMAND', msg: 'COA CONFIDENCE REDUCED · HUMAN VERIFICATION REQUIRED',   level: 'alert' } },
+  ],
+
+  track_loss: [
+    { delay: 0,    action: 'log',        payload: { source: 'RADAR',   msg: 'TRACK LOST · TH-003 SUDDEN DISAPPEARANCE',              level: 'alert' } },
+    { delay: 200,  action: 'track_loss', payload: { trackId: 'th-003', lastPosition: { lat: 34.2, lng: 77.8 }, nearbyEnemyAssets: [{ type: 'EW', position: { lat: 34.25, lng: 77.85 } }], terrainElevation: 2500, recentCombat: true } },
   ],
 };

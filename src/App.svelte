@@ -30,6 +30,7 @@
   let loadoutTail = $state('');
   let briefingMissionId = $state<string | null>(null);
   let aarMissionId = $state<string | null>(null);
+  let trackLossOpen = $state(false);
 
   $effect(() => {
     if (system.aarQueue.length > 0 && !aarMissionId) {
@@ -37,8 +38,46 @@
     }
   });
 
+  $effect(() => {
+    if (system.trackLossAnalysis && !trackLossOpen) {
+      trackLossOpen = true;
+    }
+  });
+
   function handleDecision(branchId: string) {
     if (pending) system.resolveDecision(pending.id, branchId);
+  }
+
+  function handleTrackLossDecision(option: { id: string; label: string }) {
+    if (!system.trackLossAnalysis) return;
+    const analysis = system.trackLossAnalysis;
+    
+    if (option.id === 'investigate') {
+      system.pushEvent('COMMAND', `RE-TASK AIRCRAFT TO INVESTIGATE · ${analysis.trackId}`, 'info');
+      system.addThreat({
+        id: `th-investigate-${Date.now()}`,
+        type: 'RADAR',
+        position: { lat: analysis.context.includes('34.2000') ? 34.2 : 34.2, lng: analysis.context.includes('77.8000') ? 77.8 : 77.8 },
+        radius: 40,
+        probability: 65,
+        confidence: 70,
+      });
+    } else if (option.id === 'backup') {
+      system.pushEvent('RADAR', 'BACKUP RADAR ACTIVATED · SEARCH PATTERN INITIATED', 'ok');
+    } else if (option.id === 'reallocate') {
+      system.pushEvent('DEFENCE', 'DEFENCES REALLOCATED · ASSUME HOSTILE PENETRATION', 'alert');
+      system.threats = [...system.threats, {
+        id: `th-spoof-${Date.now()}`,
+        type: 'AIR',
+        position: { lat: 34.2, lng: 77.8 },
+        radius: 60,
+        probability: 75,
+        confidence: 60,
+      }];
+    }
+    
+    system.trackLossAnalysis = null;
+    trackLossOpen = false;
   }
 
   function openLoadout(type: string, tail: string) {
@@ -156,6 +195,22 @@
     }))}
     onSelect={(o) => handleDecision(o.id)}
     onClose={() => system.dismissDecision(pending!.id)}
+  />
+{/if}
+
+{#if system.trackLossAnalysis}
+  <DecisionPrompt
+    open={trackLossOpen}
+    title="TRACK LOSS ANALYSIS"
+    context={system.trackLossAnalysis.context}
+    message={`Bayesian hypothesis analysis indicates ${system.trackLossAnalysis.topHypothesis} with ${Math.round(system.trackLossAnalysis.confidence * 100)}% confidence. Hypotheses: CRASH ${Math.round(system.trackLossAnalysis.hypotheses.CRASH * 100)}%, ELECTRONIC JAMMING ${Math.round(system.trackLossAnalysis.hypotheses.ELECTRONIC_JAMMING * 100)}%, STEALTH MANEUVER ${Math.round(system.trackLossAnalysis.hypotheses.STEALTH_MANEUVER * 100)}%, TERRAIN MASKING ${Math.round(system.trackLossAnalysis.hypotheses.TERRAIN_MASKING * 100)}%.`}
+    options={[
+      { id: 'investigate', label: 'Re-task aircraft to investigate', description: 'Dispatch nearest asset to last known position for visual confirmation.' },
+      { id: 'backup', label: 'Activate backup radar', description: 'Bring secondary surveillance radar online to search the sector.' },
+      { id: 'reallocate', label: 'Assume hostile penetration', description: 'Reallocate defensive assets assuming track represents hostile aircraft.' },
+    ]}
+    onSelect={handleTrackLossDecision}
+    onClose={() => { system.trackLossAnalysis = null; trackLossOpen = false; }}
   />
 {/if}
 

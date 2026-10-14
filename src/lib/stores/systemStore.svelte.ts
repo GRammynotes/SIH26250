@@ -10,6 +10,7 @@ import { optimalWeaponFor } from '../data/weapons';
 import { freshAirspace } from '../data/airspace';
 import { freshWeather } from '../data/weather';
 import { detectDeconflictionWarnings } from '../engine/deconfliction';
+import { analyzeTrackLoss, type TrackLossAnalysis } from '../engine/trackLossEngine';
 import type { Aircraft, Mission, Threat, COA, AircraftStatus } from '../types';
 
 export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
@@ -34,6 +35,7 @@ class SystemStore {
   lastCoaComputeMs = $state(0);
   aarQueue = $state<string[]>([]);
   tickHandle: number | null = null;
+  trackLossAnalysis = $state<TrackLossAnalysis | null>(null);
 
   constructor() {
     const s = generateSystemState();
@@ -293,6 +295,16 @@ class SystemStore {
       case 'add_weather': this.addWeather(step.payload.system); break;
       case 'recompute':  this.generateCOAs(); break;
       case 'set_mode':   this.setMode(step.payload.mode); break;
+      case 'track_loss':
+        this.trackLossAnalysis = analyzeTrackLoss(
+          step.payload.trackId,
+          step.payload.lastPosition,
+          step.payload.nearbyEnemyAssets,
+          step.payload.terrainElevation,
+          step.payload.recentCombat
+        );
+        this.pushEvent('ANALYSIS', `TRACK LOSS HYPOTHESIS · ${this.trackLossAnalysis.topHypothesis} (${Math.round(this.trackLossAnalysis.confidence * 100)}%)`, 'alert');
+        break;
     }
   }
 
