@@ -136,7 +136,7 @@
   .infeasible-badge {
     font-size: 7px; padding: 1px 5px; border: 1px solid var(--accent-red);
     color: var(--accent-red); letter-spacing: 0.1em; font-weight: 700;
-    background: rgba(255, 45, 124, 0.08);
+    background: color-mix(in srgb, var(--accent-red) 8%, transparent);
   }
   .pri { font-size: 9px; padding: 1px 5px; border: 1px solid; letter-spacing: 0.1em; }
   .line2 { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
@@ -160,7 +160,7 @@
     cursor: pointer;
     transition: all 0.15s;
   }
-  .launch:hover { background: rgba(57,255,20,0.1); box-shadow: 0 0 8px rgba(57,255,20,0.4); }
+  .launch:hover { background: color-mix(in srgb, var(--accent-green) 10%, transparent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent-green) 40%, transparent); }
   .state-active { color: var(--accent-cyan); font-size: 8px; letter-spacing: 0.15em; animation: pulse 1.4s ease-in-out infinite; }
   .state-complete { color: var(--accent-green); font-size: 8px; letter-spacing: 0.15em; }
   @media (max-width: 1100px) {

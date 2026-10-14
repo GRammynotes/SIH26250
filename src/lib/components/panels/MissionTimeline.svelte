@@ -115,11 +115,11 @@
     font-size: 10px;
     transition: all 0.3s;
   }
-  .phase.complete .marker { color: var(--accent-green); border-color: var(--accent-green); box-shadow: 0 0 8px rgba(57, 255, 20, 0.4); }
+  .phase.complete .marker { color: var(--accent-green); border-color: var(--accent-green); box-shadow: 0 0 8px color-mix(in srgb, var(--accent-green) 40%, transparent); }
   .phase.current .marker {
     color: var(--accent-cyan);
     border-color: var(--accent-cyan);
-    box-shadow: 0 0 10px rgba(0, 212, 255, 0.6);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent-cyan) 60%, transparent);
     animation: pulse 1.5s ease-in-out infinite;
   }
 

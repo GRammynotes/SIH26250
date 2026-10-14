@@ -112,7 +112,7 @@
     border-bottom: 1px solid var(--border-subtle);
     font-family: var(--font-mono);
   }
-  .mission-card.pending { background: rgba(255, 45, 124, 0.06); }
+  .mission-card.pending { background: color-mix(in srgb, var(--accent-red) 6%, transparent); }
 
   .top { display: flex; justify-content: space-between; align-items: center; }
   .name { color: var(--accent-amber); font-size: 11px; letter-spacing: 0.1em; }
@@ -171,7 +171,7 @@
     margin-top: 10px;
     padding: 8px 10px;
     border: 1px solid var(--accent-red);
-    background: rgba(255, 45, 124, 0.12);
+    background: color-mix(in srgb, var(--accent-red) 12%, transparent);
     color: var(--accent-red);
     font-size: 9px; letter-spacing: 0.15em;
     animation: pulse 1.4s ease-in-out infinite;
