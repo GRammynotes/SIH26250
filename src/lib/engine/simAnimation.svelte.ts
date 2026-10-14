@@ -28,6 +28,7 @@ function bearing(from: [number, number], to: [number, number]): number {
 
 function update(now: number) {
   if (!system.activeScenarioFilter && !system.activeMissions.some((mission) => mission.phase !== 'COMPLETE' && mission.phase !== 'ABORTED')) {
+    trails.clear(); missionOrigins.clear(); missionReleaseStart.clear(); recentImpacts.clear();
     if (Object.keys(simulationFrame.aircraft).length || simulationFrame.missiles.length || simulationFrame.impacts.length) simulationFrame = { aircraft: {}, assets: {}, missiles: [], impacts: [], threats: {} };
     raf = 0;
     return;
@@ -54,7 +55,7 @@ function update(now: number) {
       const prior = trails.get(id) ?? [];
       const coords: [number, number] = [pos.lng, pos.lat];
       if (!prior.length || Math.hypot(prior[prior.length - 1][0] - coords[0], prior[prior.length - 1][1] - coords[1]) > 0.0002) prior.push(coords);
-      trails.set(id, prior.slice(-80));
+      trails.set(id, prior.slice(-8));
       const next = interpolatePosition(origin, mission.target, Math.min(1, fraction + 0.001));
       aircraft[id] = { lat: pos.lat, lng: pos.lng, heading: bearing(coords, [next.lng, next.lat]), scale: mission.phase === 'RELEASE' ? 1.3 : 1, trail: trails.get(id)! };
     }
@@ -92,4 +93,9 @@ function update(now: number) {
 export function setSimulationAnimationActive(active: boolean): void {
   if (active && !raf) raf = requestAnimationFrame(update);
   if (!active && raf) { cancelAnimationFrame(raf); raf = 0; }
+}
+
+export function clearSimulationTrails(): void {
+  trails.clear();
+  simulationFrame = { ...simulationFrame, aircraft: {} };
 }
