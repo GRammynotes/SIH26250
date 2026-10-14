@@ -11,7 +11,7 @@ import { freshAirspace } from '../data/airspace';
 import { freshWeather } from '../data/weather';
 import { detectDeconflictionWarnings } from '../engine/deconfliction';
 import { analyzeTrackLoss, type TrackLossAnalysis } from '../engine/trackLossEngine';
-import { clearVoiceDedupe, narrateEvent } from '../engine/voice';
+import { clearVoiceDedupe, narrateEvent, setNarrationSpeed } from '../engine/voice';
 import type { Aircraft, Mission, Threat, COA, AircraftStatus } from '../types';
 
 export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
@@ -42,6 +42,7 @@ class SystemStore {
   trackLossAnalysis = $state<TrackLossAnalysis | null>(null);
   spoofedTrackId = $state<string | null>(null);
   continuousReoptimization = $state(true);
+  simSpeed = $state<0 | 1 | 2 | 4>(1);
   reoptimizing = $state(false);
   reoptimizationInterval: number | null = null;
   reoptimizationDebounce: number | null = null;
@@ -105,6 +106,11 @@ class SystemStore {
   startTicker() {
     if (this.tickHandle !== null) return;
     this.tickHandle = window.setInterval(() => this.tickExecutions(), 1000);
+  }
+
+  setSimSpeed(speed: 0 | 1 | 2 | 4) {
+    this.simSpeed = speed;
+    if (speed !== 0) setNarrationSpeed(speed);
   }
 
   startContinuousReoptimization() {
@@ -269,6 +275,7 @@ class SystemStore {
   }
 
   tickExecutions() {
+    if (this.simSpeed === 0) return;
     if (this.activeMissions.length === 0) return;
     const updated: ActiveMission[] = [];
 
@@ -278,7 +285,8 @@ class SystemStore {
       if (am.pendingDecision) { updated.push(am); continue; }
 
       const dur = phaseDuration(am.phase);
-      am.elapsedMin += 1 / 60; // ticks every second; show fraction of a minute
+      am.elapsedMin += this.simSpeed / 60; // simulation time scales with the selected playback rate
+      am.phaseStartTime -= (this.simSpeed - 1) * 1000;
       const phaseElapsed = (Date.now() - am.phaseStartTime) / 60000;
 
       // Update positions along path

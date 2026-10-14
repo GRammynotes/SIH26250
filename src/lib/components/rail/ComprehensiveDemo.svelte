@@ -3,7 +3,7 @@
   import { COMPREHENSIVE_DEMO_STEPS, getStepGlossaryTerms } from '../../demo/comprehensiveDemoScript';
   import { narrateUtterance, stopVoice } from '../../engine/voice';
 
-  let { open = false, speed2x = false, onSpeedToggle, onClose, onComplete }: { open?: boolean; speed2x?: boolean; onSpeedToggle?: () => void; onClose?: () => void; onComplete?: () => void } = $props();
+  let { open = false, simSpeed = 1, onSpeedChange, onClose, onComplete }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onSpeedChange?: (speed: 0 | 1 | 2 | 4) => void; onClose?: () => void; onComplete?: () => void } = $props();
 
   // Demo state
   let currentStepIndex = $state(0);
@@ -66,7 +66,7 @@
       if (currentStep.actionDelay) {
         actionTimer = setTimeout(() => {
           scheduleNextStep();
-        }, currentStep.actionDelay);
+        }, simSpeed === 0 ? 2147483647 : currentStep.actionDelay / simSpeed);
       } else {
         scheduleNextStep();
       }
@@ -77,12 +77,12 @@
 
   // Schedule next step
   function scheduleNextStep() {
-    if (!autoAdvance || isPaused || !isPlaying) return;
+    if (!autoAdvance || isPaused || !isPlaying || simSpeed === 0) return;
 
     const duration = currentStep?.duration || 5000;
     stepTimer = setTimeout(() => {
       advanceStep();
-    }, speed2x ? duration / 2 : duration);
+    }, duration / simSpeed);
   }
 
   // Advance to next step
@@ -230,6 +230,14 @@
       startDemo();
     }
   });
+
+  $effect(() => {
+    const speed = simSpeed;
+    if (!isPlaying || isPaused || !autoAdvance) return;
+    clearTimeout(stepTimer);
+    clearTimeout(actionTimer);
+    if (speed > 0) scheduleNextStep();
+  });
 </script>
 
 {#if open}
@@ -339,7 +347,7 @@
           >
             {voiceEnabled ? '◉ VOICE ON' : '○ VOICE OFF'}
           </button>
-          <button class="control-btn" class:active={speed2x} onclick={() => onSpeedToggle?.()} aria-label="Toggle 2x demo speed">⏩ {speed2x ? '2X ON' : '2X'}</button>
+          <span class="control-speed" aria-live="polite">{simSpeed === 0 ? 'PAUSED' : `${simSpeed}X PLAYBACK`}</span>
           <button
             class="control-btn"
             onclick={togglePause}

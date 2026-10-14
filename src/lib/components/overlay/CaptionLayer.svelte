@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { system } from '../../stores/systemStore.svelte';
   type Caption = { id: number; source: string; text: string };
   let captions = $state<Caption[]>([]);
   let nextId = 0;
@@ -10,10 +11,11 @@
       const detail = (event as CustomEvent<{ source: string; text: string }>).detail;
       const caption = { id: ++nextId, source: detail.source || 'SYSTEM', text: detail.text };
       captions = [...captions.slice(-2), caption];
+      const duration = system.simSpeed === 4 ? 1000 : system.simSpeed === 2 ? 2000 : 4000;
       timers.set(caption.id, window.setTimeout(() => {
         captions = captions.filter((item) => item.id !== caption.id);
         timers.delete(caption.id);
-      }, 4000));
+      }, duration));
     };
     window.addEventListener('aircommand:caption', add);
     return () => { window.removeEventListener('aircommand:caption', add); for (const timer of timers.values()) clearTimeout(timer); };

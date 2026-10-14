@@ -4,6 +4,9 @@ export type VoiceFocusTarget = { selector: string; duration: number };
 type QueuedLine = { text: string; priority: VoicePriority; source: string; focus?: VoiceFocusTarget; speaker?: VoiceCharacter };
 
 let enabled = true;
+let narrationSpeed: 1 | 2 | 4 = 1;
+
+export function setNarrationSpeed(speed: 1 | 2 | 4): void { narrationSpeed = speed; }
 let speaking = false;
 let speakingPriority: VoicePriority | null = null;
 let queue: QueuedLine[] = [];
@@ -109,7 +112,7 @@ async function drain(): Promise<void> {
   const utterance = new SpeechSynthesisUtterance(item.text);
   window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: item.source, text: item.text } }));
   if (item.focus) window.dispatchEvent(new CustomEvent('aircommand:focus', { detail: { ...item.focus, text: item.text } }));
-  utterance.rate = item.speaker === 'commander' ? 0.9 : 0.97;
+  utterance.rate = narrationSpeed === 1 ? 0.95 : narrationSpeed === 2 ? 1.15 : 1.35;
   utterance.pitch = item.speaker === 'commander' ? 0.82 : 1.12;
   utterance.lang = 'en-IN';
   const voices = window.speechSynthesis.getVoices();

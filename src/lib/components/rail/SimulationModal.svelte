@@ -5,7 +5,8 @@
   import type { DecisionBranch } from '../../data/historicalMissions';
   import { HISTORICAL_MISSIONS } from '../../data/historicalMissions';
 
-  let { open = false, speed2x = false, onSpeedToggle, onClose }: { open?: boolean; speed2x?: boolean; onSpeedToggle?: () => void; onClose?: () => void } = $props();
+  let { open = false, simSpeed = 1, onSpeedChange, onClose }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onSpeedChange?: (speed: 0 | 1 | 2 | 4) => void; onClose?: () => void } = $props();
+  const scaledDelay = (base: number) => simSpeed === 0 ? 2147483647 : base / simSpeed;
   type Dialogue = { speaker: 'COMMANDER' | 'OPS AGENT' | 'SYSTEM'; text: string };
   let started = $state(false);
   let paused = $state(false);
@@ -59,10 +60,9 @@
       const now = system.activeMissions.find((mission) => mission.missionId === simMissionId);
       if (now?.pendingDecision) {
         say('OPS AGENT', `Decision required: ${now.pendingDecision.title}. I recommend ${now.pendingDecision.branches.find((branch) => /optimal|recommended/i.test(branch.tag))?.label ?? 'the lowest-risk successful option'} based on the displayed course of action.`);
-        if (autoDecision) decisionTimer = setTimeout(() => { if (now.pendingDecision) choose(weightedBranch(now.pendingDecision.branches).id); }, speed2x ? 3000 : 6000);
       } else if (now && now.phase !== 'COMPLETE' && now.phase !== 'ABORTED') advanceToDecision();
       else if (now?.phase === 'COMPLETE') say('OPS AGENT', 'Exercise complete. Review the mission log and after-action report for outcomes and decision consequences.');
-    }, speed2x ? 3000 : 6000);
+    }, scaledDelay(6000));
   }
   function weightedBranch(branches: DecisionBranch[]) {
     const weighted = branches.map((branch) => ({ branch, weight: /recommended|optimal/i.test(branch.tag) ? 0.55 : branch.outcome === 'success' ? 0.24 : branch.outcome === 'partial' ? 0.13 : 0.08 }));
@@ -77,7 +77,7 @@
     say('COMMANDER', `Decision: ${branch.label}.`);
     system.resolveDecision(active!.id, branch.id);
     say('OPS AGENT', branch.consequence);
-    runner = setTimeout(advanceToDecision, 800);
+    runner = setTimeout(advanceToDecision, scaledDelay(800));
   }
   function togglePause() { paused = !paused; say('OPS AGENT', paused ? 'Simulation paused. The map and mission state remain available for inspection.' : 'Simulation resumed.'); if (!paused) advanceToDecision(); }
   function jumpToMap() { window.dispatchEvent(new CustomEvent('aircommand:diagram-focus', { detail: { bounds: [[72.7, 29.5], [77.2, 34.3]], text: 'Historical training area focused. Track the package route, target marker, and threat geometry as the exercise progresses.' } })); }
@@ -85,11 +85,24 @@
     const detail = (event as CustomEvent<{ missionId: string }>).detail;
     if (detail.missionId !== active?.missionId) return;
     if (decisionTimer) clearTimeout(decisionTimer);
-    runner = setTimeout(advanceToDecision, speed2x ? 400 : 800);
+    runner = setTimeout(advanceToDecision, scaledDelay(800));
   }
   $effect(() => {
     if (open) window.addEventListener('aircommand:rail-decision-resolved', handleRailDecision);
     return () => window.removeEventListener('aircommand:rail-decision-resolved', handleRailDecision);
+  });
+  $effect(() => {
+    const waiting = pending;
+    const auto = autoDecision;
+    const speed = simSpeed;
+    if (decisionTimer) clearTimeout(decisionTimer);
+    if (open && auto && waiting && speed !== 0) {
+      decisionTimer = setTimeout(() => {
+        const latest = system.activeMissions.find((mission) => mission.missionId === simMissionId);
+        if (latest?.pendingDecision) choose(weightedBranch(latest.pendingDecision.branches).id);
+      }, scaledDelay(6000));
+    }
+    return () => { if (decisionTimer) clearTimeout(decisionTimer); };
   });
   onDestroy(() => { if (decisionTimer) clearTimeout(decisionTimer); if (runner) clearTimeout(runner); });
   $effect(() => { if (open && !started) startExercise(); });
@@ -97,12 +110,12 @@
 
 {#if open}
   <section class="sim" aria-labelledby="sim-title">
-      <header><div><span class="eyebrow">AUTONOMOUS TRAINING RUN · HISTORICAL CASE STUDY</span><h2 id="sim-title">OP SINDOOR · DEEP STRIKE</h2><p>{history.date} · {history.targetType.toUpperCase()} · SIMULATED, NOT LIVE DATA</p></div><div class="rail-controls"><button class:active={autoDecision} onclick={() => { autoDecision = !autoDecision; if (!autoDecision && decisionTimer) clearTimeout(decisionTimer); else if (autoDecision && pending) decisionTimer = setTimeout(() => choose(weightedBranch(pending.branches).id), speed2x ? 3000 : 6000); }}>AUTO {autoDecision ? 'ON' : 'OFF'}</button><button class:active={speed2x} onclick={() => onSpeedToggle?.()} aria-label="Toggle 2x speed">⏩ {speed2x ? '2x ON' : '2x'}</button><button class="close" aria-label="Close simulation" onclick={() => onClose?.()}>×</button></div></header>
+      <header><div><span class="eyebrow">AUTONOMOUS TRAINING RUN · HISTORICAL CASE STUDY</span><h2 id="sim-title">OP SINDOOR · DEEP STRIKE</h2><p>{history.date} · {history.targetType.toUpperCase()} · SIMULATED, NOT LIVE DATA</p></div><div class="rail-controls"><button class:active={autoDecision} onclick={() => { autoDecision = !autoDecision; if (!autoDecision && decisionTimer) clearTimeout(decisionTimer); }}>AUTO {autoDecision ? 'ON' : 'OFF'}</button><span>{simSpeed === 0 ? 'PAUSED' : `${simSpeed}X`}</span><button class="close" aria-label="Close simulation" onclick={() => onClose?.()}>×</button></div></header>
       <div class="story"><strong>MISSION BRIEF</strong><p>{history.narrative}</p><button onclick={jumpToMap}>⌖ FOCUS TRAINING AREA</button></div>
       <div class="body">
         <section class="dialogue" aria-label="Commander and operations agent dialogue">
             {#each turns as turn, index (`${index}-${turn.speaker}`)}<article class:commander={turn.speaker === 'COMMANDER'} class:system={turn.speaker === 'SYSTEM'}><small>{turn.speaker}</small><p>{turn.text}</p></article>{/each}
-            {#if pending}<article class="decision-status"><small>DECISION REQUESTED · {pending.atPhase}</small><h3>{pending.title}</h3><p>{pending.message}</p><small class="auto">{autoDecision ? `AUTO SELECTS A WEIGHTED BRANCH IN ${speed2x ? '3' : '6'} SECONDS` : 'AUTO OFF · SELECT AN OPTION IN THE DECISION PANEL BELOW'}</small></article>{/if}
+            {#if pending}<article class="decision-status"><small>DECISION REQUESTED · {pending.atPhase}</small><h3>{pending.title}</h3><p>{pending.message}</p><small class="auto">{autoDecision ? `AUTO SELECTS A WEIGHTED BRANCH IN ${simSpeed === 0 ? 'PAUSED' : `${6 / simSpeed} SECONDS`}` : 'AUTO OFF · SELECT AN OPTION IN THE DECISION PANEL BELOW'}</small></article>{/if}
             {#if active?.phase === 'COMPLETE'}<article class="decision"><small>AFTER ACTION</small><h3>EXERCISE COMPLETE · {active.outcome}</h3><p>Review the map, event log, and mission review for the recorded result.</p></article>{/if}
         </section>
         <aside class="state" role="group" aria-label="Live exercise state"><span>LIVE EXERCISE STATE</span><b>{active?.phase ?? 'BRIEFING'}</b><div class="state-row">SCENARIO <strong>{system.activeScenarioFilter?.replaceAll('_', ' ').toUpperCase() ?? 'GLOBAL'}</strong></div><div class="state-row">AIRCRAFT <strong>{active?.aircraftIds.length ?? '—'}</strong></div><div class="state-row">THREATS <strong>{system.scenarioThreats.length}</strong></div><button onclick={() => autoDecision = !autoDecision}>{autoDecision ? 'AUTO DECISIONS ON' : 'AUTO DECISIONS OFF'}</button><button onclick={togglePause}>{paused ? '▶ RESUME' : 'Ⅱ PAUSE'}</button><button onclick={advanceToDecision} disabled={!started || busy || !!pending}>ADVANCE EXERCISE</button></aside>
