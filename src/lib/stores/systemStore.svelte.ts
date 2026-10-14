@@ -123,7 +123,7 @@ class SystemStore {
   }
 
   pushEvent(source: string, msg: string, level: EventLevel = 'info') {
-    const time = new Date().toISOString().slice(11, 19);
+    const time = new Date().toISOString().slice(11, 23);
     this.events = [...this.events, { time, source, msg, level }].slice(-80);
   }
 

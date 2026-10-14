@@ -23,10 +23,11 @@
     ['Terrain', 'terrain'], ['Airspace', 'airspace'], ['Weather', 'weather'], ['Enemy', 'enemy'], ['Ground', 'ground'],
     ['Trails', 'trails'], ['Grid', 'grid'], ['Threat', 'threats'],
   ];
+  const securityStatus = $derived(system.spoofedTrackId ? 'LINK COMPROMISED' : system.mode === 'DEGRADED' ? 'KEY ROTATION DUE' : 'LINK SECURE');
 
   onMount(() => {
-    const tick = () => { const d = new Date(); zulu = d.toISOString().slice(11, 19); utcDate = d.toISOString().slice(0, 10); };
-    tick(); const id = setInterval(tick, 1000);
+    const tick = () => { const d = new Date(); zulu = d.toISOString().slice(11, 23); utcDate = d.toISOString().slice(0, 10); };
+    tick(); const id = setInterval(tick, 100);
     const close = () => openMenu = null;
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
     window.addEventListener('click', close); window.addEventListener('keydown', escape);
@@ -41,7 +42,7 @@
 
 <header class="topbar">
   <span class="title">AIR COMMAND</span><span class="sep">//</span>
-  <span class="classification">UNCLASSIFIED · EXERCISE</span><span class="sep">//</span>
+  <span class="classification">UNCLASSIFIED // EXERCISE // SIMULATED DATA</span><span class="sep">//</span>
   <span class="live"><span class="pulse dot"></span><span>LIVE</span></span>
   <nav class="menus" aria-label="Main menu">
     {#each menus as menu (menu)}
@@ -81,7 +82,8 @@
     {#if demoActive}<span class="indicator demo" title="Demo active" aria-label="Demo active">◆</span>{/if}
     {#if modalCount > 0}<span class="modal-count" title="Open modals">{modalCount}</span>{/if}
   </span>
-  <span class="date">{utcDate}</span><span class="time">{zulu}Z</span>
+  <span class="security-status" class:warn={system.mode === 'DEGRADED' && !system.spoofedTrackId} class:bad={Boolean(system.spoofedTrackId)} aria-live="polite"><i>{system.spoofedTrackId ? '×' : system.mode === 'DEGRADED' ? '△' : '✓'}</i>{securityStatus}</span>
+  <span class="date">{utcDate}</span><span class="time">{zulu}Z</span><span class="operator">OPR: EXERCISE-01</span>
 </header>
 
 <style>
@@ -98,5 +100,6 @@
   .menu-panel button { display:flex; justify-content:space-between; align-items:center; padding:9px 10px; border:1px solid transparent; background:transparent; color:var(--text-secondary); text-align:left; font:9px var(--font-mono); letter-spacing:.1em; cursor:pointer; }
   .menu-panel button:hover,.menu-panel button:focus-visible { border-color:var(--border-strong); color:var(--accent-cyan); outline:none; } .menu-panel button.enabled { color:var(--accent-green); } .menu-arrow { color:var(--text-muted); }
   .indicators { display:flex; align-items:center; gap:6px; margin:0 4px; } .indicator { font-size:8px; font-weight:700; animation:indicator-pulse 1.5s infinite; } .indicator.link { color:var(--accent-green); } .indicator.recompute { color:var(--accent-amber); } .indicator.degraded { color:var(--accent-red); } .indicator.demo { color:var(--accent-cyan); } kbd { margin-left:7px; padding:1px 3px; border:1px solid var(--border-strong); color:var(--accent-cyan); font:8px var(--font-mono); }
+  .security-status { display:flex; align-items:center; gap:4px; color:var(--accent-green); white-space:nowrap; font-size:8px; }.security-status i { display:grid; place-items:center; width:12px; height:12px; border:1px solid currentColor; font-style:normal; font-weight:700; }.security-status.warn { color:var(--accent-amber); }.security-status.bad { color:var(--accent-red); }.operator { white-space:nowrap; color:var(--accent-cyan); font-size:8px; }
   .modal-count { color:var(--accent-cyan); font-size:8px; border:1px solid var(--accent-cyan); padding:1px 3px; } @keyframes indicator-pulse { 50% { opacity:.45; } }
 </style>

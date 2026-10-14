@@ -30,6 +30,7 @@
   import TooltipLayer from './lib/components/layout/TooltipLayer.svelte';
   import WeaponMatrix from './lib/components/panels/WeaponMatrix.svelte';
   import PrioritizationSlider from './lib/components/panels/PrioritizationSlider.svelte';
+  import CyberPanel from './lib/components/panels/CyberPanel.svelte';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let flowOpen = $state(false);
@@ -55,7 +56,7 @@
   let mapFullscreen = $state(false);
   let savedLeftSize = 18;
   let savedRightSize = 22;
-  let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution' | 'weapons'>('coa');
+  let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution' | 'weapons' | 'cyber'>('coa');
   let leftPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let rightPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let logPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
@@ -302,6 +303,7 @@
       return;
     }
     if (event.ctrlKey && event.key === '5') { event.preventDefault(); rightTab = 'weapons'; return; }
+    if (event.ctrlKey && event.key === '6') { event.preventDefault(); rightTab = 'cyber'; return; }
     if (event.key === '?') { shortcutHelpOpen = true; return; }
     if (['1', '2', '3'].includes(event.key)) {
       const coa = system.coas.find((item) => item.rank === Number(event.key));
@@ -383,6 +385,7 @@
                 <button role="tab" aria-selected={rightTab === 'metrics'} class:active={rightTab === 'metrics'} onclick={() => rightTab = 'metrics'}>METRICS</button>
                 <button role="tab" aria-selected={rightTab === 'execution'} class:active={rightTab === 'execution'} onclick={() => rightTab = 'execution'}>EXECUTION</button>
                 <button role="tab" aria-selected={rightTab === 'weapons'} class:active={rightTab === 'weapons'} onclick={() => rightTab = 'weapons'}>WEAPONS <kbd>Ctrl+5</kbd></button>
+                <button role="tab" aria-selected={rightTab === 'cyber'} class:active={rightTab === 'cyber'} onclick={() => rightTab = 'cyber'}>CYBER <kbd>Ctrl+6</kbd></button>
                 <button class="right-collapse" aria-label="Collapse right panel" title="Collapse right panel" onclick={toggleRightPane}>›</button>
               </div>
               <div class="right-tab-content">
@@ -390,7 +393,8 @@
                 {:else if rightTab === 'red'}<COAPanel mode="red" />
                 {:else if rightTab === 'metrics'}<MetricsDashboard open={true} inline={true} />
                 {:else if rightTab === 'execution'}<ExecutionPanel />
-                {:else}<div class="weapon-workspace"><WeaponMatrix /><PrioritizationSlider /></div>{/if}
+                {:else if rightTab === 'weapons'}<div class="weapon-workspace"><WeaponMatrix /><PrioritizationSlider /></div>
+                {:else}<CyberPanel />{/if}
               </div>
             </div>
           {/if}
@@ -485,6 +489,7 @@
   .left { display: grid; grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1px; background: #1a242e; overflow: hidden; height: 100%; }
   .right-wrap { position:relative; height:100%; display:flex; flex-direction:column; background:var(--bg-panel); }
   .right-tabs { display:flex; align-items:stretch; flex:none; border-bottom:1px solid var(--border-subtle); background:var(--bg-base); }
+  .right-tabs { overflow-x:auto; }
   .right-tabs button { flex:1; padding:9px 4px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--text-muted); font:8px var(--font-mono); letter-spacing:.1em; cursor:pointer; transition:color .18s,border-color .18s; }
   .right-tabs button:hover,.right-tabs button.active { color:var(--accent-cyan); }
   .right-tabs button.active { border-bottom-color:var(--accent-cyan); }

@@ -18,7 +18,8 @@
   {#if !collapsed}<div class="entries">
     {#each system.events as e}
       <div class="entry">
-        <span class="t">[{e.time}]</span>
+        <span class="t">[{e.time}Z]</span>
+        <span class="classification-tag">[U]</span>
         <span class="src" style="color:{levelColor(e.level)};">{e.source}</span>
         <span class="msg">{e.msg}</span>
       </div>
@@ -36,6 +37,7 @@
   .entries::-webkit-scrollbar-thumb { background: var(--border-strong); }
   .entry { display: flex; gap: 10px; font-family: var(--font-mono); font-size: 10px; line-height: 1.6; }
   .t { color: var(--text-muted); }
+  .classification-tag { color:var(--accent-cyan); min-width:18px; }
   .src { min-width: 70px; letter-spacing: 0.1em; }
   .msg { color: var(--text-secondary); }
 </style>
