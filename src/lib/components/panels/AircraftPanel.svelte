@@ -1,5 +1,6 @@
 ﻿<script lang="ts">
   import { system } from '../../stores/systemStore.svelte';
+  let { onCollapse }: { onCollapse?: () => void } = $props();
 
   const sorted = $derived(
     [...system.aircraft].sort((a, b) => {
@@ -22,7 +23,7 @@
 <aside class="panel corners">
   <div class="hdr">
     <span>ASSETS</span>
-    <span class="count">{system.aircraft.length} TRACKED</span>
+    <span class="hdr-actions"><span class="count">{system.aircraft.length} TRACKED</span><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
   </div>
   <div class="sub">
     <span style="color:var(--accent-green);">FMC {counts.fmc}</span>
@@ -55,6 +56,7 @@
   .panel { background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; position: relative; height: 100%; }
   .hdr { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px 6px; font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; }
   .hdr .count { color: var(--accent-cyan); }
+  .hdr-actions { display:flex; align-items:center; gap:8px; } .chevron { border:0; background:transparent; color:var(--accent-cyan); cursor:pointer; font:14px var(--font-mono); }
   .sub { display: flex; gap: 12px; padding: 0 12px 8px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em; }
   .list { flex: 1; overflow-y: auto; }
   .list::-webkit-scrollbar { width: 3px; }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { system } from './lib/stores/systemStore.svelte';
   import TopBar from './lib/components/layout/TopBar.svelte';
   import TacticalMap from './lib/components/map/TacticalMap.svelte';
@@ -37,10 +38,37 @@
   let shortcutHelpOpen = $state(false);
   let glossaryOpen = $state(false);
   let demoCompleteOpen = $state(false);
-  let logVisible = $state(true);
-  let leftVisible = $state(true);
+  let leftCollapsed = $state(false);
+  let rightCollapsed = $state(false);
+  let logCollapsed = $state(false);
+  let leftPane: { resize: (size: number) => void } | undefined;
+  let rightPane: { resize: (size: number) => void } | undefined;
+  let logPane: { resize: (size: number) => void } | undefined;
   let shortcutToast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function readCollapsedState() {
+    try { return JSON.parse(localStorage.getItem('aircommand.panels.v1') ?? '{}') as { left?: boolean; right?: boolean; log?: boolean }; }
+    catch { return {}; }
+  }
+
+  function persistCollapsedState() {
+    localStorage.setItem('aircommand.panels.v1', JSON.stringify({ left: leftCollapsed, right: rightCollapsed, log: logCollapsed }));
+  }
+
+  onMount(() => {
+    const saved = readCollapsedState();
+    leftCollapsed = saved.left ?? false; rightCollapsed = saved.right ?? false; logCollapsed = saved.log ?? false;
+    requestAnimationFrame(() => {
+      if (leftCollapsed) leftPane?.resize(3);
+      if (rightCollapsed) rightPane?.resize(3);
+      if (logCollapsed) logPane?.resize(3);
+    });
+  });
+
+  function toggleLeftPane() { leftCollapsed = !leftCollapsed; persistCollapsedState(); leftPane?.resize(leftCollapsed ? 3 : 18); }
+  function toggleRightPane() { rightCollapsed = !rightCollapsed; persistCollapsedState(); rightPane?.resize(rightCollapsed ? 3 : 22); }
+  function toggleLogPane() { logCollapsed = !logCollapsed; persistCollapsedState(); logPane?.resize(logCollapsed ? 3 : 15); }
 
   $effect(() => {
     if (system.aarQueue.length > 0 && !aarMissionId) {
@@ -184,8 +212,8 @@
       else if (pending) system.dismissDecision(pending.id);
       return;
     }
-    if (event.ctrlKey && event.key.toLowerCase() === 'b') { event.preventDefault(); logVisible = !logVisible; return; }
-    if (event.ctrlKey && event.key.toLowerCase() === 'l') { event.preventDefault(); leftVisible = !leftVisible; return; }
+    if (event.ctrlKey && event.key.toLowerCase() === 'b') { event.preventDefault(); toggleLogPane(); return; }
+    if (event.ctrlKey && event.key.toLowerCase() === 'l') { event.preventDefault(); toggleLeftPane(); return; }
     if (event.key === '?') { shortcutHelpOpen = true; return; }
     if (['1', '2', '3'].includes(event.key)) {
       const coa = system.coas.find((item) => item.rank === Number(event.key));
@@ -223,13 +251,13 @@
   <PaneGroup direction="vertical" autoSaveId="aircommand.layout.v1" class="workspace-layout">
     <Pane defaultSize={85} minSize={60}>
       <PaneGroup direction="horizontal" autoSaveId="aircommand.layout.v1.panels" class="content-layout">
-        {#if leftVisible}
-          <Pane defaultSize={18} minSize={12} maxSize={30}>
-            {#if system.selectedBaseId}<BaseDetailPanel onLoadoutClick={openLoadout} />{:else}<aside class="left"><AircraftPanel /><MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} /></aside>{/if}
-          </Pane>
-          <PaneResizer class="pane-resizer" />
-        {/if}
-        <Pane defaultSize={leftVisible ? 60 : 78} minSize={40}>
+        <Pane bind:this={leftPane} defaultSize={18} minSize={3} maxSize={30}>
+          {#if leftCollapsed}<div class="collapsed-rail"><button title="Expand aircraft and mission panels" aria-label="Expand left panels" onclick={toggleLeftPane}>»</button><span>A</span><span>M</span></div>
+          {:else if system.selectedBaseId}<BaseDetailPanel onLoadoutClick={openLoadout} />
+          {:else}<aside class="left"><AircraftPanel onCollapse={toggleLeftPane} /><MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} onCollapse={toggleLeftPane} /></aside>{/if}
+        </Pane>
+        <PaneResizer class="pane-resizer" />
+        <Pane defaultSize={60} minSize={40}>
           <section class="center">
             <TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} />
             <ScenarioControls />
@@ -237,15 +265,14 @@
           </section>
         </Pane>
         <PaneResizer class="pane-resizer" />
-        <Pane defaultSize={22} minSize={16} maxSize={35}>
-          {#if system.activeMissions.length > 0}<ExecutionPanel />{:else}<COAPanel />{/if}
+        <Pane bind:this={rightPane} defaultSize={22} minSize={3} maxSize={35}>
+          {#if rightCollapsed}<div class="collapsed-rail"><button title="Expand COA panel" aria-label="Expand right panel" onclick={toggleRightPane}>«</button><span>C</span></div>
+          {:else}<div class="right-wrap">{#if system.activeMissions.length > 0}<ExecutionPanel onCollapse={toggleRightPane} />{:else}<COAPanel onCollapse={toggleRightPane} />{/if}</div>{/if}
         </Pane>
       </PaneGroup>
     </Pane>
-    {#if logVisible}
-      <PaneResizer class="pane-resizer vertical-resizer" />
-      <Pane defaultSize={15} minSize={8} maxSize={40}><EventLog /></Pane>
-    {/if}
+    <PaneResizer class="pane-resizer vertical-resizer" />
+    <Pane bind:this={logPane} defaultSize={15} minSize={3} maxSize={40}><EventLog collapsed={logCollapsed} onToggle={toggleLogPane} /></Pane>
   </PaneGroup>
 </div>
 
@@ -326,7 +353,12 @@
   }
   :global(.workspace-layout) { flex: 1; min-height: 0; }
   :global(.content-layout) { width: 100%; height: 100%; }
+  :global(.content-layout [data-pane]), :global(.workspace-layout [data-pane]) { transition:flex-basis .2s ease; }
   .left { display: grid; grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1px; background: #1a242e; overflow: hidden; height: 100%; }
+  .right-wrap { position:relative; height:100%; }
+  :global(.collapsed-rail) { display:flex; flex-direction:column; align-items:center; gap:12px; height:100%; padding:8px 0; background:var(--bg-panel); color:var(--accent-cyan); font:9px var(--font-mono); box-sizing:border-box; }
+  :global(.collapsed-rail button), :global(.collapse-btn) { background:transparent; border:0; color:var(--accent-cyan); font:14px var(--font-mono); cursor:pointer; padding:4px; }
+  :global(.collapsed-rail button:focus-visible), :global(.collapse-btn:focus-visible) { outline:1px solid var(--accent-cyan); }
   .center { position: relative; overflow: hidden; background: #05080f; height: 100%; }
   :global(.pane-resizer) { width: 2px; height: 2px; background: var(--border-subtle); flex-shrink: 0; transition: background .15s; }
   :global(.pane-resizer:hover), :global(.pane-resizer[data-resize-handle-active]) { background: var(--accent-cyan); }

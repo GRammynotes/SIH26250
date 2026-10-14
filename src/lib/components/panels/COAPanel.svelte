@@ -4,6 +4,7 @@
   import { ENEMY_ASSETS } from '../../data/enemyAssets';
   import { bestResponseToCOA, expectedPayoff } from '../../engine/gameTheory';
   import { degradeConfidence } from '../../engine/threatAssessment';
+  let { onCollapse }: { onCollapse?: () => void } = $props();
 
   function rankColor(r: number) {
     return r === 1 ? 'var(--accent-green)' : r === 2 ? 'var(--accent-amber)' : 'var(--accent-red)';
@@ -24,6 +25,7 @@
         <span class="recomputing">◢ RECOMPUTING</span>
       {/if}
       <span class="count">{coas.length > 0 ? `${coas.length} OPTIONS` : 'STANDBY'}</span>
+      <button class="chevron" aria-label="Collapse right panel" title="Collapse right panel" onclick={() => onCollapse?.()}>›</button>
     </div>
   </div>
 
@@ -118,6 +120,7 @@
   .panel { background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; position: relative; height: 100%; }
   .hdr { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; }
   .hdr-right { display: flex; align-items: center; gap: 10px; }
+  .chevron { border:0; background:transparent; color:var(--accent-cyan); cursor:pointer; font:14px var(--font-mono); }
   .recomputing { font-size: 8px; letter-spacing: 0.15em; color: var(--accent-cyan); animation: shimmer 0.85s ease-in-out infinite; }
   @keyframes shimmer {
     0%, 100% { opacity: 0.6; }

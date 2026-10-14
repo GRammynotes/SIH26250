@@ -1,7 +1,7 @@
 <script lang="ts">
   import { system } from '../../stores/systemStore.svelte';
 
-  let { onMissionSelect }: { onMissionSelect?: (missionId: string) => void } = $props();
+  let { onMissionSelect, onCollapse }: { onMissionSelect?: (missionId: string) => void; onCollapse?: () => void } = $props();
 
   const sorted = $derived([...system.missions].sort((a, b) => a.priority - b.priority));
 
@@ -44,7 +44,7 @@
 <div class="mission-block corners">
   <div class="hdr">
     <span>MISSIONS</span>
-    <span class="count">{system.missions.length} QUEUED</span>
+    <span class="hdr-actions"><span class="count">{system.missions.length} QUEUED</span><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
   </div>
   <div class="list">
     {#each sorted as m (m.id)}
@@ -84,6 +84,7 @@
   .mission-block { border-top: 1px solid var(--border-subtle); display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; position: relative; }
   .hdr { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; }
   .hdr .count { color: var(--accent-amber); }
+  .hdr-actions { display:flex; align-items:center; gap:8px; } .chevron { border:0; background:transparent; color:var(--accent-cyan); cursor:pointer; font:14px var(--font-mono); }
   .list { flex: 1; overflow-y: auto; }
   .list::-webkit-scrollbar { width: 3px; }
   .list::-webkit-scrollbar-thumb { background: var(--border-strong); }

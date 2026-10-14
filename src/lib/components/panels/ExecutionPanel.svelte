@@ -3,6 +3,7 @@
   import { phaseOrder } from '../../engine/missionExecutor';
   import { HISTORICAL_MISSIONS } from '../../data/historicalMissions';
   import { WEAPONS } from '../../data/weapons';
+  let { onCollapse }: { onCollapse?: () => void } = $props();
 
   let activeList = $derived(system.activeMissions.filter((m) => m.phase !== 'COMPLETE' && m.phase !== 'ABORTED'));
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
@@ -31,6 +32,7 @@
     <div class="hdr">
       <span>ACTIVE MISSIONS</span>
       <span class="count">{activeList.length} IN FLIGHT</span>
+      <button class="chevron" aria-label="Collapse right panel" title="Collapse right panel" onclick={() => onCollapse?.()}>›</button>
     </div>
 
     {#each activeList as am (am.id)}
