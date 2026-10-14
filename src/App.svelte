@@ -28,7 +28,6 @@
   import SystemGuide from './lib/components/panels/SystemGuide.svelte';
 import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   import ComprehensiveDemo from './lib/components/rail/ComprehensiveDemo.svelte';
-  import MapLegend from './lib/components/map/MapLegend.svelte';
   import { narrateUtterance } from './lib/engine/voice';
   import { distanceKm, focusMapElements } from './lib/engine/mapNarrative';
   import type { DecisionBranch } from './lib/data/historicalMissions';
@@ -73,7 +72,6 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let pastDecisionsExpanded = $state(false);
   let welcomeOpen = $state(false);
   let mapFocusLocked = $state(true);
-  let mapLegendOpen = $state(false);
   let commandPaletteOpen = $state(false);
   let modalStack = $state<string[]>([]);
   let minimizedModals = $state<string[]>([]);
@@ -91,6 +89,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let rightPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let logPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let shortcutToast = $state('');
+  let unreadLogCount = $state(0);
+  let previousLogCount = system.events.length;
+  let dockOverflowOpen = $state(false);
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   let paletteCommands = $derived<PaletteCommand[]>([
     { id: 'act-generate', label: 'Generate COA', category: 'ACTION', keywords: 'plan optimise course of action', kind: 'action' },
@@ -99,7 +100,6 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     { id: 'act-metrics', label: 'Open Metrics Dashboard', category: 'ACTION', keywords: 'analytics stats', kind: 'action' },
     { id: 'act-glossary', label: 'Open Glossary', category: 'ACTION', keywords: 'terms definitions help', kind: 'action' },
     { id: 'act-shortcuts', label: 'Show Keyboard Shortcuts', category: 'ACTION', keywords: 'hotkeys help', kind: 'action' },
-    { id: 'act-legend', label: 'Show Map Legend', category: 'ACTION', keywords: 'map legend symbols help', kind: 'action' },
     { id: 'act-demo', label: 'Start Comprehensive Demo', category: 'ACTION', keywords: 'tour walkthrough comprehensive', kind: 'action' },
     { id: 'act-simulation', label: 'Start Training Simulation', category: 'ACTION', keywords: 'training historical exercise', kind: 'action' },
     { id: 'act-auto', label: 'Toggle Auto-Opt', category: 'ACTION', keywords: 'continuous reoptimisation', kind: 'action' },
@@ -117,7 +117,6 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     ...(shortcutHelpOpen ? ['shortcuts'] : []), ...(glossaryOpen ? ['glossary'] : []),
     ...(demoCompleteOpen ? ['demo-complete'] : []), ...(commandPaletteOpen ? ['command-palette'] : []),
     ...(comprehensiveDemoOpen ? ['comprehensive-demo'] : []),
-    ...(mapLegendOpen ? ['map-legend'] : []),
   ]);
   let previousModalIds: string[] = [];
   let previousRightTab: typeof rightTab = 'coa';
@@ -125,7 +124,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let previousScenarioFilter: string | null = null;
   let visibleModalIds = $derived(modalStack.filter((id) => activeModalIds.includes(id) && !minimizedModals.includes(id)).slice(-3));
   let dockedModalIds = $derived(activeModalIds.filter((id) => minimizedModals.includes(id) || !visibleModalIds.includes(id)));
-  const modalLabels: Record<string, string> = { decision: 'DECISION', 'track-loss': 'TRACK LOSS', 'mission-flow': 'MISSION FLOW', loadout: 'LOADOUT', reference: 'REFERENCE', briefing: 'BRIEFING', aar: 'AFTER ACTION', metrics: 'METRICS', shortcuts: 'SHORTCUTS', glossary: 'GLOSSARY', 'demo-complete': 'DEMO COMPLETE', 'command-palette': 'COMMAND PALETTE', simulation: 'SIMULATION', 'probabilistic-sim': 'PROBABILITY SIMULATION', 'comprehensive-demo': 'COMPREHENSIVE DEMO', 'map-legend': 'MAP LEGEND' };
+  let dockVisibleIds = $derived(dockedModalIds.slice(-5));
+  let dockOverflowIds = $derived(dockedModalIds.slice(0, Math.max(0, dockedModalIds.length - 5)));
+  const modalLabels: Record<string, string> = { decision: 'DECISION', 'track-loss': 'TRACK LOSS', 'mission-flow': 'MISSION FLOW', loadout: 'LOADOUT', reference: 'REFERENCE', briefing: 'BRIEFING', aar: 'AFTER ACTION', metrics: 'METRICS', shortcuts: 'SHORTCUTS', glossary: 'GLOSSARY', 'demo-complete': 'DEMO COMPLETE', 'command-palette': 'COMMAND PALETTE', simulation: 'SIMULATION', 'probabilistic-sim': 'PROBABILITY SIMULATION', 'comprehensive-demo': 'COMPREHENSIVE DEMO' };
 
   $effect(() => {
     const open = activeModalIds;
@@ -144,6 +145,11 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       if (id !== 'command-palette') narrateUtterance(`${modalLabels[id] ?? id} closed.`, { source: 'SYSTEM', speaker: 'agent' });
     }
     previousModalIds = [...current];
+  });
+  $effect(() => {
+    const count = system.events.length;
+    if ((logCollapsed || !panelVisibility.missionLog) && count > previousLogCount) unreadLogCount += count - previousLogCount;
+    previousLogCount = count;
   });
   $effect(() => {
     const tab = rightTab;
@@ -201,6 +207,40 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     persistCollapsedState();
   }
 
+  function flashHint(message: string) {
+    shortcutToast = message;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => shortcutToast = '', 1800);
+  }
+
+  function resetLayout() {
+    mapFullscreen = false;
+    leftCollapsed = false; rightCollapsed = false; logCollapsed = false;
+    panelVisibility = { forceRoster: true, missions: true, theaterMap: true, coa: true, missionLog: true, commandStatus: true, scenarioBar: true };
+    leftPanelTab = 'roster'; rightTab = 'coa'; unreadLogCount = 0; railCollapsed = false;
+    if (railMode) setMapFocusLock(true);
+    persistCollapsedState();
+    requestAnimationFrame(() => { leftPane?.resize(18); rightPane?.resize(22); logPane?.resize(15); });
+    flashHint('LAYOUT RESET TO DEFAULT');
+  }
+
+  function toggleRailFromStrip(mode: 'demo' | 'training' | 'sim') {
+    if (railMode === mode) { if (railCollapsed) railCollapsed = false; else closeExperienceRail(); }
+    else { selectRailMode(mode); railCollapsed = false; }
+  }
+
+  function restoreLeftPanel(tab: 'roster' | 'missions') {
+    setPanelVisibility(tab === 'roster' ? 'forceRoster' : 'missions', true);
+    leftPanelTab = tab; leftCollapsed = false;
+    requestAnimationFrame(() => leftPane?.resize(18));
+  }
+
+  function restoreRightTab(tab: typeof rightTab) {
+    if (tab === 'coa') setPanelVisibility('coa', true);
+    rightTab = tab; rightCollapsed = false;
+    requestAnimationFrame(() => rightPane?.resize(22));
+  }
+
   $effect(() => {
     if (flowOpen && !MissionFlowModal) void import('./lib/components/panels/MissionFlowModal.svelte').then((module) => MissionFlowModal = module.default);
     if (loadoutOpen && !LoadoutModal) void import('./lib/components/panels/LoadoutModal.svelte').then((module) => LoadoutModal = module.default);
@@ -216,8 +256,23 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     void import('./lib/components/map/TacticalMap.svelte').then((module) => TacticalMap = module.default);
     const handleMissionBrief = (event: Event) => briefingMissionId = (event as CustomEvent<string>).detail;
     const handleSelectRightTab = (event: Event) => rightTab = (event as CustomEvent<typeof rightTab>).detail;
+    const handleMapOpenPanel = (event: Event) => {
+      const panel = (event as CustomEvent<'roster' | 'missions'>).detail;
+      if (panel === 'roster' || panel === 'missions') restoreLeftPanel(panel);
+    };
+    const handleTourTarget = (event: Event) => {
+      const target = String((event as CustomEvent<string>).detail);
+      if (target.includes('roster')) { setPanelVisibility('forceRoster', true); leftPanelTab = 'roster'; leftCollapsed = false; requestAnimationFrame(() => leftPane?.resize(15)); }
+      else if (target.includes('missions')) { setPanelVisibility('missions', true); leftPanelTab = 'missions'; leftCollapsed = false; requestAnimationFrame(() => leftPane?.resize(15)); }
+      else if (target.includes('coa') || target.includes('generate-coa')) { setPanelVisibility('coa', true); rightTab = 'coa'; rightCollapsed = false; requestAnimationFrame(() => rightPane?.resize(28)); }
+      else if (target.includes('log')) { setPanelVisibility('missionLog', true); logCollapsed = false; requestAnimationFrame(() => logPane?.resize(15)); }
+      else if (target.includes('command-status')) setPanelVisibility('commandStatus', true);
+      else if (target.includes('scenario-bar')) setPanelVisibility('scenarioBar', true);
+    };
     window.addEventListener('aircommand:mission-brief', handleMissionBrief);
     window.addEventListener('aircommand:select-right-tab', handleSelectRightTab);
+    window.addEventListener('aircommand:map-open-panel', handleMapOpenPanel);
+    window.addEventListener('aircommand:tour-target', handleTourTarget);
     const saved = readCollapsedState();
     leftCollapsed = saved.left ?? false; rightCollapsed = saved.right ?? false; logCollapsed = saved.log ?? false;
     panelVisibility = { ...panelVisibility, ...(saved.visibility ?? {}) };
@@ -226,12 +281,12 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       if (rightCollapsed) rightPane?.resize(3);
       if (logCollapsed) logPane?.resize(3);
     });
-    return () => { window.removeEventListener('aircommand:mission-brief', handleMissionBrief); window.removeEventListener('aircommand:select-right-tab', handleSelectRightTab); };
+    return () => { window.removeEventListener('aircommand:mission-brief', handleMissionBrief); window.removeEventListener('aircommand:select-right-tab', handleSelectRightTab); window.removeEventListener('aircommand:map-open-panel', handleMapOpenPanel); window.removeEventListener('aircommand:tour-target', handleTourTarget); };
   });
 
   function toggleLeftPane() { leftCollapsed = !leftCollapsed; persistCollapsedState(); leftPane?.resize(leftCollapsed ? 3 : 15); }
   function toggleRightPane() { rightCollapsed = !rightCollapsed; persistCollapsedState(); rightPane?.resize(rightCollapsed ? 3 : 28); }
-  function toggleLogPane() { logCollapsed = !logCollapsed; persistCollapsedState(); logPane?.resize(logCollapsed ? 3 : 15); }
+  function toggleLogPane() { logCollapsed = !logCollapsed; if (!logCollapsed) unreadLogCount = 0; persistCollapsedState(); logPane?.resize(logCollapsed ? 3 : 15); }
   function toggleMapFullscreen() {
     if (!mapFullscreen) { savedLeftSize = leftPane?.getSize?.() ?? (leftCollapsed ? 3 : 15); savedRightSize = rightPane?.getSize?.() ?? (rightCollapsed ? 3 : 28); mapFullscreen = true; }
     else { mapFullscreen = false; requestAnimationFrame(() => { leftPane?.resize(savedLeftSize); rightPane?.resize(savedRightSize); }); }
@@ -413,41 +468,36 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     const actions: Record<string, () => void> = {
       g: () => system.generateCOAs(), r: () => referenceOpen = true,
       f: () => flowOpen = true, m: () => metricsOpen = true, d: startDemo,
-      s: startSimulation, l: () => mapLegendOpen = true,
+      s: startSimulation,
     };
     actions[key]?.();
     if (labelsForShortcut[key]) narrateUtterance(`${labelsForShortcut[key]} opened.`, { source: 'SYSTEM', speaker: 'agent' });
-    const labels: Record<string, string> = { g: 'GENERATE COA', r: 'REFERENCE', f: 'MISSION FLOW', m: 'METRICS', d: 'DEMO', s: 'SIMULATION', l: 'MAP LEGEND' };
+    const labels: Record<string, string> = { g: 'GENERATE COA', r: 'REFERENCE', f: 'MISSION FLOW', m: 'METRICS', d: 'DEMO', s: 'SIMULATION' };
     if (labels[key]) {
       shortcutToast = `SHORTCUT: ${labels[key]}`;
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(() => shortcutToast = '', 1200);
     }
   }
-  const labelsForShortcut: Record<string, string> = { r: 'Reference library', f: 'Mission flow', m: 'Metrics dashboard', d: 'Comprehensive demo', s: 'Historical simulation', l: 'Map legend' };
+  const labelsForShortcut: Record<string, string> = { r: 'Reference library', f: 'Mission flow', m: 'Metrics dashboard', d: 'Comprehensive demo', s: 'Historical simulation' };
 
   function handleGlobalKeydown(event: KeyboardEvent) {
+    if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'r') { event.preventDefault(); resetLayout(); return; }
     if (event.ctrlKey && event.key.toLowerCase() === 'k') { event.preventDefault(); commandPaletteOpen = true; return; }
     const target = event.target as HTMLElement | null;
-    if (target?.matches('input, textarea, [contenteditable]')) return;
-    if (!event.ctrlKey && !event.altKey && event.key.toLowerCase() === 'f') { focusMode = !focusMode; return; }
     if (event.key === 'Escape') {
-      if (comprehensiveDemoOpen || railMode) { closeExperienceRail(); return; }
-      if (mapFullscreen) { toggleMapFullscreen(); return; }
       const topModal = [...modalStack].reverse().find((id) => activeModalIds.includes(id) && !minimizedModals.includes(id));
       if (topModal) { closeModal(topModal); return; }
       if (commandPaletteOpen) { commandPaletteOpen = false; return; }
-      if (glossaryOpen) glossaryOpen = false;
-      else if (shortcutHelpOpen) shortcutHelpOpen = false;
-      else if (metricsOpen) metricsOpen = false;
-      else if (referenceOpen) referenceOpen = false;
-      else if (flowOpen) flowOpen = false;
-      else if (loadoutOpen) loadoutOpen = false;
-      else if (trackLossOpen) { system.trackLossAnalysis = null; trackLossOpen = false; }
-      else if (demoCompleteOpen) demoCompleteOpen = false;
-      else if (pending) system.dismissDecision(pending.id);
+      if (mapFullscreen) { toggleMapFullscreen(); return; }
+      if (railMode) { closeExperienceRail(); return; }
+      if (system.trackLossAnalysis) { system.trackLossAnalysis = null; trackLossOpen = false; return; }
+      if (pending) { system.dismissDecision(pending.id); return; }
+      flashHint('Press ? for keyboard shortcuts');
       return;
     }
+    if (target?.matches('input, textarea, [contenteditable]')) return;
+    if (!event.ctrlKey && !event.altKey && event.key.toLowerCase() === 'f') { focusMode = !focusMode; return; }
     if (event.ctrlKey && event.key.toLowerCase() === 'b') { event.preventDefault(); toggleLogPane(); return; }
     if (event.ctrlKey && event.key.toLowerCase() === 'l') { event.preventDefault(); toggleLeftPane(); return; }
     if (event.ctrlKey && ['1', '2', '3', '4'].includes(event.key)) {
@@ -479,7 +529,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       'act-generate': () => system.generateCOAs(), 'act-reference': () => referenceOpen = true,
       'act-flow': () => flowOpen = true, 'act-metrics': () => metricsOpen = true,
       'act-glossary': () => glossaryOpen = true, 'act-shortcuts': () => shortcutHelpOpen = true,
-      'act-legend': () => mapLegendOpen = true, 'act-demo': startDemo, 'act-simulation': startSimulation, 'act-auto': () => system.toggleContinuousReoptimization(),
+      'act-demo': startDemo, 'act-simulation': startSimulation, 'act-auto': () => system.toggleContinuousReoptimization(),
       'act-degraded': () => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED'),
       'act-reset': () => system.reset(),
     };
@@ -519,7 +569,6 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     onMetricsClick={() => (metricsOpen = true)}
     onDemoClick={startDemo}
     onSimulationClick={startSimulation}
-    onMapLegendClick={() => (mapLegendOpen = true)}
     onGlossaryClick={() => glossaryOpen = true}
     onShortcutHelpClick={() => shortcutHelpOpen = true}
     onGuideClick={() => { systemGuideOpen = !systemGuideOpen; narrateUtterance(systemGuideOpen ? 'System guide opened.' : 'System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }}
@@ -531,10 +580,15 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     onPanelToggle={(key, visible) => setPanelVisibility(key as keyof typeof panelVisibility, visible)}
     onShowAllPanels={() => setAllPanels(true)}
     onHideAllPanels={() => setAllPanels(false)}
+    panelVisibility={panelVisibility}
+    onResetLayout={resetLayout}
+    onToggleFocusLock={() => setMapFocusLock(!mapFocusLocked)}
+    focusLocked={mapFocusLocked}
+    railActive={!!railMode}
     demoActive={demoActive}
     modalCount={activeModalIds.length}
   />
-  {#if !mapFullscreen && panelVisibility.scenarioBar}<ScenarioBar onToggleVisibility={() => setPanelVisibility('scenarioBar', false)} />{/if}
+  {#if !mapFullscreen}<ScenarioBar collapsed={!panelVisibility.scenarioBar} onToggleVisibility={() => setPanelVisibility('scenarioBar', false)} />{/if}
   {/if}
 
   <PaneGroup direction="vertical" autoSaveId="aircommand.layout.v1" class="workspace-layout">
@@ -611,12 +665,13 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
             <button data-tour="simulation" class:active={railMode === 'training'} role="tab" aria-selected={railMode === 'training'} onclick={() => selectRailMode('training')}>TRAINING</button>
             <button class:active={railMode === 'sim'} role="tab" aria-selected={railMode === 'sim'} onclick={() => selectRailMode('sim')}>SIM</button>
           </div>
+          <button class="rail-focus-lock" class:active={mapFocusLocked} aria-pressed={mapFocusLocked} onclick={() => setMapFocusLock(!mapFocusLocked)}>{mapFocusLocked ? '🔒 LOCKED' : '🔓 FREE'}</button>
+          {#if !mapFocusLocked}<button class="rail-refocus" aria-label="Re-focus map to the scenario area" onclick={refocusMap}>⌖ RE-FOCUS</button>{/if}
+          <div class="sim-speed" role="group" aria-label="Simulation speed">{#each [0, 1, 2, 4] as speed}<button class:active={system.simSpeed === speed} aria-pressed={system.simSpeed === speed} aria-label={speed === 0 ? 'Pause simulation' : `Set simulation speed to ${speed}x`} onclick={() => system.setSimSpeed(speed as 0 | 1 | 2 | 4)}>{speed === 0 ? 'Ⅱ' : `${speed}x`}</button>{/each}</div>
           <button class="rail-collapse" title="Collapse rail" aria-label="Collapse experience rail" onclick={() => railCollapsed = true}>›</button>
           <button class="rail-close" title="Close rail" aria-label="Close experience rail" onclick={closeExperienceRail}>×</button>
         </div>
         <div class="mode-orientation" class:training={railMode === 'training'} class:sim={railMode === 'sim'} title={railMode === 'training' ? 'Practice a historical mission and make commander decisions.' : railMode === 'sim' ? 'Evaluate plan robustness through weighted probabilistic outcomes.' : 'Watch a guided walkthrough of system capabilities.'}>[{railMode === 'training' ? 'TRAINING' : railMode === 'sim' ? 'SIM' : 'DEMO'}]</div>
-          <button class:active={mapFocusLocked} class="rail-focus-lock" aria-pressed={mapFocusLocked} onclick={() => setMapFocusLock(!mapFocusLocked)}>{mapFocusLocked ? '🔒 FOCUS LOCK' : '🔓 FOCUS LOCK'}</button>
-          <button class="rail-refocus" onclick={refocusMap}>⌖ RE-FOCUS</button>
         <div class="rail-content" class:rail-hidden={railMode !== 'demo'}><ComprehensiveDemo open={comprehensiveDemoOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} onComplete={() => { demoCompleteOpen = true; closeExperienceRail(); }} /></div>
         <div class="rail-content" class:rail-hidden={railMode !== 'training'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if SimulationModal}<SimulationModal open={simulationOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
         <div class="rail-content" class:rail-hidden={railMode !== 'sim'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if ProbabilisticSimulation}<ProbabilisticSimulation open={probabilisticSimOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
@@ -628,6 +683,31 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
         {/if}
       </div>
     </aside>
+  {/if}
+  {#if !mapFullscreen && (leftCollapsed || !panelVisibility.forceRoster || !panelVisibility.missions)}
+    <aside class="left-restore-strip" aria-label="Restore left panels">
+      <button class:active={panelVisibility.forceRoster && leftPanelTab === 'roster' && !leftCollapsed} aria-label="Restore force roster" title="Restore force roster" onclick={() => restoreLeftPanel('roster')}>◧</button>
+      <button class:active={panelVisibility.missions && leftPanelTab === 'missions' && !leftCollapsed} aria-label="Restore missions" title="Restore missions" onclick={() => restoreLeftPanel('missions')}>◰</button>
+    </aside>
+  {/if}
+  {#if !mapFullscreen}
+    <aside class="right-activity" class:narrow={!!railMode && !railCollapsed && !rightCollapsed && panelVisibility.coa} aria-label="Restore right-side panels">
+      {#if !railMode || railCollapsed}
+        <button class:active={railMode === 'demo'} aria-label="Toggle demo rail" title="Demo rail" onclick={() => toggleRailFromStrip('demo')}>▶</button>
+        <button class:active={railMode === 'training'} aria-label="Toggle training rail" title="Training rail" onclick={() => toggleRailFromStrip('training')}>▷</button>
+        <button class:active={railMode === 'sim'} aria-label="Toggle simulation rail" title="Simulation rail" onclick={() => toggleRailFromStrip('sim')}>◈</button>
+      {/if}
+      {#if rightCollapsed}
+        <button class:active={rightTab === 'metrics'} aria-label="Open metrics tab" title="Metrics tab" onclick={() => restoreRightTab('metrics')}>▤</button>
+        <button class:active={rightTab === 'red'} aria-label="Open RED VIEW tab" title="RED VIEW" onclick={() => restoreRightTab('red')}>◫</button>
+        <button class:active={rightTab === 'weapons'} aria-label="Open weapon matrix tab" title="Weapon matrix" onclick={() => restoreRightTab('weapons')}>◈</button>
+        <button class:active={rightTab === 'cyber'} aria-label="Open cyber tab" title="Cyber" onclick={() => restoreRightTab('cyber')}>⌨</button>
+      {/if}
+      {#if !panelVisibility.coa}<button aria-label="Restore COA panel" title="COA" onclick={() => restoreRightTab('coa')}>▤</button>{/if}
+    </aside>
+  {/if}
+  {#if !mapFullscreen && (logCollapsed || !panelVisibility.missionLog)}
+    <button class="log-restore-strip" aria-label={`Expand event log, ${unreadLogCount} unread`} onclick={() => { if (!panelVisibility.missionLog) setPanelVisibility('missionLog', true); logCollapsed = false; unreadLogCount = 0; requestAnimationFrame(() => logPane?.resize(15)); persistCollapsedState(); }}>▴ EVENT LOG ({unreadLogCount}) ▴</button>
   {/if}
 </div>
 
@@ -693,7 +773,6 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
 {#if glossaryOpen}<ModalLayer label={modalLabels.glossary} zIndex={modalZ('glossary')} visible={isModalVisible('glossary')} onMinimize={() => minimizeModal('glossary')}><GlossaryModal open={glossaryOpen} onClose={() => glossaryOpen = false} /></ModalLayer>{/if}
 {#if commandPaletteOpen}<ModalLayer label={modalLabels['command-palette']} zIndex={modalZ('command-palette')} visible={isModalVisible('command-palette')} onMinimize={() => minimizeModal('command-palette')}><CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={() => commandPaletteOpen = false} onSelect={selectPaletteCommand} /></ModalLayer>{/if}
 <SystemGuide open={systemGuideOpen} onClose={() => { systemGuideOpen = false; narrateUtterance('System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }} onNavigate={navigateGuide} />
-{#if mapLegendOpen}<MapLegend open={mapLegendOpen} onClose={() => { mapLegendOpen = false; narrateUtterance('Map legend closed.', { source: 'SYSTEM', speaker: 'agent' }); }} />{/if}
 {#if demoCompleteOpen}
   <ModalLayer label={modalLabels['demo-complete']} zIndex={modalZ('demo-complete')} visible={isModalVisible('demo-complete')} onMinimize={() => minimizeModal('demo-complete')}><div class="overlay" role="presentation">
     <section class="demo-complete" role="dialog" aria-modal="true" aria-label="Demo complete">
@@ -702,7 +781,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     </section>
   </div></ModalLayer>
 {/if}
-{#if dockedModalIds.length > 0}<div class="modal-dock" aria-label="Minimized modals">{#each dockedModalIds as id (id)}<button title="Restore {modalLabels[id]}" aria-label="Restore {modalLabels[id]}" onclick={() => restoreModal(id)}>{modalLabels[id]}</button>{/each}</div>{/if}
+{#if dockedModalIds.length > 0}<div class="modal-dock" aria-label="Minimized modals">{#each dockVisibleIds as id (id)}<button title={modalLabels[id]} aria-label="Restore {modalLabels[id]}" onclick={() => restoreModal(id)}>{modalLabels[id]?.slice(0, 2)}</button>{/each}{#if dockOverflowIds.length}<div class="dock-overflow"><button aria-label={`Show ${dockOverflowIds.length} older minimized modals`} title="Older minimized modals" onclick={() => dockOverflowOpen = !dockOverflowOpen}>+{dockOverflowIds.length}</button>{#if dockOverflowOpen}<div class="dock-overflow-list">{#each dockOverflowIds as id (id)}<button title={modalLabels[id]} onclick={() => restoreModal(id)}>{modalLabels[id]}</button>{/each}</div>{/if}</div>{/if}</div>{/if}
 {#if shortcutToast}<div class="shortcut-toast">{shortcutToast}</div>{/if}
 
 <style>
@@ -732,12 +811,15 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   .rail-right.collapsed .rail-expanded { display:none; }
   .rail-resize { position:absolute; top:0; bottom:0; left:-4px; width:8px; z-index:20; cursor:col-resize; border:0; background:transparent; touch-action:none; }
   .rail-resize:hover,.rail-resize:active { background:var(--accent-cyan); opacity:.4; }
-  .rail-toolbar { min-height:35px; display:flex; align-items:stretch; border-bottom:1px solid var(--border-subtle); background:var(--bg-base); }
-  .rail-mode-tabs { display:flex; flex:1; min-width:0; }
+  .rail-toolbar { min-height:35px; display:flex; align-items:center; gap:2px; border-bottom:1px solid var(--border-subtle); background:var(--bg-base); }
+  .rail-mode-tabs { display:flex; flex:1; min-width:0; align-self:stretch; }
   .rail-mode-tabs button { flex:1; min-width:0; padding:8px 3px; border:0; border-bottom:2px solid transparent; color:var(--text-muted); background:transparent; font:8px var(--font-mono); cursor:pointer; }
   .rail-mode-tabs button.active { color:var(--accent-cyan); border-bottom-color:var(--accent-cyan); }
-  .rail-toolbar .rail-focus-lock,.rail-toolbar .rail-refocus { flex:none; padding:4px 5px; border:0; border-left:1px solid var(--border-subtle); color:var(--text-muted); background:transparent; font:6px var(--font-mono); white-space:nowrap; cursor:pointer; }
+  .rail-toolbar .rail-focus-lock,.rail-toolbar .rail-refocus { flex:none; padding:4px 5px; border:1px solid var(--border-subtle); color:var(--text-muted); background:transparent; font:6px var(--font-mono); white-space:nowrap; cursor:pointer; }
   .rail-toolbar .rail-focus-lock.active { color:var(--accent-cyan); }
+  .sim-speed { flex:none; display:flex; gap:1px; }
+  .sim-speed button { min-width:22px; height:22px; padding:0 3px; border:1px solid var(--border-subtle); color:var(--text-muted); background:transparent; font:7px var(--font-mono); cursor:pointer; }
+  .sim-speed button.active { color:var(--accent-cyan); border-color:var(--accent-cyan); }
   .rail-collapse,.rail-close { width:32px; border:0; border-left:1px solid var(--border-subtle); background:transparent; color:var(--text-secondary); font:16px var(--font-mono); cursor:pointer; }
   .rail-content { min-height:0; flex:1; overflow:auto; }
   .rail-decision { flex:0 0 62%; height:62%; min-height:0; max-height:62%; overflow:auto; border-top:1px solid var(--border-strong); }
@@ -798,14 +880,24 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   :global(.pane-resizer:hover), :global(.pane-resizer[data-resize-handle-active]) { background: var(--accent-cyan); }
   :global(.vertical-resizer) { width: 100%; }
   .shortcut-toast { position: fixed; top: 46px; left: 50%; transform: translateX(-50%); z-index: 100; padding: 8px 14px; color: var(--accent-cyan); background: var(--bg-panel); border: 1px solid var(--accent-cyan); font: 10px var(--font-mono); letter-spacing: .14em; }
+  .left-restore-strip { position:fixed; z-index:85; left:0; top:72px; bottom:20px; width:40px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px 3px; box-sizing:border-box; background:var(--bg-base); border-right:1px solid var(--border-strong); }
+  .left-restore-strip button,.right-activity button { width:32px; min-height:32px; border:1px solid var(--border-subtle); background:var(--bg-panel); color:var(--text-muted); font:13px var(--font-mono); cursor:pointer; }
+  .left-restore-strip button:hover,.left-restore-strip button.active,.right-activity button:hover,.right-activity button.active { color:var(--accent-cyan); border-color:var(--accent-cyan); }
+  .right-activity { position:fixed; z-index:85; right:0; top:72px; bottom:20px; width:40px; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 3px; box-sizing:border-box; overflow-y:auto; background:var(--bg-base); border-left:1px solid var(--border-strong); }
+  .right-activity.narrow { width:8px; padding:0; border-left:1px solid var(--border-subtle); background:transparent; }
+  .right-activity.narrow button { display:none; }
+  .log-restore-strip { position:fixed; z-index:86; left:40px; right:40px; bottom:0; height:20px; border:1px solid var(--border-subtle); border-bottom:0; color:var(--accent-cyan); background:var(--bg-base); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; }
+  .modal-dock { position:fixed; z-index:260; right:48px; bottom:28px; display:flex; align-items:end; gap:5px; padding:4px; border:1px solid var(--border-subtle); background:rgba(5,8,15,.94); }
+  .modal-dock>button,.dock-overflow>button { width:32px; height:32px; padding:0; border:1px solid var(--border-strong); background:var(--bg-panel); color:var(--accent-cyan); font:8px var(--font-mono); cursor:pointer; }
+  .dock-overflow { position:relative; }
+  .dock-overflow-list { position:absolute; right:0; bottom:36px; display:flex; flex-direction:column; max-height:240px; overflow:auto; background:var(--bg-panel); border:1px solid var(--accent-cyan); }
+  .dock-overflow-list button { padding:7px 10px; border:0; border-bottom:1px solid var(--border-subtle); color:var(--text-primary); background:transparent; white-space:nowrap; font:8px var(--font-mono); cursor:pointer; }
   .overlay { position:fixed; inset:0; z-index:95; display:grid; place-items:center; background:rgba(0,0,0,.72); }
   .demo-complete { width:min(500px,92vw); padding:26px; text-align:center; background:var(--bg-panel); border:1px solid var(--accent-cyan); color:var(--text-secondary); font-family:var(--font-mono); }
   .demo-complete h2 { color:var(--accent-cyan); letter-spacing:.18em; font-size:13px; }
   .demo-complete p { color:var(--text-muted); font-size:11px; }
   .demo-complete div { display:flex; justify-content:center; gap:10px; margin-top:22px; }
   .demo-complete button { padding:9px 12px; background:transparent; border:1px solid var(--border-strong); color:var(--accent-cyan); font:9px var(--font-mono); cursor:pointer; }
-  .modal-dock { position:fixed; right:12px; bottom:12px; z-index:500; display:flex; flex-direction:column; gap:5px; }
-  .modal-dock button { padding:7px 9px; background:var(--bg-panel); border:1px solid var(--accent-cyan); color:var(--accent-cyan); font:8px var(--font-mono); cursor:pointer; }
 
   .computing {
     position: absolute; top: 16px; left: 50%; transform: translateX(-50%);

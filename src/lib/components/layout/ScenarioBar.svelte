@@ -1,7 +1,8 @@
 <script lang="ts">
   import { system } from '../../stores/systemStore.svelte';
   import { SCENARIO_LABELS } from '../../engine/scenario';
-  let { onToggleVisibility }: { onToggleVisibility?: () => void } = $props();
+  let { onToggleVisibility, collapsed = false }: { onToggleVisibility?: () => void; collapsed?: boolean } = $props();
+  let dropdownOpen = $state(false);
 
   const scenarios = Object.entries(SCENARIO_LABELS);
   function select(key: string | null) {
@@ -10,8 +11,17 @@
   }
 </script>
 
-<details class="scenario-menu" data-tour="scenario-controls">
-  <summary aria-label="Choose scenario"><strong>SCENARIO</strong><span>{system.activeScenarioFilter ? SCENARIO_LABELS[system.activeScenarioFilter] : 'GLOBAL VIEW'}</span><b>▼</b></summary>
+{#if collapsed}<details class="scenario-menu collapsed" data-tour="scenario-controls" bind:open={dropdownOpen}>
+  <summary aria-label="Open scenario menu"><strong>SCENARIO ▼</strong></summary>
+  {#if dropdownOpen}
+  <nav class="scenario-bar dropdown" aria-label="Console scenarios" data-tour="scenario-bar">
+    <strong>SCENARIO FILTER</strong>
+    <button class:active={!system.activeScenarioFilter} aria-pressed={!system.activeScenarioFilter} onclick={() => select(null)}><span aria-hidden="true">◉</span> GLOBAL VIEW</button>
+    {#each scenarios as [key, label] (key)}<button class:active={system.activeScenarioFilter === key} aria-pressed={system.activeScenarioFilter === key} onclick={() => select(key)}><span aria-hidden="true">{key === 'aircraft_nmc' ? '◌' : key.includes('strike') || key === 'sead_campaign' ? '⌁' : '◈'}</span> {label}</button>{/each}
+  </nav>
+  {/if}
+</details>
+{:else}
 <nav class="scenario-bar" aria-label="Console scenarios" data-tour="scenario-bar">
   <strong>SCENARIO FILTER</strong>
   <button class:active={!system.activeScenarioFilter} aria-pressed={!system.activeScenarioFilter} onclick={() => select(null)}><span aria-hidden="true">◉</span> GLOBAL VIEW</button>
@@ -20,7 +30,7 @@
   {/each}
   <button class="visibility-toggle" aria-label="Hide scenario bar" title="Hide scenario bar" onclick={() => onToggleVisibility?.()}>◉</button>
 </nav>
-</details>
+{/if}
 
 <style>
   .scenario-menu { position:relative; z-index:30; height:28px; flex:none; background:var(--bg-panel); border-bottom:1px solid var(--border-subtle); font:8px var(--font-mono); }
@@ -28,7 +38,7 @@
   .scenario-menu>summary::-webkit-details-marker { display:none; }
   .scenario-menu>summary strong { color:var(--accent-cyan); font-size:8px; }
   .scenario-menu>summary b { color:var(--text-muted); font-size:7px; }
-  .scenario-menu[open] .scenario-bar { position:absolute; top:27px; left:0; right:0; box-shadow:0 8px 20px #0009; }
+  .scenario-menu[open] .scenario-bar.dropdown { position:absolute; top:27px; left:0; right:0; box-shadow:0 8px 20px #0009; }
   .scenario-bar { display:flex; align-items:center; gap:5px; width:100%; min-height:40px; box-sizing:border-box; overflow-x:auto; padding:4px 10px; background:var(--bg-panel); border:1px solid var(--border-subtle); scrollbar-width:thin; }
   strong { flex:none; white-space:nowrap; color:var(--text-muted); font:8px var(--font-mono); letter-spacing:.12em; padding:0 6px; }.visibility-toggle { margin-left:auto; color:var(--accent-cyan); }
   button { flex:0 0 auto; min-height:27px; padding:4px 9px; border:1px solid var(--border-subtle); color:var(--text-muted); background:transparent; font:9px var(--font-mono); letter-spacing:.08em; cursor:pointer; transition:color .18s,border-color .18s,box-shadow .18s; }

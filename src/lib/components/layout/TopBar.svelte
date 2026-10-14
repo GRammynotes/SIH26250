@@ -5,14 +5,14 @@
 
   let {
     aircraftCount = 0, missionCount = 0, threatCount = 0,
-    onFlowClick, onReferenceClick, onMetricsClick, onDemoClick, onSimulationClick, onMapLegendClick,
+    onFlowClick, onReferenceClick, onMetricsClick, onDemoClick, onSimulationClick,
     onGlossaryClick, onShortcutHelpClick, onGuideClick, onReplayWelcome, onGenerate, onReset, onDegradedToggle,
     onLayerToggle, demoActive = false, modalCount = 0, onResetLayout, onToggleFocusLock, focusLocked = true, railActive = false, panelVisibility = {},
     onPanelToggle, onShowAllPanels, onHideAllPanels,
   }: {
     aircraftCount?: number; missionCount?: number; threatCount?: number;
     onFlowClick?: () => void; onReferenceClick?: () => void; onMetricsClick?: () => void;
-    onDemoClick?: () => void; onSimulationClick?: () => void; onMapLegendClick?: () => void; onGlossaryClick?: () => void; onShortcutHelpClick?: () => void; onGuideClick?: () => void; onReplayWelcome?: () => void;
+    onDemoClick?: () => void; onSimulationClick?: () => void; onGlossaryClick?: () => void; onShortcutHelpClick?: () => void; onGuideClick?: () => void; onReplayWelcome?: () => void;
     onGenerate?: () => void; onReset?: () => void; onDegradedToggle?: () => void;
     onLayerToggle?: (layer: string) => void; demoActive?: boolean; modalCount?: number;
     onPanelToggle?: (key: string, visible: boolean) => void; onShowAllPanels?: () => void; onHideAllPanels?: () => void;
@@ -29,6 +29,7 @@
     ['Trails', 'trails'], ['Grid', 'grid'], ['Threat', 'threats'],
   ];
   const panels = [['FORCE ROSTER','forceRoster'],['MISSIONS','missions'],['THEATER MAP','theaterMap'],['COA','coa'],['MISSION LOG','missionLog'],['COMMAND STATUS','commandStatus'],['SCENARIO BAR','scenarioBar']];
+  let layerChecked = $state({ terrain:false, airspace:true, weather:true, enemy:true, ground:true, trails:true, grid:true, threats:true });
   const securityStatus = $derived(system.spoofedTrackId ? 'LINK COMPROMISED' : system.mode === 'DEGRADED' ? 'KEY ROTATION DUE' : 'LINK SECURE');
 
   onMount(() => {
@@ -45,6 +46,7 @@
     event.stopPropagation(); openMenu = openMenu === name ? null : name;
   }
   function action(fn?: () => void) { fn?.(); openMenu = null; }
+  function toggleLayer(key: string) { layerChecked = { ...layerChecked, [key]: !layerChecked[key as keyof typeof layerChecked] }; onLayerToggle?.(key); }
   function toggleVoice() { voiceOn = !voiceOn; setVoiceEnabled(voiceOn); }
 </script>
 
@@ -59,7 +61,7 @@
         {#if openMenu === menu}
           <div class="menu-panel" role="menu" onclick={(event) => event.stopPropagation()}>
             {#if menu === 'VIEW'}
-              <details class="submenu"><summary>MAP LAYERS ▸</summary>{#each layers as [label, key]}<button role="menuitemcheckbox" aria-checked="false" onclick={() => onLayerToggle?.(key)}><span>☐ {label}</span></button>{/each}</details>
+              <details class="submenu"><summary>MAP LAYERS ▸</summary>{#each layers as [label, key]}<button role="menuitemcheckbox" aria-checked={layerChecked[key as keyof typeof layerChecked]} onclick={() => toggleLayer(key)}><span>{layerChecked[key as keyof typeof layerChecked] ? '☑' : '☐'} {label}</span></button>{/each}</details>
               <details class="submenu"><summary>PANELS ▸</summary>{#each panels as [label, key]}<button role="menuitemcheckbox" aria-checked={panelVisibility[key] !== false} onclick={() => onPanelToggle?.(key, panelVisibility[key] === false)}><span>{panelVisibility[key] === false ? '☐' : '☑'} {label}</span></button>{/each}</details>
               <div class="menu-divider"></div>
               <button role="menuitem" onclick={() => action(onShowAllPanels)}>RESTORE ALL PANELS</button>
@@ -73,8 +75,6 @@
             {:else if menu === 'HELP'}
               <button role="menuitem" onclick={() => action(onDemoClick)}>◈ COMPREHENSIVE DEMO <kbd>D</kbd></button>
               <button role="menuitem" onclick={() => action(onSimulationClick)}>◈ TRAINING SIMULATION <kbd>S</kbd></button>
-              <button role="menuitem" onclick={() => action(onGuideClick)}>◈ SYSTEM GUIDE</button>
-              <button role="menuitem" onclick={() => action(onReplayWelcome)}>↻ SHOW WELCOME CARD AGAIN</button>
               <div class="menu-divider"></div>
               <button role="menuitem" onclick={() => action(onShortcutHelpClick)}>⌨ KEYBOARD SHORTCUTS <kbd>?</kbd></button>
               <button role="menuitem" onclick={() => action(onGlossaryClick)}>◈ GLOSSARY <kbd>⌘</kbd></button>
