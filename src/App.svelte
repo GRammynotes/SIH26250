@@ -34,6 +34,7 @@
   let loadoutTail = $state('');
   let briefingMissionId = $state<string | null>(null);
   let aarMissionId = $state<string | null>(null);
+  let assignedAircraftId = $state<string | null>(null);
   let trackLossOpen = $state(false);
   let shortcutHelpOpen = $state(false);
   let glossaryOpen = $state(false);
@@ -130,7 +131,7 @@
     const missionId = briefingMissionId;
     const coa = system.coas.find((c) => c.id === system.selectedCoaId) ?? system.coas[0];
     if (!coa) return;
-    const ids = coa.assignments[missionId] ?? [];
+    const ids = assignedAircraftId ? [assignedAircraftId] : coa.assignments[missionId] ?? [];
     if (ids.length === 0) return;
     const mission = system.missions.find((m) => m.id === missionId);
     if (!mission) return;
@@ -148,6 +149,7 @@
     };
     const templateId = map[mission.targetType] ?? 'sindoor_deep';
     system.startMission(missionId, ids, templateId);
+    assignedAircraftId = null;
     briefingMissionId = null;
   }
 
@@ -260,7 +262,7 @@
         <Pane bind:this={leftPane} defaultSize={18} minSize={3} maxSize={30}>
           {#if leftCollapsed}<div class="collapsed-rail"><button title="Expand aircraft and mission panels" aria-label="Expand left panels" onclick={toggleLeftPane}>»</button><span>A</span><span>M</span></div>
           {:else if system.selectedBaseId}<BaseDetailPanel onLoadoutClick={openLoadout} />
-          {:else}<aside class="left"><AircraftPanel onCollapse={toggleLeftPane} /><MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} onCollapse={toggleLeftPane} /></aside>{/if}
+          {:else}<aside class="left"><AircraftPanel onCollapse={toggleLeftPane} onLoadout={openLoadout} onAssign={(aircraftId, missionId) => { assignedAircraftId = aircraftId; briefingMissionId = missionId; }} /><MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} onCollapse={toggleLeftPane} /></aside>{/if}
         </Pane>
         <PaneResizer class="pane-resizer" />
         <Pane defaultSize={60} minSize={40}>
