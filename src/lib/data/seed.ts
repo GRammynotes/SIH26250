@@ -19,16 +19,22 @@ const between = (rand: Rand, min: number, max: number) => min + rand() * (max - 
 
 function generateAircraft(rand: Rand): Aircraft[] {
   const out: Aircraft[] = [];
+  const squadrons = [
+    { baseId: 'ambala', type: 'Su-30MKI', count: 18, tailPrefix: 'SB', firstTail: 301, callsign: 'Tiger' },
+    { baseId: 'hasimara', type: 'Rafale', count: 16, tailPrefix: 'RB', firstTail: 201, callsign: 'Falcon' },
+    { baseId: 'sulur', type: 'Tejas', count: 12, tailPrefix: 'TE', firstTail: 101, callsign: 'Garuda' },
+  ] as const;
   let n = 1;
-  for (const base of IAF_BASES) {
-    const count = 1 + Math.floor(rand() * 2);
-    for (let i = 0; i < count; i++) {
-      const type = base.primaryAircraft[0];
+  for (const squadron of squadrons) {
+    const base = IAF_BASES.find((item) => item.id === squadron.baseId)!;
+    for (let i = 0; i < squadron.count; i++) {
+      const type = squadron.type;
       const roll = rand();
       const status: AircraftStatus = roll < 0.7 ? 'FMC' : roll < 0.9 ? 'PMC' : 'NMC';
       out.push({
         id: `ac-${String(n).padStart(3, '0')}`,
-        tailNumber: `${base.code}-${String(100 + n)}`,
+        tailNumber: `${squadron.tailPrefix}-${squadron.firstTail + i}`,
+        callsign: `${squadron.callsign}-${String(i + 1).padStart(2, '0')}`,
         type,
         base: base.id,
         status,

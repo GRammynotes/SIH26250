@@ -41,13 +41,13 @@
 
 <aside class="panel corners">
   <div class="hdr">
-    <span>ASSETS</span>
+    <span>FORCE ROSTER</span>
     <span class="hdr-actions"><span class="count">{system.aircraft.length} TRACKED</span><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
   </div>
   <div class="sub">
-    <span style="color:var(--accent-green);">FMC {counts.fmc}</span>
-    <span style="color:var(--accent-amber);">PMC {counts.pmc}</span>
-    <span style="color:var(--accent-red);">NMC {counts.nmc}</span>
+    <span style="color:var(--accent-green);">✓ FMC {counts.fmc}</span>
+    <span style="color:var(--accent-amber);">◐ PMC {counts.pmc}</span>
+    <span style="color:var(--accent-red);">× NMC {counts.nmc}</span>
   </div>
   <div class="asset-tools">
     <div class="chips" role="group" aria-label="Aircraft status filters">
@@ -84,7 +84,7 @@
             {:else}<span>NO PLANNED MISSIONS</span>{/each}
           </div>
         {/if}
-        {#if expandedId === ac.id}<div class="details">{ac.type} · BASE {ac.base.toUpperCase()} · FUEL {ac.fuel}% · CREW REST {ac.crewRest}H · HEADING {ac.heading}° · LOAD {ac.weapons.join(', ')}</div>{/if}
+        {#if expandedId === ac.id}<div class="details">{ac.callsign ?? 'EXERCISE FLIGHT'} · {ac.type} · BASE {ac.base.toUpperCase()} · FUEL {ac.fuel}% · CREW REST {ac.crewRest}H · HEADING {ac.heading}° · EXERCISE LOAD {ac.weapons.join(', ')}</div>{/if}
       </div>
     {/each}
   </div>

@@ -11,6 +11,7 @@ export interface Position { lat: number; lng: number; }
 export interface Aircraft {
   id: string;
   tailNumber: string;
+  callsign?: string;
   type: string;
   base: string;
   status: AircraftStatus;
