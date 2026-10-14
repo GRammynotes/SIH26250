@@ -40,8 +40,11 @@
   let lastScenarioView: string | null | undefined;
   let terrain3dEnabled = false;
   let terrainPaused = false;
+  let terrainResumeTimer: ReturnType<typeof setTimeout> | undefined;
   const circlePolygonCache = new Map<string, number[][]>();
+  const threatPolyCache = new Map<string, { key: string; outer: number[][]; mid: number[][]; inner: number[][] }>();
   const aircraftMarkerHtmlCache = new Map<string, string>();
+  const aircraftDomMarkers = new Map<string, maplibregl.Marker>();
 
   // Map layer toggle states
   let showTerrain = $state(true);
@@ -142,11 +145,12 @@
       },
     },
     layers: [
-      { id: 'bg', type: 'raster', source: 'osm' },
+      { id: 'bg', type: 'raster', source: 'osm', paint: { 'raster-resampling': 'nearest' } },
       {
         id: 'hillshade-base',
         type: 'hillshade',
         source: 'terrain-dem',
+        maxzoom: 10,
         layout: { visibility: 'visible' },
         paint: {
           'hillshade-shadow-color': '#000814',
@@ -161,6 +165,7 @@
         id: 'hillshade-detail',
         type: 'hillshade',
         source: 'terrain-dem',
+        maxzoom: 10,
         layout: { visibility: 'visible' },
         paint: {
           'hillshade-shadow-color': '#00101f',
@@ -298,7 +303,7 @@
   }
 
   function aircraftMarker(ac: import('../../types').Aircraft): HTMLDivElement {
-    const key = `${ac.tailNumber}:${ac.status}`;
+    const key = `${ac.type}-${ac.status}-${ac.heading}`;
     let markup = aircraftMarkerHtmlCache.get(key);
     if (!markup) {
       const wrapper = militarySymbolElement('friendlyAir', 30);
@@ -307,6 +312,7 @@
       glyph.textContent = ac.status === 'FMC' ? '✓' : ac.status === 'PMC' ? '◐' : '×';
       glyph.setAttribute('aria-label', ac.status);
       wrapper.append(glyph);
+      wrapper.style.transform = `rotate(${ac.heading}deg)`;
       markup = wrapper.outerHTML;
       aircraftMarkerHtmlCache.set(key, markup);
     }
@@ -316,6 +322,21 @@
     wrapper.style.transition = 'transform 0.15s ease';
     wrapper.title = `${ac.tailNumber} · ${ac.status}`;
     return wrapper;
+  }
+
+  function threatPolygons(threat: import('../../types').Threat) {
+    const { lat, lng } = threat.position;
+    const key = `${threat.id}-${threat.radius}-${lat}-${lng}`;
+    const cached = threatPolyCache.get(threat.id);
+    if (cached?.key === key) return cached;
+    const next = {
+      key,
+      outer: circlePolygon([lng, lat], threat.radius),
+      mid: circlePolygon([lng, lat], threat.radius * 0.66),
+      inner: circlePolygon([lng, lat], threat.radius * 0.33),
+    };
+    threatPolyCache.set(threat.id, next);
+    return next;
   }
 
   function polygonFeatures(items: Array<AirspaceZone | WeatherSystem>): GeoJSON.Feature[] {
@@ -398,10 +419,17 @@
     });
     map.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     map.on('movestart', () => {
+      if (terrainResumeTimer) clearTimeout(terrainResumeTimer);
       if (map && terrain3dEnabled && terrainPaused) { map.setTerrain({ source: 'terrain-dem', exaggeration: 1.5 }); terrainPaused = false; }
     });
     map.on('moveend', () => {
-      if (map && terrain3dEnabled && !terrainPaused) { map.setTerrain(null); terrainPaused = true; }
+      if (map && terrain3dEnabled) {
+        map.setTerrain(null); terrainPaused = true;
+        if (terrainResumeTimer) clearTimeout(terrainResumeTimer);
+        terrainResumeTimer = setTimeout(() => {
+          if (map && terrain3dEnabled) { map.setTerrain({ source: 'terrain-dem', exaggeration: 1.5 }); terrainPaused = false; }
+        }, 200);
+      }
     });
     map.on('zoom', () => {
       if (!map || dynamicMarkers.length === 0) return;
@@ -445,6 +473,7 @@
       window.removeEventListener('aircommand:terrain-3d', handleTerrain3d);
       window.removeEventListener('aircommand:matrix-highlight', handleMatrixHighlight);
       delete (window as any).__airCommandLoadout;
+      if (terrainResumeTimer) clearTimeout(terrainResumeTimer);
       map?.remove();
       map = null;
     };
@@ -650,6 +679,7 @@
     const threatCenterFeatures: GeoJSON.Feature[] = [];
 
     for (const t of threats) {
+      const polygons = threatPolygons(t);
       // Center point
       const isSpoofed = spoofedTrackId === t.id;
       threatCenterFeatures.push({
@@ -664,7 +694,7 @@
         properties: { id: t.id, type: t.type, radiusLevel: 'outer' },
         geometry: {
           type: 'Polygon',
-          coordinates: [circlePolygon([t.position.lng, t.position.lat], t.radius)],
+          coordinates: [polygons.outer],
         },
       });
 
@@ -674,7 +704,7 @@
         properties: { id: t.id, type: t.type, radiusLevel: 'mid' },
         geometry: {
           type: 'Polygon',
-          coordinates: [circlePolygon([t.position.lng, t.position.lat], t.radius * 0.66)],
+          coordinates: [polygons.mid],
         },
       });
 
@@ -684,7 +714,7 @@
         properties: { id: t.id, type: t.type, radiusLevel: 'inner' },
         geometry: {
           type: 'Polygon',
-          coordinates: [circlePolygon([t.position.lng, t.position.lat], t.radius * 0.33)],
+          coordinates: [polygons.inner],
         },
       });
     }
@@ -857,15 +887,26 @@
       );
     }
 
-    // Small fleets retain full DOM markers and popups; large fleets use one GL symbol layer.
-    if (aircraft.length <= 20) for (const ac of aircraft) {
+    // Small fleets retain keyed DOM markers and popups; large fleets use one GL symbol layer.
+    if (aircraft.length <= 20) {
+      const ids = new Set(aircraft.map((ac) => ac.id));
+      for (const [id, marker] of aircraftDomMarkers) if (!ids.has(id)) { marker.remove(); aircraftDomMarkers.delete(id); }
+      for (const ac of aircraft) {
       const color = ac.status === 'FMC' ? C.green : ac.status === 'PMC' ? C.amber : C.red;
       const wrapper = aircraftMarker(ac);
-      dynamicMarkers.push(
-        new maplibregl.Marker({ element: wrapper })
-          .setLngLat([ac.position.lng, ac.position.lat])
-          .setPopup(
-            new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(
+      let marker = aircraftDomMarkers.get(ac.id);
+      if (marker) {
+        const element = marker.getElement();
+        element.innerHTML = wrapper.innerHTML;
+        element.style.transform = wrapper.style.transform;
+        element.dataset.aircraftId = ac.id;
+        element.title = wrapper.title;
+        marker.setLngLat([ac.position.lng, ac.position.lat]);
+      } else {
+        marker = new maplibregl.Marker({ element: wrapper }).setLngLat([ac.position.lng, ac.position.lat]).addTo(map);
+        aircraftDomMarkers.set(ac.id, marker);
+      }
+      marker.setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(
               `<div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#e2e8f0;background:#0a0e1a;border:1px solid #2a3447;padding:10px 14px;min-width:210px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                   <span style="color:#00d4ff;letter-spacing:0.15em;">${ac.tailNumber}</span>
@@ -882,11 +923,11 @@
                     ◈ OPEN LOADOUT DIAGRAM
                   </button>
                 </div>
-              </div>`
-            )
-          )
-          .addTo(map)
-      );
+              </div>`));
+      }
+    } else {
+      for (const marker of aircraftDomMarkers.values()) marker.remove();
+      aircraftDomMarkers.clear();
     }
 
     // Ground asset markers (Layer A3)
@@ -930,7 +971,7 @@
       }
     }
       });
-    }, 100);
+    }, 150);
     return () => { window.clearTimeout(debounce); if (frame) window.cancelAnimationFrame(frame); };
   });
 
