@@ -1,5 +1,7 @@
 <script lang="ts">
+  import SvelteVirtualList from '@humanspeak/svelte-virtual-list';
   import { system } from '../../stores/systemStore.svelte';
+  import type { Mission } from '../../types';
 
   let { onMissionSelect, onCollapse }: { onMissionSelect?: (missionId: string) => void; onCollapse?: () => void } = $props();
 
@@ -70,6 +72,15 @@
   }
 </script>
 
+{#snippet missionRow(m: Mission)}
+  <div class="row" class:expanded={expandedMission === m.id} style="border-left:3px solid {priColor(m.priority)}" tabindex="-1" role="group" aria-label="Mission {m.name}, priority {m.priority}" onkeydown={(event) => handleMissionRowKeydown(event, m.id)} onclick={(event) => { if (!(event.target as HTMLElement).closest('button')) onMissionSelect?.(m.id); }}>
+    <div class="line1"><span class="name">{m.name}</span><div class="line1-right">{#if !m.feasible}<span class="infeasible-badge">INFEASIBLE</span>{/if}<span class="pri" style="color:{priColor(m.priority)};border-color:{priColor(m.priority)};">P{m.priority}</span></div></div>
+    {#if expandedMission === m.id}<div class="line2"><span class="coords">{m.target.lat.toFixed(3)}N · {m.target.lng.toFixed(3)}E</span><span class="risk">RISK {m.riskLevel}</span></div><div class="riskbar"><div class="fill" style="width:{m.riskLevel}%;background:{priColor(m.priority)};"></div></div><div class="type-row"><span class="target-type">{m.targetType.toUpperCase().replace('-', ' ')}</span>{#if m.status === 'PLANNED' && system.coas.length > 0}<span class="state-planned">PLANNED</span>{:else if m.status === 'ACTIVE'}<span class="state-active">● IN FLIGHT</span>{:else if m.status === 'COMPLETE'}<span class="state-complete">✓ COMPLETE</span>{/if}</div>{/if}
+    <div class="quick-actions"><button onclick={() => onMissionSelect?.(m.id)}>BRIEF</button>{#if m.status === 'PLANNED'}<button class="execute-action" disabled={!system.coas.length || !m.feasible} onclick={() => handleExecute(m.id)}>EXECUTE</button>{/if}<button onclick={() => expandedMission = expandedMission === m.id ? null : m.id} aria-expanded={expandedMission === m.id}>DETAILS</button></div>
+    {#if expandedMission === m.id}<div class="detail-row">ID {m.id} · STATUS {m.status} · TARGET {m.targetType.toUpperCase()} · FEASIBLE {m.feasible ? 'YES' : 'NO'}</div>{/if}
+  </div>
+{/snippet}
+
 <div class="mission-block corners">
   <div class="hdr">
     <span>MISSIONS</span>
@@ -83,45 +94,13 @@
     <button class="group-toggle" aria-label="Change mission grouping" title="Change grouping: {groupBy}" onclick={() => groupBy = groupBy === 'PRIORITY' ? 'STATUS' : groupBy === 'STATUS' ? 'TARGET TYPE' : 'PRIORITY'}>GROUP: {groupBy} ↻</button>
   </div>
   <div class="list">
-    {#each groups as [groupName, missions] (groupName)}
-      <div class="group-label">{groupName} · {missions.length}</div>
-      {#each missions as m (m.id)}
-      <div class="row" class:expanded={expandedMission === m.id} style="border-left:3px solid {priColor(m.priority)}" tabindex="-1" role="group" aria-label="Mission {m.name}, priority {m.priority}" onkeydown={(event) => handleMissionRowKeydown(event, m.id)} onclick={(event) => { if (!(event.target as HTMLElement).closest('button')) onMissionSelect?.(m.id); }}>
-        <div class="line1">
-          <span class="name">{m.name}</span>
-          <div class="line1-right">
-            {#if !m.feasible}
-              <span class="infeasible-badge">INFEASIBLE</span>
-            {/if}
-            <span class="pri" style="color:{priColor(m.priority)};border-color:{priColor(m.priority)};">P{m.priority}</span>
-          </div>
-        </div>
-        {#if expandedMission === m.id}
-        <div class="line2">
-          <span class="coords">{m.target.lat.toFixed(3)}N · {m.target.lng.toFixed(3)}E</span>
-          <span class="risk">RISK {m.riskLevel}</span>
-        </div>
-        <div class="riskbar"><div class="fill" style="width:{m.riskLevel}%;background:{priColor(m.priority)};"></div></div>
-        <div class="type-row">
-          <span class="target-type">{m.targetType.toUpperCase().replace('-', ' ')}</span>
-          {#if m.status === 'PLANNED' && system.coas.length > 0}
-            <span class="state-planned">PLANNED</span>
-          {:else if m.status === 'ACTIVE'}
-            <span class="state-active">● IN FLIGHT</span>
-          {:else if m.status === 'COMPLETE'}
-            <span class="state-complete">✓ COMPLETE</span>
-          {/if}
-        </div>
-        {/if}
-        <div class="quick-actions">
-          <button onclick={() => onMissionSelect?.(m.id)}>BRIEF</button>
-          {#if m.status === 'PLANNED'}<button class="execute-action" disabled={!system.coas.length || !m.feasible} onclick={() => handleExecute(m.id)}>EXECUTE</button>{/if}
-          <button onclick={() => expandedMission = expandedMission === m.id ? null : m.id} aria-expanded={expandedMission === m.id}>DETAILS</button>
-        </div>
-        {#if expandedMission === m.id}<div class="detail-row">ID {m.id} · STATUS {m.status} · TARGET {m.targetType.toUpperCase()} · FEASIBLE {m.feasible ? 'YES' : 'NO'}</div>{/if}
-      </div>
-      {/each}
-    {:else}<div class="empty">NO MISSIONS MATCH THIS FILTER</div>{/each}
+    {#if visibleMissions.length > 30}
+      <SvelteVirtualList items={visibleMissions} itemKey={(item) => item.id} defaultEstimatedItemHeight={58} containerClass="mission-virtual" viewportClass="mission-viewport" viewportLabel="Mission queue">
+        {#snippet renderItem(m)}{@render missionRow(m)}{/snippet}
+      </SvelteVirtualList>
+    {:else}
+      {#each groups as [groupName, missions] (groupName)}<div class="group-label">{groupName} · {missions.length}</div>{#each missions as m (m.id)}{@render missionRow(m)}{/each}{:else}<div class="empty">NO MISSIONS MATCH THIS FILTER</div>{/each}
+    {/if}
   </div>
 </div>
 
@@ -137,6 +116,8 @@
   .group-label { position:sticky; top:0; z-index:1; padding:4px 12px; background:var(--bg-base); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.13em; }
   .hdr-actions { display:flex; align-items:center; gap:8px; } .chevron { border:0; background:transparent; color:var(--accent-cyan); cursor:pointer; font:14px var(--font-mono); }
   .list { flex: 1; overflow-y: auto; }
+  :global(.mission-virtual) { height:100%; min-height:0; overflow:hidden; }
+  :global(.mission-viewport) { height:100%; overflow-y:auto; }
   .list::-webkit-scrollbar { width: 3px; }
   .list::-webkit-scrollbar-thumb { background: var(--border-strong); }
   .row { padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); transition: background 0.12s; }

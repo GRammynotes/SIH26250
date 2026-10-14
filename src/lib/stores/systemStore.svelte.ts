@@ -18,15 +18,15 @@ export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
 export interface EventEntry { time: string; source: string; msg: string; level: EventLevel; }
 
 class SystemStore {
-  aircraft = $state<Aircraft[]>([]);
-  missions = $state<Mission[]>([]);
-  threats = $state<Threat[]>([]);
+  aircraft = $state.raw<Aircraft[]>([]);
+  missions = $state.raw<Mission[]>([]);
+  threats = $state.raw<Threat[]>([]);
   airspaceZones = $state<import('../types').AirspaceZone[]>([]);
   weatherSystems = $state<import('../types').WeatherSystem[]>([]);
   coas = $state<COA[]>([]);
   selectedCoaId = $state<string | null>(null);
   selectedBaseId = $state<string | null>(null);
-  events = $state<EventEntry[]>([]);
+  events = $state.raw<EventEntry[]>([]);
   mode = $state<'NORMAL' | 'DEGRADED'>('NORMAL');
   computing = $state(false);
   activeScenario = $state<string | null>(null);

@@ -15,6 +15,7 @@
   const impactMarkers = new Map<string, maplibregl.Marker>();
   const impactStarts = new Map<string, number>();
   let raf = 0;
+  let impactAnimationRunning = false;
 
   function featureCollection(features: GeoJSON.Feature[]): GeoJSON.FeatureCollection {
     return { type: 'FeatureCollection', features };
@@ -102,7 +103,10 @@
       impactFeatures.push({ type: 'Feature', properties: { missionId: id }, geometry: { type: 'Polygon', coordinates: [circleAround([mission.target.lng, mission.target.lat], radius)] } });
     }
     const impactSource = map.getSource(impactSourceId) as maplibregl.GeoJSONSource | undefined;
-    impactSource?.setData(featureCollection(impactFeatures));
+    if (impactFeatures.length > 0 || impactAnimationRunning) {
+      impactSource?.setData(featureCollection(impactFeatures));
+      impactAnimationRunning = impactFeatures.length > 0;
+    }
     raf = requestAnimationFrame(animate);
   }
 

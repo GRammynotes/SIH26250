@@ -29,6 +29,7 @@
   let dynamicMarkers: maplibregl.Marker[] = [];
   let groundMarkersList: maplibregl.Marker[] = [];
   let baseMarkersList: { id: string; marker: maplibregl.Marker; el: HTMLElement }[] = [];
+  let aircraftLayerClickAttached = false;
 
   // Map layer toggle states
   let showTerrain = $state(true);
@@ -152,6 +153,35 @@
     const d = document.createElement('div');
     d.innerHTML = html.trim();
     return d.firstElementChild as HTMLDivElement;
+  }
+
+  function ensureAircraftLayer() {
+    if (!map) return;
+    for (const [status, color] of [['FMC', C.green], ['PMC', C.amber], ['NMC', C.red]] as const) {
+      const imageId = `aircraft-${status}`;
+      if (map.hasImage(imageId)) continue;
+      const canvas = document.createElement('canvas'); canvas.width = 48; canvas.height = 48;
+      const ctx = canvas.getContext('2d'); if (!ctx) continue;
+      ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(24, 5); ctx.lineTo(27, 19); ctx.lineTo(41, 27); ctx.lineTo(41, 31); ctx.lineTo(27, 27); ctx.lineTo(26, 40); ctx.lineTo(32, 44); ctx.lineTo(32, 46); ctx.lineTo(24, 44); ctx.lineTo(16, 46); ctx.lineTo(16, 44); ctx.lineTo(22, 40); ctx.lineTo(21, 27); ctx.lineTo(7, 31); ctx.lineTo(7, 27); ctx.lineTo(21, 19); ctx.closePath(); ctx.stroke();
+      map.addImage(imageId, ctx.getImageData(0, 0, 48, 48), { pixelRatio: 2 });
+    }
+    if (!map.getSource('aircraft-gl')) map.addSource('aircraft-gl', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
+      id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl',
+      layout: { 'icon-image': ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC'], 'icon-size': 0.8, 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+    });
+    if (!aircraftLayerClickAttached) {
+      map.on('click', 'aircraft-gl-symbols', (event) => {
+        const feature = event.features?.[0];
+        const props = feature?.properties;
+        if (!props || !event.lngLat) return;
+        new maplibregl.Popup({ offset: 14, closeButton: false }).setLngLat(event.lngLat).setHTML(`<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#e2e8f0;background:#0a0e1a;border:1px solid #2a3447;padding:9px 12px"><b style="color:#00d4ff">${props.tailNumber}</b><br>${props.type} · ${props.status}<br>FUEL ${props.fuel}% · BASE ${props.base}</div>`).addTo(map!);
+      });
+      map.on('mouseenter', 'aircraft-gl-symbols', () => { if (map) map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'aircraft-gl-symbols', () => { if (map) map.getCanvas().style.cursor = ''; });
+      aircraftLayerClickAttached = true;
+    }
   }
 
   // Upgraded Hexagonal Base Marker with rotating radar sweep
@@ -378,6 +408,13 @@
     const weather = system.weatherSystems;
     const selectedCoa = system.coas.find((coa) => coa.id === system.selectedCoaId) ?? null;
     const selBase = system.selectedBaseId;
+
+    ensureAircraftLayer();
+    const aircraftSource = map.getSource('aircraft-gl') as maplibregl.GeoJSONSource | undefined;
+    if (aircraftSource) {
+      aircraftSource.setData({ type: 'FeatureCollection', features: aircraft.map((ac) => ({ type: 'Feature', properties: { id: ac.id, tailNumber: ac.tailNumber, status: ac.status, type: ac.type, fuel: ac.fuel, base: ac.base.toUpperCase() }, geometry: { type: 'Point', coordinates: [ac.position.lng, ac.position.lat] } })) });
+      map.setLayoutProperty('aircraft-gl-symbols', 'visibility', aircraft.length > 20 ? 'visible' : 'none');
+    }
 
     // Update selected base styling
     for (const b of baseMarkersList) {
@@ -715,8 +752,8 @@
       );
     }
 
-    // Aircraft markers
-    for (const ac of aircraft) {
+    // Small fleets retain full DOM markers and popups; large fleets use one GL symbol layer.
+    if (aircraft.length <= 20) for (const ac of aircraft) {
       const color = ac.status === 'FMC' ? C.green : ac.status === 'PMC' ? C.amber : C.red;
       const wrapper = militarySymbolElement('friendlyAir', 30);
       wrapper.dataset.aircraftId = ac.id;
