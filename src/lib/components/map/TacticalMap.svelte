@@ -7,6 +7,7 @@
   import { ENEMY_ASSETS, type EnemyAsset } from '../../data/enemyAssets';
   import { militarySymbolElement, type MilitarySymbolKind } from '../../data/militarySymbols';
   import TerrainToggle from './TerrainToggle.svelte';
+  import TrajectoryLayer from './TrajectoryLayer.svelte';
   import { type AirspaceZone, type WeatherSystem } from '../../types';
   import { system } from '../../stores/systemStore.svelte';
 
@@ -806,6 +807,7 @@
 
 <div class="map-wrap">
   <div class="map-canvas" bind:this={container}></div>
+  {#if mapReady && map}<TrajectoryLayer {map} />{/if}
 
   <!-- LAYER 3: Scanline & Vignette Overlay -->
   <div class="scanlines" aria-hidden="true"></div>
