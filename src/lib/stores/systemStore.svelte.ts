@@ -39,7 +39,8 @@ class SystemStore {
   spoofedTrackId = $state<string | null>(null);
   continuousReoptimization = $state(true);
   reoptimizing = $state(false);
-  reoptimizationTimer: number | null = null;
+  reoptimizationInterval: number | null = null;
+  reoptimizationDebounce: number | null = null;
 
   constructor() {
     const s = generateSystemState();
@@ -64,8 +65,8 @@ class SystemStore {
   }
 
   startContinuousReoptimization() {
-    if (this.reoptimizationTimer !== null) return;
-    this.reoptimizationTimer = window.setInterval(() => {
+    if (this.reoptimizationInterval !== null) return;
+    this.reoptimizationInterval = window.setInterval(() => {
       if (this.continuousReoptimization && !this.computing) {
         this.silentReoptimize();
       }
@@ -76,19 +77,22 @@ class SystemStore {
     if (this.computing || this.reoptimizing) return;
     this.reoptimizing = true;
     const startT = performance.now();
-    await new Promise((r) => setTimeout(r, 850));
-    this.coas = optimise(this.aircraft, this.missions, this.threats, this.airspaceZones, this.weatherSystems);
-    this.reoptimizing = false;
-    this.coaGenerationCount += 1;
-    this.lastCoaComputeMs = Math.round(performance.now() - startT);
+    try {
+      await new Promise((r) => setTimeout(r, 850));
+      this.coas = optimise(this.aircraft, this.missions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems);
+      this.coaGenerationCount += 1;
+      this.lastCoaComputeMs = Math.round(performance.now() - startT);
+    } finally {
+      this.reoptimizing = false;
+    }
   }
 
   triggerReoptimization() {
     if (!this.continuousReoptimization) return;
-    if (this.reoptimizationTimer) clearTimeout(this.reoptimizationTimer);
-    this.reoptimizationTimer = window.setTimeout(() => {
+    if (this.reoptimizationDebounce !== null) clearTimeout(this.reoptimizationDebounce);
+    this.reoptimizationDebounce = window.setTimeout(() => {
+      this.reoptimizationDebounce = null;
       this.silentReoptimize();
-      this.startContinuousReoptimization();
     }, 2000); // 2 second debounce
   }
 
@@ -98,9 +102,13 @@ class SystemStore {
       this.startContinuousReoptimization();
       this.pushEvent('SYSTEM', 'CONTINUOUS RE-OPTIMISATION ENABLED', 'info');
     } else {
-      if (this.reoptimizationTimer) {
-        clearTimeout(this.reoptimizationTimer);
-        this.reoptimizationTimer = null;
+      if (this.reoptimizationDebounce !== null) {
+        clearTimeout(this.reoptimizationDebounce);
+        this.reoptimizationDebounce = null;
+      }
+      if (this.reoptimizationInterval !== null) {
+        clearInterval(this.reoptimizationInterval);
+        this.reoptimizationInterval = null;
       }
       this.pushEvent('SYSTEM', 'CONTINUOUS RE-OPTIMISATION DISABLED', 'warn');
     }
@@ -116,17 +124,36 @@ class SystemStore {
     this.computing = true;
     const startT = performance.now();
     await new Promise((r) => setTimeout(r, 850));
-    this.coas = optimise(this.aircraft, this.missions, this.threats, this.airspaceZones, this.weatherSystems);
+    this.coas = optimise(this.aircraft, this.missions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems);
+    
+    // In DEGRADED mode, reduce confidence values
+    if (this.mode === 'DEGRADED') {
+      this.coas = this.coas.map(coa => ({
+        ...coa,
+        successProbability: Math.max(30, coa.successProbability - 20),
+        riskScore: Math.min(100, coa.riskScore + 15),
+      }));
+    }
+    
     this.selectedCoaId = this.coas[0]?.id ?? null;
     this.computing = false;
     this.coaGenerationCount += 1;
     this.lastCoaComputeMs = Math.round(performance.now() - startT);
     const blocked = this.coas[0] ? Object.values(this.coas[0].assignments).filter((a) => a.length === 0).length : 0;
     const note = blocked > 0 ? ` · ${blocked} UNCOVERED` : '';
-    this.pushEvent('COMMAND', `COA RECOMPUTED · ${this.coas.length} OPTIONS${note}`, 'ok');
+    const modeNote = this.mode === 'DEGRADED' ? ' · CONFIDENCE REDUCED' : '';
+    this.pushEvent('COMMAND', `COA RECOMPUTED · ${this.coas.length} OPTIONS${note}${modeNote}`, 'ok');
     if (this.coas[0]) {
       for (const warning of detectDeconflictionWarnings(this.coas[0], this.aircraft, this.missions)) this.pushEvent('DECONFLICT', warning, 'alert');
     }
+  }
+
+  private optimisationThreats(): Threat[] {
+    if (this.mode !== 'DEGRADED') return this.threats;
+    return this.threats.map((threat) => ({
+      ...threat,
+      probability: Math.max(0, Math.min(100, Math.round(threat.probability + (Math.random() * 30 - 15)))),
+    }));
   }
 
   selectCOA(id: string) {
@@ -152,12 +179,14 @@ class SystemStore {
     this.airspaceZones = this.airspaceZones.map((zone) => zone.id === id ? { ...zone, status: 'CLOSED' as const } : zone);
     const zone = this.airspaceZones.find((item) => item.id === id);
     if (zone) this.pushEvent('AIRSPACE', `CORRIDOR CLOSED · ${zone.name}`, 'warn');
+    this.triggerReoptimization();
   }
   addWeather(system: import('../types').WeatherSystem) {
     this.weatherSystems = [...this.weatherSystems.filter((item) => item.id !== system.id), system];
     this.pushEvent('WEATHER', `SYSTEM UPDATED · ${system.id.toUpperCase()} · VIS ${system.visibility_km}KM`, system.severity >= 4 ? 'warn' : 'info');
+    this.triggerReoptimization();
   }
-  setMode(m: 'NORMAL' | 'DEGRADED') { this.mode = m; }
+  setMode(m: 'NORMAL' | 'DEGRADED') { this.mode = m; this.triggerReoptimization(); }
 
   // ============ MISSION EXECUTION ============
 
@@ -359,7 +388,6 @@ class SystemStore {
         break;
       case 'data_poisoning':
         // Add spoofed track
-        this.spoofedTrackId = step.payload.trackId;
         this.addThreat({
           id: step.payload.trackId,
           type: 'AIR',
@@ -369,20 +397,26 @@ class SystemStore {
           confidence: 75,
         });
         this.pushEvent('SENSOR', `SPOOFED TRACK APPEARED · ${step.payload.trackId}`, 'warn');
+        if (this.mode === 'DEGRADED') {
+          this.pushEvent('FUSION', 'CROSS-SENSOR VALIDATION UNAVAILABLE · DEGRADED SINGLE-SOURCE MODE', 'warn');
+          setTimeout(() => {
+            this.threats = this.threats.filter(t => t.id !== step.payload.trackId);
+            this.pushEvent('SENSOR', `UNVERIFIED TRACK EXPIRED · ${step.payload.trackId}`, 'warn');
+          }, 5000);
+          break;
+        }
         
-        // After 2 seconds, run cross-sensor validation
+        // Validation runs two seconds after the track appears.
         setTimeout(() => {
           this.pushEvent('FUSION', 'CROSS-SENSOR VALIDATION IN PROGRESS · 3 SENSORS', 'info');
+          this.spoofedTrackId = step.payload.trackId;
+          this.pushEvent('FUSION', `CROSS-SENSOR VALIDATION FAILED · TRACK ID 4421 FLAGGED SPOOFED · CONFIDENCE 92%`, 'alert');
+          // Remove three seconds after validation flags the marker.
           setTimeout(() => {
-            // Flag as spoofed
-            this.pushEvent('FUSION', `CROSS-SENSOR VALIDATION FAILED · TRACK ID ${step.payload.trackId} FLAGGED SPOOFED · CONFIDENCE 92%`, 'alert');
-            // Remove after 3 more seconds
-            setTimeout(() => {
-              this.threats = this.threats.filter(t => t.id !== step.payload.trackId);
-              this.spoofedTrackId = null;
-              this.pushEvent('FUSION', `SPOOFED TRACK REMOVED · ${step.payload.trackId}`, 'ok');
-            }, 3000);
-          }, 2000);
+            this.threats = this.threats.filter(t => t.id !== step.payload.trackId);
+            this.spoofedTrackId = null;
+            this.pushEvent('FUSION', `SPOOFED TRACK REMOVED · ${step.payload.trackId}`, 'ok');
+          }, 3000);
         }, 2000);
         break;
     }

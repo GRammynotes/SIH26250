@@ -3,6 +3,7 @@
   import { getModeLabel } from '../../engine/optimisation';
   import { ENEMY_ASSETS } from '../../data/enemyAssets';
   import { bestResponseToCOA, expectedPayoff } from '../../engine/gameTheory';
+  import { degradeConfidence } from '../../engine/threatAssessment';
 
   function rankColor(r: number) {
     return r === 1 ? 'var(--accent-green)' : r === 2 ? 'var(--accent-amber)' : 'var(--accent-red)';
@@ -17,7 +18,7 @@
 
 <div class="panel corners">
   <div class="hdr">
-    <span>COA ANALYSIS</span>
+    <span>{system.mode === 'DEGRADED' ? 'DEGRADED · SINGLE-SOURCE MODE' : 'COA ANALYSIS'}</span>
     <div class="hdr-right">
       {#if system.reoptimizing}
         <span class="recomputing">◢ RECOMPUTING</span>
@@ -99,7 +100,7 @@
       {#each coas as coa (coa.id)}
         {@const response = bestResponseToCOA(coa, ENEMY_ASSETS)}
         <div class="red-card">
-          <div class="red-hdr"><span>OPTION {coa.rank} · {getModeLabel(coa)}</span><span>{response.confidence} CONF</span></div>
+        <div class="red-hdr"><span>OPTION {coa.rank} · {getModeLabel(coa)}</span><span>{system.mode === 'DEGRADED' ? degradeConfidence(response.confidence) : response.confidence} CONF</span></div>
           <div class="red-action">{response.action}</div>
           <p>{response.rationale}</p>
           <div class="red-metrics"><span>EXPECTED RED DAMAGE <b>{response.expectedDamage}</b></span><span>BLUE PAYOFF <b>{expectedPayoff(coa, response)}</b></span></div>

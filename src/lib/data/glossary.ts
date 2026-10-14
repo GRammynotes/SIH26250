@@ -1,0 +1,26 @@
+export type GlossaryEntry = { term: string; category: 'Readiness' | 'Operations' | 'Weapons' | 'Planning' | 'Assessment'; definition: string };
+
+export const GLOSSARY: GlossaryEntry[] = [
+  { term: 'FMC', category: 'Readiness', definition: 'Fully Mission Capable; an aircraft is ready for its assigned operational task.' },
+  { term: 'PMC', category: 'Readiness', definition: 'Partially Mission Capable; an aircraft can perform a restricted set of tasks.' },
+  { term: 'NMC', category: 'Readiness', definition: 'Not Mission Capable; an aircraft is unavailable for operational tasking.' },
+  { term: 'HUMS', category: 'Readiness', definition: 'Health and Usage Monitoring System; tracks aircraft condition and component use.' },
+  { term: 'IACCS', category: 'Operations', definition: 'Integrated Air Command and Control System; coordinates the air defence picture and response.' },
+  { term: 'ATO', category: 'Operations', definition: 'Air Tasking Order; the published schedule of air missions and supporting tasks.' },
+  { term: 'CAP', category: 'Operations', definition: 'Combat Air Patrol; aircraft patrol an assigned area to protect forces or airspace.' },
+  { term: 'TST', category: 'Operations', definition: 'Time Sensitive Target; a target requiring rapid action because its value or threat may change quickly.' },
+  { term: 'WEZ', category: 'Operations', definition: 'Weapon Engagement Zone; the area where a weapon system can engage a target.' },
+  { term: 'BVRAAM', category: 'Weapons', definition: 'Beyond Visual Range Air-to-Air Missile; an air-to-air missile designed for engagements beyond visual range.' },
+  { term: 'SRAAM', category: 'Weapons', definition: 'Short Range Air-to-Air Missile; an air-to-air missile intended for close-range engagements.' },
+  { term: 'SEAD', category: 'Weapons', definition: 'Suppression of Enemy Air Defences; operations that reduce or disrupt adversary air-defence capability.' },
+  { term: 'Standoff', category: 'Weapons', definition: 'Employment from a distance outside or near the edge of an opponent’s defended area.' },
+  { term: 'Anti-radiation', category: 'Weapons', definition: 'A weapon guidance method that homes on radio-frequency emissions, commonly from radar.' },
+  { term: 'Pk', category: 'Assessment', definition: 'Probability of kill; an estimate of the likelihood that an engagement achieves its intended effect.' },
+  { term: 'BDA', category: 'Assessment', definition: 'Battle Damage Assessment; evaluation of the results and effects of an operation.' },
+  { term: 'COA', category: 'Planning', definition: 'Course of Action; a proposed plan for accomplishing a mission.' },
+  { term: 'NSGA-II', category: 'Planning', definition: 'A multi-objective evolutionary optimization method that ranks candidate plans across competing objectives.' },
+  { term: 'Pareto front', category: 'Planning', definition: 'The set of plans where improving one objective requires worsening at least one other objective.' },
+  { term: 'Cross-sensor validation', category: 'Assessment', definition: 'Comparison of observations from independent sensors to assess whether a track is credible.' },
+  { term: 'Single-source mode', category: 'Assessment', definition: 'A degraded operating state in which the system relies on one sensor source without cross-checking.' },
+  { term: 'Track loss', category: 'Assessment', definition: 'The disappearance of a previously observed track from the current sensor picture.' },
+];

@@ -10,6 +10,8 @@
     onReferenceClick,
     onMetricsClick,
     onDemoClick,
+    onGlossaryClick,
+    onShortcutHelpClick,
   }: {
     aircraftCount?: number;
     missionCount?: number;
@@ -18,6 +20,8 @@
     onReferenceClick?: () => void;
     onMetricsClick?: () => void;
     onDemoClick?: () => void;
+    onGlossaryClick?: () => void;
+    onShortcutHelpClick?: () => void;
   } = $props();
 
   let zulu = $state('00:00:00');
@@ -44,11 +48,20 @@
     <span class="pulse dot"></span>
     <span>LIVE</span>
   </span>
+  {#if system.mode === 'DEGRADED'}
+    <span class="sep">//</span>
+    <span class="degraded">
+      <span class="pulse warning-dot"></span>
+      <span>DEGRADED</span>
+    </span>
+  {/if}
   <span class="spacer"></span>
   <button class="top-btn demo-btn" onclick={() => onDemoClick?.()}>◈ DEMO</button>
   <button class="top-btn ref-btn" onclick={() => onReferenceClick?.()}>◈ REFERENCE</button>
   <button class="top-btn" onclick={() => onMetricsClick?.()}>◈ METRICS</button>
   <button class="top-btn" onclick={() => onFlowClick?.()}>◈ MISSION FLOW</button>
+  <button class="top-btn" onclick={() => onGlossaryClick?.()}>◈ GLOSSARY</button>
+  <button class="top-btn" onclick={() => onShortcutHelpClick?.()}>⌨</button>
   <button 
     class="top-btn" 
     class:active={system.continuousReoptimization}
@@ -67,7 +80,6 @@
 
 <style>
   .topbar {
-    grid-area: topbar;
     height: 32px;
     background: #05080f;
     border-bottom: 1px solid var(--border-subtle);
@@ -90,6 +102,8 @@
   .time { color: var(--accent-cyan); }
   .live { display: flex; align-items: center; gap: 5px; color: var(--accent-green); font-size: 9px; }
   .live .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+  .degraded { display: flex; align-items: center; gap: 5px; color: var(--accent-red); font-size: 9px; }
+  .degraded .warning-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent-red); box-shadow: 0 0 6px var(--accent-red); }
   .top-btn {
     background: transparent;
     border: 1px solid var(--border-strong);

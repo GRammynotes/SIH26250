@@ -5,6 +5,10 @@ export type EnemyIntent = 'defensive' | 'probing' | 'aggressive';
 export interface SensorObservation { assetId: string; emissionState?: EnemyAsset['emissionState']; behaviour?: EnemyAsset['behaviour']; confidence?: number; }
 export interface ThreatBelief { intent: Record<EnemyIntent, number>; capability: number; confidence: 'HIGH' | 'MEDIUM' | 'LOW'; }
 
+export function degradeConfidence(confidence: 'HIGH' | 'MEDIUM' | 'LOW'): 'HIGH' | 'MEDIUM' | 'LOW' {
+  return confidence === 'HIGH' ? 'MEDIUM' : confidence === 'MEDIUM' ? 'LOW' : 'LOW';
+}
+
 const baseline: Record<EnemyIntent, number> = { defensive: 0.45, probing: 0.35, aggressive: 0.2 };
 
 export function updateThreatBelief(observation: SensorObservation, asset?: EnemyAsset): ThreatBelief {
