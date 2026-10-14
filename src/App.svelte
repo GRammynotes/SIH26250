@@ -30,6 +30,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   import ComprehensiveDemo from './lib/components/rail/ComprehensiveDemo.svelte';
   import MapLegend from './lib/components/map/MapLegend.svelte';
   import { narrateUtterance } from './lib/engine/voice';
+  import { distanceKm, focusMapElements } from './lib/engine/mapNarrative';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let TacticalMap = $state<Component<any> | null>(null);
@@ -62,6 +63,10 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let railCollapsed = $state(false);
   let railWidth = $state(380);
   let railResizing = $state(false);
+  type PastDecision = { at: number; title: string; choice: string };
+  let pastDecisions = $state<PastDecision[]>([]);
+  let pastDecisionsExpanded = $state(false);
+  let welcomeOpen = $state(false);
   let mapFocusLocked = $state(true);
   let mapLegendOpen = $state(false);
   let commandPaletteOpen = $state(false);
@@ -202,6 +207,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   });
 
   onMount(() => {
+    try { if (localStorage.getItem('aircommand.seen') !== 'true') welcomeOpen = true; } catch { welcomeOpen = true; }
     void import('./lib/components/map/TacticalMap.svelte').then((module) => TacticalMap = module.default);
     const handleMissionBrief = (event: Event) => briefingMissionId = (event as CustomEvent<string>).detail;
     const handleSelectRightTab = (event: Event) => rightTab = (event as CustomEvent<typeof rightTab>).detail;
@@ -247,6 +253,13 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     const activeMission = pending;
     const branch = activeMission.pendingDecision.branches.find((item) => item.id === option.id);
     if (!branch) return;
+    pastDecisions = [...pastDecisions, { at: Date.now(), title: activeMission.pendingDecision.title, choice: branch.label }];
+    const mission = system.missions.find((item) => item.id === activeMission.missionId);
+    const aircraft = system.aircraft.find((item) => activeMission.aircraftIds.includes(item.id));
+    focusMapElements([
+      ...(aircraft && mission ? [{ type: 'aircraft' as const, id: aircraft.tailNumber, label: `${aircraft.tailNumber} · ${distanceKm(aircraft.position, mission.target)} km` }] : []),
+      ...(mission ? [{ type: 'target' as const, id: mission.name, label: mission.name }] : []),
+    ]);
     system.resolveDecision(activeMission.id, branch.id);
     narrateUtterance(`Commander selected ${branch.label}. ${branch.consequence}`, { source: 'COMMANDER', speaker: 'commander' });
     window.dispatchEvent(new CustomEvent('aircommand:rail-decision-resolved', { detail: { missionId: activeMission.missionId, branchId: branch.id } }));
@@ -319,19 +332,23 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   }
 
   function startDemo() {
+    closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false;
     demoActive = true;
     railMode = 'demo'; railCollapsed = false;
     comprehensiveDemoOpen = true;
   }
 
   function startSimulation() {
+    closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false;
     demoActive = false;
     railMode = 'training'; railCollapsed = false;
     comprehensiveDemoOpen = false;
     simulationOpen = true;
   }
 
-  function startProbabilisticSimulation() { demoActive = false; railMode = 'sim'; railCollapsed = false; comprehensiveDemoOpen = false; probabilisticSimOpen = true; }
+  function startProbabilisticSimulation() { closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false; demoActive = false; railMode = 'sim'; railCollapsed = false; comprehensiveDemoOpen = false; probabilisticSimOpen = true; }
+  function closeWelcome() { welcomeOpen = false; try { localStorage.setItem('aircommand.seen', 'true'); } catch {} }
+  function replayWelcome() { try { localStorage.removeItem('aircommand.seen'); } catch {} welcomeOpen = true; }
   function closeExperienceRail() { railMode = null; demoActive = false; comprehensiveDemoOpen = false; }
   function resizeRail(event: PointerEvent) { if (railResizing) railWidth = Math.min(500, Math.max(320, innerWidth - event.clientX)); }
   function endRailResize() { railResizing = false; }
@@ -466,6 +483,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     onGlossaryClick={() => glossaryOpen = true}
     onShortcutHelpClick={() => shortcutHelpOpen = true}
     onGuideClick={() => { systemGuideOpen = !systemGuideOpen; narrateUtterance(systemGuideOpen ? 'System guide opened.' : 'System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }}
+    onReplayWelcome={replayWelcome}
     onGenerate={() => system.generateCOAs()}
     onReset={() => system.reset()}
     onDegradedToggle={() => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED')}
@@ -556,6 +574,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
           <button class="rail-collapse" title="Collapse rail" aria-label="Collapse experience rail" onclick={() => railCollapsed = true}>›</button>
           <button class="rail-close" title="Close rail" aria-label="Close experience rail" onclick={closeExperienceRail}>×</button>
         </div>
+        <div class="mode-orientation" class:training={railMode === 'training'} class:sim={railMode === 'sim'} title={railMode === 'training' ? 'Practice a historical mission and make commander decisions.' : railMode === 'sim' ? 'Evaluate plan robustness through weighted probabilistic outcomes.' : 'Watch a guided walkthrough of system capabilities.'}>[{railMode === 'training' ? 'TRAINING' : railMode === 'sim' ? 'SIM' : 'DEMO'}]</div>
           <button class:active={mapFocusLocked} class="rail-focus-lock" aria-pressed={mapFocusLocked} onclick={() => setMapFocusLock(!mapFocusLocked)}>{mapFocusLocked ? '🔒 FOCUS LOCK' : '🔓 FOCUS LOCK'}</button>
           <button class="rail-refocus" onclick={refocusMap}>⌖ RE-FOCUS</button>
         <div class="rail-content" class:rail-hidden={railMode !== 'demo'}><ComprehensiveDemo open={comprehensiveDemoOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} onComplete={() => { demoCompleteOpen = true; closeExperienceRail(); }} /></div>
@@ -563,6 +582,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
         <div class="rail-content" class:rail-hidden={railMode !== 'sim'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if ProbabilisticSimulation}<ProbabilisticSimulation open={probabilisticSimOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
         {#if railMode !== 'demo' && pending?.pendingDecision}
           <div class="rail-decision"><DecisionPrompt open={true} rail title={pending.pendingDecision.title} context={pending.pendingDecision.context} message={pending.pendingDecision.message} options={pending.pendingDecision.options ?? pending.pendingDecision.branches.map((branch) => ({ id: branch.id, label: branch.label, description: branch.description, tag: branch.tag, tagColor: branch.tagColor }))} onSelect={handleRailDecision} onClose={() => system.dismissDecision(pending!.id)} /></div>
+        {/if}
+        {#if railMode !== 'demo' && pastDecisions.length}
+          <section class="past-decisions" aria-label="Past decisions"><button aria-expanded={pastDecisionsExpanded} onclick={() => pastDecisionsExpanded = !pastDecisionsExpanded}>DECISIONS MADE ({pastDecisions.length}) {pastDecisionsExpanded ? '▴' : '▾'}</button>{#if pastDecisionsExpanded}<ol>{#each pastDecisions as decision, index (`${decision.at}-${index}`)}<li><span>{['①','②','③','④','⑤','⑥','⑦','⑧'][index] ?? `${index + 1}.`}</span><b>{decision.title}</b><i>→ {decision.choice}</i></li>{/each}</ol>{/if}</section>
         {/if}
       </div>
     </aside>
@@ -574,6 +596,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   <button onclick={startSimulation} aria-label="Start historical training">▷ TRAINING</button>
   <button onclick={startProbabilisticSimulation} aria-label="Start probabilistic simulation">◈ SIM</button>
 </nav>
+{#if welcomeOpen}<div class="welcome-shade"><div class="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title" tabindex="-1"><span>◈ AIR COMMAND · ORIENTATION</span><h1 id="welcome-title">WELCOME TO AIR COMMAND</h1><p>Choose a mode to begin:</p><button onclick={startDemo}>▶ GUIDED DEMO <small>See the system walkthrough</small></button><button onclick={startSimulation}>▷ TRAINING <small>Run a historical mission</small></button><button onclick={startProbabilisticSimulation}>◈ SIM <small>Test probabilistic outcomes</small></button><button class="explore" onclick={closeWelcome}>↻ EXPLORE <small>Skip and use the console directly</small></button></div></div>{/if}
 {#if comprehensiveDemoOpen}<div class="lock-bar"><span>SYSTEM LOCKED · PRESS ESC TO EXIT</span></div>{/if}
 {#if !railMode && (simulationOpen || probabilisticSimOpen)}<button class="background-running-chip" onclick={() => { railMode = simulationOpen ? 'training' : 'sim'; railCollapsed = false; }}>● RUNNING IN BACKGROUND · OPEN RAIL</button>{/if}
 
@@ -686,6 +709,10 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   .rail-tabs-collapsed button { flex:1; padding:8px 4px; writing-mode:vertical-rl; transform:rotate(180deg); border:0; border-bottom:1px solid var(--border-subtle); color:var(--text-muted); background:var(--bg-panel); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; }
   .rail-tabs-collapsed button.active { color:var(--accent-cyan); }
   .shell.scenario-hidden { grid-template-rows:32px 0 minmax(0,1fr); }
+  .mode-orientation { margin:0 10px; padding:5px 8px; width:max-content; color:var(--accent-cyan); border:1px solid var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.12em; }
+  .mode-orientation.training { color:var(--accent-green); border-color:var(--accent-green); }.mode-orientation.sim { color:var(--accent-amber); border-color:var(--accent-amber); }
+  .past-decisions { margin:8px 10px 12px; border-top:1px solid var(--border-subtle); font:8px var(--font-mono); }.past-decisions>button { width:100%; padding:8px 4px; border:0; background:transparent; color:var(--text-secondary); text-align:left; font:inherit; cursor:pointer; }.past-decisions ol { list-style:none; padding:0; margin:0; }.past-decisions li { display:grid; grid-template-columns:20px minmax(0,1fr); gap:4px; padding:5px 4px; color:var(--text-muted); }.past-decisions li span { color:var(--accent-cyan); }.past-decisions li b { color:var(--text-secondary); }.past-decisions li i { grid-column:2; color:var(--accent-amber); font-style:normal; }
+  .welcome-shade { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; background:rgba(0,0,0,.6); }.shell:has(~ .welcome-shade) { filter:brightness(.4); }.welcome-card { width:min(440px,92vw); padding:24px; background:var(--bg-panel); border:1px solid var(--accent-cyan); box-shadow:0 12px 60px #000b; font-family:var(--font-mono); }.welcome-card>span { color:var(--accent-cyan); font-size:9px; letter-spacing:.14em; }.welcome-card h1 { color:var(--text-primary); font-size:18px; margin:14px 0 8px; }.welcome-card p { color:var(--text-secondary); font:12px var(--font-sans); }.welcome-card button { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; margin-top:7px; padding:11px; color:var(--text-primary); background:var(--bg-base); border:1px solid var(--border-subtle); font:10px var(--font-mono); cursor:pointer; }.welcome-card button:hover { border-color:var(--accent-cyan); }.welcome-card small { color:var(--text-muted); font:10px var(--font-sans); }.welcome-card .explore { color:var(--text-secondary); }
   .shell.fullscreen { grid-template-rows:1fr; grid-template-columns:minmax(0,1fr); grid-template-areas:"center"; gap:0; }
   .shell { min-width:0; overflow:hidden; }
   :global(.workspace-layout),:global(.content-layout) { min-width:0; max-width:100%; overflow:hidden; }
