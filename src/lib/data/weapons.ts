@@ -118,6 +118,46 @@ export const WEAPONS: Record<string, Weapon> = {
     platforms: ['Jaguar'], standoff: true,
     notes: 'Anti-ship missile.',
   },
+  'nirbhay': {
+    id: 'nirbhay', name: 'Nirbhay', domain: 'air-surface', guidance: 'INS-GPS-IIR',
+    rangeKm: 1000, minRangeKm: 100, speedMach: 0.8, weightKg: 1200, warheadKg: 300, cepMeters: 10,
+    targetTypes: ['hardened-bunker', 'c2-node', 'ship', 'runway', 'fuel-depot'],
+    platforms: ['Su-30MKI'], standoff: true,
+    notes: 'Subsonic cruise missile. Loitering capability. Nuclear-capable variant exists.',
+  },
+  'pralay': {
+    id: 'pralay', name: 'Pralay', domain: 'air-surface', guidance: 'INS-GPS',
+    rangeKm: 500, minRangeKm: 150, speedMach: 5, weightKg: 5000, warheadKg: 800, cepMeters: 15,
+    targetTypes: ['hardened-bunker', 'c2-node', 'runway', 'fuel-depot'],
+    platforms: ['Su-30MKI'], standoff: true,
+    notes: 'Quasi-ballistic missile. High-speed terminal phase. Minimum range 150 km.',
+  },
+  'rudram-2': {
+    id: 'rudram-2', name: 'Rudram-2', domain: 'air-ground', guidance: 'anti-radiation',
+    rangeKm: 300, minRangeKm: 40, speedMach: 3, weightKg: 750, warheadKg: 120, cepMeters: 8,
+    targetTypes: ['radar-site'],
+    platforms: ['Su-30MKI', 'Tejas'], standoff: true,
+    notes: 'Extended-range anti-radiation missile. Improved seeker over Rudram-1.',
+  },
+  'rudram-3': {
+    id: 'rudram-3', name: 'Rudram-3', domain: 'air-ground', guidance: 'anti-radiation',
+    rangeKm: 550, minRangeKm: 60, speedMach: 3.5, weightKg: 900, warheadKg: 150, cepMeters: 10,
+    targetTypes: ['radar-site'],
+    platforms: ['Su-30MKI'], standoff: true,
+    notes: 'Longest-range Rudram variant. Targets deep-space and AWACS radars.',
+  },
+  'astra-mk3': {
+    id: 'astra-mk3', name: 'Astra Mk3', domain: 'air-air', guidance: 'active-radar',
+    rangeKm: 340, minRangeKm: 15, speedMach: 5, weightKg: 220, warheadKg: 20, cepMeters: 5,
+    targetTypes: ['aircraft'], platforms: ['Su-30MKI', 'Tejas'], standoff: false,
+    notes: 'In development (projected 2028). Extended-range BVR with dual-pulse motor.',
+  },
+  'akash-ng': {
+    id: 'akash-ng', name: 'Akash-NG', domain: 'air-air', guidance: 'active-radar',
+    rangeKm: 80, minRangeKm: 3, speedMach: 4.5, weightKg: 350, warheadKg: 22, cepMeters: 8,
+    targetTypes: ['aircraft'], platforms: ['Su-30MKI'], standoff: false,
+    notes: 'Air-launched variant of SAM. Interceptor role against cruise missiles and UAVs.',
+  },
 };
 
 export function weaponsForAircraft(aircraftType: string): Weapon[] {
