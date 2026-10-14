@@ -55,6 +55,19 @@
       launch(missionId);
     }
   }
+
+  function handleMissionRowKeydown(event: KeyboardEvent, missionId: string) {
+    const row = event.currentTarget as HTMLElement;
+    const rows = Array.from(row.parentElement?.querySelectorAll<HTMLElement>('.row[tabindex="0"]') ?? []);
+    const index = rows.indexOf(row);
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      rows[(index + (event.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length]?.focus();
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onMissionSelect?.(missionId);
+    }
+  }
 </script>
 
 <div class="mission-block corners">
@@ -73,7 +86,7 @@
     {#each groups as [groupName, missions] (groupName)}
       <div class="group-label">{groupName} · {missions.length}</div>
       {#each missions as m (m.id)}
-      <div class="row" class:expanded={expandedMission === m.id}>
+      <div class="row" class:expanded={expandedMission === m.id} tabindex="0" role="group" aria-label="Mission {m.name}, priority {m.priority}" onkeydown={(event) => handleMissionRowKeydown(event, m.id)}>
         <div class="line1">
           <span class="name">{m.name}</span>
           <div class="line1-right">

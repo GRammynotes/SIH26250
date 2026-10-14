@@ -24,6 +24,19 @@
   function statusColor(s: string) {
     return s === 'FMC' ? 'var(--accent-green)' : s === 'PMC' ? 'var(--accent-amber)' : 'var(--accent-red)';
   }
+
+  function handleAircraftRowKeydown(event: KeyboardEvent, aircraftId: string) {
+    const row = event.currentTarget as HTMLElement;
+    const rows = Array.from(row.parentElement?.querySelectorAll<HTMLElement>('.row[tabindex="0"]') ?? []);
+    const index = rows.indexOf(row);
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      rows[(index + (event.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length]?.focus();
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      expandedId = expandedId === aircraftId ? null : aircraftId;
+    }
+  }
 </script>
 
 <aside class="panel corners">
@@ -44,7 +57,7 @@
   </div>
   <div class="list">
     {#each sorted as ac (ac.id)}
-      <div class="row">
+      <div class="row" tabindex="0" role="group" aria-label="Aircraft {ac.tailNumber}, {ac.status}" onkeydown={(event) => handleAircraftRowKeydown(event, ac.id)}>
         <div class="line1">
           <span class="tail">{ac.tailNumber}</span>
           <span class="status" style="color:{statusColor(ac.status)};" aria-label="{ac.status === 'FMC' ? 'Fully mission capable' : ac.status === 'PMC' ? 'Partially mission capable' : 'Not mission capable'}">
@@ -90,7 +103,7 @@
   .list::-webkit-scrollbar { width: 3px; }
   .list::-webkit-scrollbar-thumb { background: var(--border-strong); }
   .row { padding: 8px 12px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); transition: background 0.12s; }
-  .row:hover { background: var(--bg-elevated); }
+  .row:hover,.row:focus-visible { background: var(--bg-elevated); outline:1px solid var(--accent-cyan); outline-offset:-1px; }
   .quick-actions { display:flex; justify-content:flex-end; gap:4px; margin-top:4px; opacity:0; transition:opacity .15s; }
   .row:hover .quick-actions,.row:focus-within .quick-actions { opacity:1; }
   .quick-actions button,.mission-choices button { padding:3px 5px; border:1px solid var(--border-strong); color:var(--accent-cyan); background:transparent; font:7px var(--font-mono); cursor:pointer; }

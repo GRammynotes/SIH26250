@@ -54,15 +54,15 @@
                 <button role="menuitemcheckbox" aria-checked="false" onclick={() => action(() => onLayerToggle?.(key))}><span>◈ {label}</span><span class="menu-arrow">›</span></button>
               {/each}
             {:else if menu === 'TOOLS'}
-              <button role="menuitem" onclick={() => action(onGenerate)}>▸ GENERATE COA</button>
+              <button role="menuitem" onclick={() => action(onGenerate)}>▸ GENERATE COA <kbd>G</kbd></button>
               <button role="menuitem" class:enabled={system.continuousReoptimization} onclick={() => action(() => system.toggleContinuousReoptimization())}>◈ AUTO-OPT {system.continuousReoptimization ? 'ON' : 'OFF'}</button>
-              <button role="menuitem" onclick={() => action(onMetricsClick)}>◈ METRICS</button>
-              <button role="menuitem" onclick={() => action(onReferenceClick)}>◈ REFERENCE</button>
-              <button role="menuitem" onclick={() => action(onFlowClick)}>◈ MISSION FLOW</button>
+              <button role="menuitem" onclick={() => action(onMetricsClick)}>◈ METRICS <kbd>M</kbd></button>
+              <button role="menuitem" onclick={() => action(onReferenceClick)}>◈ REFERENCE <kbd>R</kbd></button>
+              <button role="menuitem" onclick={() => action(onFlowClick)}>◈ MISSION FLOW <kbd>F</kbd></button>
             {:else if menu === 'HELP'}
               <button role="menuitem" onclick={() => action(onGlossaryClick)}>◈ GLOSSARY</button>
               <button role="menuitem" onclick={() => action(onShortcutHelpClick)}>⌨ SHORTCUTS</button>
-              <button role="menuitem" onclick={() => action(onDemoClick)}>◈ DEMO</button>
+              <button role="menuitem" onclick={() => action(onDemoClick)}>◈ DEMO <kbd>D</kbd></button>
             {:else}
               <button role="menuitem" onclick={() => action(onReset)}>↻ RESET SYSTEM</button>
               <button role="menuitem" class:enabled={system.mode === 'DEGRADED'} onclick={() => action(onDegradedToggle)}>◈ DEGRADED MODE {system.mode === 'DEGRADED' ? 'ON' : 'OFF'}</button>
@@ -75,10 +75,10 @@
   <span class="spacer"></span>
   <span class="metric">AC <b>{aircraftCount}</b></span><span class="metric">MSN <b>{missionCount}</b></span><span class="metric">THR <b>{threatCount}</b></span>
   <span class="indicators" aria-label="System status">
-    <span title="Link OK"><i class="green"></i></span>
-    {#if system.reoptimizing}<span title="Recomputing"><i class="amber"></i></span>{/if}
-    {#if system.mode === 'DEGRADED'}<span title="Degraded"><i class="red"></i></span>{/if}
-    {#if demoActive}<span title="Demo active"><i class="blue"></i></span>{/if}
+    <span class="indicator link" title="Link OK" aria-label="Link OK">●✓</span>
+    {#if system.reoptimizing}<span class="indicator recompute" title="Recomputing" aria-label="Recomputing">◢</span>{/if}
+    {#if system.mode === 'DEGRADED'}<span class="indicator degraded" title="Degraded" aria-label="Degraded">▲!</span>{/if}
+    {#if demoActive}<span class="indicator demo" title="Demo active" aria-label="Demo active">◆</span>{/if}
     {#if modalCount > 0}<span class="modal-count" title="Open modals">{modalCount}</span>{/if}
   </span>
   <span class="date">{utcDate}</span><span class="time">{zulu}Z</span>
@@ -97,6 +97,6 @@
   .menu-panel { position:absolute; top:31px; left:0; min-width:190px; padding:5px; background:var(--bg-panel); border:1px solid var(--accent-cyan); box-shadow:0 8px 24px rgba(0,0,0,.55); display:flex; flex-direction:column; gap:2px; z-index:50; }
   .menu-panel button { display:flex; justify-content:space-between; align-items:center; padding:9px 10px; border:1px solid transparent; background:transparent; color:var(--text-secondary); text-align:left; font:9px var(--font-mono); letter-spacing:.1em; cursor:pointer; }
   .menu-panel button:hover,.menu-panel button:focus-visible { border-color:var(--border-strong); color:var(--accent-cyan); outline:none; } .menu-panel button.enabled { color:var(--accent-green); } .menu-arrow { color:var(--text-muted); }
-  .indicators { display:flex; align-items:center; gap:6px; margin:0 4px; } .indicators i { display:block; width:5px; height:5px; border-radius:50%; animation:indicator-pulse 1.5s infinite; } .green { background:var(--accent-green); box-shadow:0 0 5px var(--accent-green); } .amber { background:var(--accent-amber); box-shadow:0 0 5px var(--accent-amber); } .red { background:var(--accent-red); box-shadow:0 0 5px var(--accent-red); } .blue { background:var(--accent-cyan); box-shadow:0 0 5px var(--accent-cyan); }
+  .indicators { display:flex; align-items:center; gap:6px; margin:0 4px; } .indicator { font-size:8px; font-weight:700; animation:indicator-pulse 1.5s infinite; } .indicator.link { color:var(--accent-green); } .indicator.recompute { color:var(--accent-amber); } .indicator.degraded { color:var(--accent-red); } .indicator.demo { color:var(--accent-cyan); } kbd { margin-left:7px; padding:1px 3px; border:1px solid var(--border-strong); color:var(--accent-cyan); font:8px var(--font-mono); }
   .modal-count { color:var(--accent-cyan); font-size:8px; border:1px solid var(--accent-cyan); padding:1px 3px; } @keyframes indicator-pulse { 50% { opacity:.45; } }
 </style>
