@@ -43,7 +43,8 @@ function update(now: number) {
 
   for (const mission of system.activeMissions) {
     if (mission.phase === 'COMPLETE' || mission.phase === 'ABORTED') continue;
-    const elapsed = Math.max(0, (wallNow - mission.phaseStartTime) / 60000 * (system.simSpeed || 1));
+    if (system.simSpeed === 0) continue;
+    const elapsed = Math.max(0, (wallNow - mission.phaseStartTime) / 60000);
     const fraction = progressFraction(mission.phase, elapsed, phaseDuration(mission.phase));
     const origins = missionOrigins.get(mission.id) ?? mission.origins;
     if (!missionOrigins.has(mission.id)) missionOrigins.set(mission.id, origins);
@@ -55,7 +56,8 @@ function update(now: number) {
       const coords: [number, number] = [pos.lng, pos.lat];
       if (!prior.length || Math.hypot(prior[prior.length - 1][0] - coords[0], prior[prior.length - 1][1] - coords[1]) > 0.0002) prior.push(coords);
       trails.set(id, prior.slice(-80));
-      const next = interpolatePosition(origin, mission.target, Math.min(1, fraction + 0.001));
+      const reverse = mission.phase === 'EGRESS' || mission.phase === 'RTB';
+      const next = interpolatePosition(origin, mission.target, Math.max(0, Math.min(1, fraction + (reverse ? -0.001 : 0.001))));
       aircraft[id] = { lat: pos.lat, lng: pos.lng, heading: bearing(coords, [next.lng, next.lat]), scale: mission.phase === 'RELEASE' ? 1.3 : 1, trail: trails.get(id)! };
     }
     if (mission.phase === 'RELEASE') {
@@ -66,9 +68,9 @@ function update(now: number) {
         const origin = origins[id]; if (!origin) continue;
         const start = interpolatePosition(origin, mission.target, 0.95);
         const point = interpolatePosition(start, mission.target, progress);
-        missiles.push({ id: `missile-${mission.id}-${id}`, coordinates: [point.lng, point.lat], trail: [[start.lng, start.lat], [point.lng, point.lat]] });
+        if (progress < 1) missiles.push({ id: `missile-${mission.id}-${id}`, coordinates: [point.lng, point.lat], trail: [[start.lng, start.lat], [point.lng, point.lat]] });
       }
-      if (progress >= 1) recentImpacts.set(mission.id, { at: wallNow, lat: mission.target.lat, lng: mission.target.lng });
+      if (progress >= 1 && !recentImpacts.has(mission.id)) recentImpacts.set(mission.id, { at: wallNow, lat: mission.target.lat, lng: mission.target.lng });
     } else missionReleaseStart.delete(mission.id);
     const nearThreat = system.scenarioThreats.find((threat) => Math.hypot((threat.position.lat - mission.target.lat) * 111, (threat.position.lng - mission.target.lng) * 91) < threat.radius);
     if (nearThreat && fraction > 0.75) threats[nearThreat.id] = (Math.sin(wallNow / 130) + 1) / 2;

@@ -16,3 +16,10 @@ export function experienceBounds(key: string | null | undefined): LngLatBoundsLi
   if (normalized === 'sead') return EXPERIENCE_BOUNDS.sead_campaign;
   return EXPERIENCE_BOUNDS[normalized] ?? DEFAULT_EXPERIENCE_BOUNDS;
 }
+
+export function experienceBoundsOrScenario(key: string | null | undefined, fallback: Record<string, LngLatBoundsLike>): LngLatBoundsLike {
+  if (!key) return DEFAULT_EXPERIENCE_BOUNDS;
+  const normalized = key.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  if (normalized === 'sead') return EXPERIENCE_BOUNDS.sead_campaign;
+  return EXPERIENCE_BOUNDS[normalized] ?? fallback[normalized] ?? DEFAULT_EXPERIENCE_BOUNDS;
+}

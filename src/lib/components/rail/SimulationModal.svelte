@@ -48,6 +48,7 @@
       say('COMMANDER', `Review the ${mission.name} package. What is the system recommendation?`);
       say('OPS AGENT', `Course of action generated. ${aircraft.length} available aircraft assigned for this training run. AUTO is ${autoDecision ? 'on' : 'off'}; decision points pause for your review when AUTO is off.`);
       system.startMission(mission.id, aircraft.map((item) => item.id), 'sindoor_deep');
+      say('OPS AGENT', `Track @aircraft:${aircraft[0].tailNumber} is moving toward @target:${mission.name}. Monitor the package and target geometry on the tactical picture.`);
       busy = false;
       advanceToDecision();
     }, 900);

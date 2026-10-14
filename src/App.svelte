@@ -444,6 +444,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     const scenario = system.activeScenarioFilter;
     window.dispatchEvent(new CustomEvent('aircommand:experience-mode', { detail: { mode, scenario } }));
     if (mode) setMapFocusLock(true);
+    else setMapFocusLock(false);
   });
 </script>
 
