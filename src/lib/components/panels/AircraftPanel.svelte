@@ -47,8 +47,8 @@
       <div class="row">
         <div class="line1">
           <span class="tail">{ac.tailNumber}</span>
-          <span class="status" style="color:{statusColor(ac.status)};">
-            <span class="dot" style="background:{statusColor(ac.status)};box-shadow:0 0 5px {statusColor(ac.status)};"></span>
+          <span class="status" style="color:{statusColor(ac.status)};" aria-label="{ac.status === 'FMC' ? 'Fully mission capable' : ac.status === 'PMC' ? 'Partially mission capable' : 'Not mission capable'}">
+            <span class="status-glyph" aria-hidden="true">{ac.status === 'FMC' ? '✓' : ac.status === 'PMC' ? '◐' : '×'}</span>
             {ac.status}
           </span>
         </div>
@@ -99,7 +99,7 @@
   .line1 { display: flex; justify-content: space-between; align-items: center; }
   .tail { color: var(--accent-cyan); font-size: 11px; letter-spacing: 0.08em; }
   .status { display: flex; align-items: center; gap: 5px; font-size: 9px; letter-spacing: 0.12em; }
-  .dot { width: 5px; height: 5px; }
+  .status-glyph { display:grid; place-items:center; width:12px; height:12px; border:1px solid currentColor; font:9px/1 var(--font-mono); }
   .line2 { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
   .type { color: var(--text-muted); font-size: 10px; }
   .fuel { display: flex; align-items: center; gap: 6px; }

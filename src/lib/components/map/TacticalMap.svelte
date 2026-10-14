@@ -5,7 +5,7 @@
   import { IAF_BASES } from '../../data/bases';
   import { GROUND_ASSETS, type GroundAsset } from '../../data/groundAssets';
   import { ENEMY_ASSETS, type EnemyAsset } from '../../data/enemyAssets';
-  import { getAircraftSvg } from '../../data/aircraftIcons';
+  import { militarySymbolElement, type MilitarySymbolKind } from '../../data/militarySymbols';
   import { type AirspaceZone, type WeatherSystem } from '../../types';
   import { system } from '../../stores/systemStore.svelte';
 
@@ -154,14 +154,11 @@
 
   // Upgraded Hexagonal Base Marker with rotating radar sweep
   function createBaseMarker(baseId: string): HTMLDivElement {
-    const wrapper = el(`
-      <div class="base-marker-wrap" data-base="${baseId}">
-        <div class="radar-sweep"></div>
-        <div class="hex-outer">
-          <div class="hex-inner"></div>
-        </div>
-      </div>
-    `);
+    const wrapper = el(`<div class="base-marker-wrap" data-base="${baseId}"></div>`);
+    wrapper.append(militarySymbolElement('friendlyInstallation', 28));
+    const sweep = document.createElement('div');
+    sweep.className = 'radar-sweep';
+    wrapper.append(sweep);
     wrapper.addEventListener('click', (e) => {
       e.stopPropagation();
       onBaseSelect?.(baseId);
@@ -225,8 +222,10 @@
   }
 
   function createEnemyMarker(asset: EnemyAsset): HTMLDivElement {
-    const shape = asset.type === 'radar' ? '◆' : asset.type === 'aircraft' ? '▲' : asset.type === 'c2-node' ? '■' : '⬡';
-    return el(`<div class="enemy-marker" title="${asset.designation}" style="color:${C.red};font:18px/1 'JetBrains Mono',monospace;text-shadow:0 0 8px ${C.red};cursor:pointer;">${shape}</div>`);
+    const kind: MilitarySymbolKind = asset.type === 'aircraft' ? 'hostileAir' : 'hostileGround';
+    const wrapper = militarySymbolElement(kind, 32);
+    wrapper.title = asset.designation;
+    return wrapper;
   }
 
   function circlePolygon(center: [number, number], radiusKm: number, points = 64): number[][] {
@@ -700,9 +699,15 @@
     // Aircraft markers
     for (const ac of aircraft) {
       const color = ac.status === 'FMC' ? C.green : ac.status === 'PMC' ? C.amber : C.red;
-      const wrapper = el(
-        `<div style="cursor:pointer; transition:transform 0.15s ease;">${getAircraftSvg(ac.type, color, ac.heading, 26)}</div>`
-      );
+      const wrapper = militarySymbolElement('friendlyAir', 30);
+      wrapper.style.cursor = 'pointer';
+      wrapper.style.transition = 'transform 0.15s ease';
+      wrapper.title = `${ac.tailNumber} · ${ac.status}`;
+      const statusGlyph = document.createElement('span');
+      statusGlyph.className = `aircraft-status-glyph aircraft-status-${ac.status.toLowerCase()}`;
+      statusGlyph.textContent = ac.status === 'FMC' ? '✓' : ac.status === 'PMC' ? '◐' : '×';
+      statusGlyph.setAttribute('aria-label', ac.status);
+      wrapper.append(statusGlyph);
       dynamicMarkers.push(
         new maplibregl.Marker({ element: wrapper })
           .setLngLat([ac.position.lng, ac.position.lat])
@@ -918,6 +923,13 @@
     z-index: 6;
   }
   .mono { font-family: var(--font-mono); }
+  :global(.mil-symbol) { position: relative; display: grid; place-items: center; width: max-content; filter: drop-shadow(0 0 4px rgba(0, 212, 255, .35)); }
+  :global(.mil-symbol svg) { display: block; max-width: 36px; max-height: 36px; }
+  :global(.mil-symbol-hostileAir), :global(.mil-symbol-hostileGround) { filter: drop-shadow(0 0 4px rgba(255, 45, 124, .45)); }
+  :global(.aircraft-status-glyph) { position: absolute; right: -4px; bottom: -4px; min-width: 12px; height: 12px; display: grid; place-items: center; border: 1px solid currentColor; background: #05080f; font: 9px/1 var(--font-mono); }
+  :global(.aircraft-status-fmc) { color: var(--accent-green); }
+  :global(.aircraft-status-pmc) { color: var(--accent-amber); }
+  :global(.aircraft-status-nmc) { color: var(--accent-red); }
 
   :global(.maplibregl-popup) {
     z-index: 20 !important;
