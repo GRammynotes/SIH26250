@@ -100,7 +100,7 @@
         </div>
         <div class="quick-actions">
           <button onclick={() => onMissionSelect?.(m.id)}>BRIEF</button>
-          {#if m.status === 'PLANNED'}<button class="execute-action" disabled={!system.coas.length || !m.feasible} onclick={() => launch(m.id)}>EXECUTE</button>{/if}
+          {#if m.status === 'PLANNED'}<button class="execute-action" disabled={!system.coas.length || !m.feasible} onclick={() => handleExecute(m.id)}>EXECUTE</button>{/if}
           <button onclick={() => expandedMission = expandedMission === m.id ? null : m.id} aria-expanded={expandedMission === m.id}>DETAILS</button>
         </div>
         {#if expandedMission === m.id}<div class="detail-row">ID {m.id} · STATUS {m.status} · TARGET {m.targetType.toUpperCase()} · FEASIBLE {m.feasible ? 'YES' : 'NO'}</div>{/if}
