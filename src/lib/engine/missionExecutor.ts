@@ -16,6 +16,7 @@ export interface ActiveMission {
   etaMin: number;
   target: Position;
   positions: Record<string, Position>;
+  origins: Record<string, Position>;
   decisions: DecisionPoint[];
   pendingDecision: DecisionPoint | null;
   decisionsMade: Array<{ point: DecisionPoint; branch: DecisionBranch; at: string }>;
@@ -69,6 +70,7 @@ export function createActiveMission(
     etaMin: totalDistance / 8, // rough cruise in km/min
     target: mission.target,
     positions,
+    origins: Object.fromEntries(aircraft.map((item) => [item.id, { ...item.position }])),
     decisions: template.decisions,
     pendingDecision: null,
     decisionsMade: [],
