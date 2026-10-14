@@ -12,9 +12,13 @@
   let {
     onBaseSelect,
     onLoadoutClick,
+    onFullscreenClick,
+    fullscreen = false,
   }: {
     onBaseSelect?: (baseId: string) => void;
     onLoadoutClick?: (type: string, tail: string) => void;
+    onFullscreenClick?: () => void;
+    fullscreen?: boolean;
   } = $props();
 
   let container: HTMLDivElement;
@@ -795,6 +799,7 @@
 
   <div class="coord tl mono">GRID 34°N / 78°E · SECTOR KASHMIR</div>
   <div class="coord tr mono">ZOOM 4.2 · MERCATOR</div>
+  <button class="fullscreen-btn" aria-label={fullscreen ? 'Exit map fullscreen' : 'Enter map fullscreen'} title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen map'} onclick={() => onFullscreenClick?.()}>{fullscreen ? '⛶ EXIT FULLSCREEN' : '⛶ FULLSCREEN'}</button>
   <div class="coord bl mono">SCALE 1:5,000,000</div>
   <div class="coord br mono">WGS84 · EGM96</div>
 
@@ -895,6 +900,8 @@
   .coord.tr { top: 8px; right: 10px; }
   .coord.bl { bottom: 8px; left: 10px; }
   .coord.br { bottom: 8px; right: 10px; }
+  .fullscreen-btn { position:absolute; top:28px; right:10px; z-index:7; padding:6px 9px; background:rgba(5,8,15,.9); border:1px solid var(--border-strong); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; transition:background .18s,border-color .18s; }
+  .fullscreen-btn:hover,.fullscreen-btn:focus-visible { border-color:var(--accent-cyan); background:rgba(0,212,255,.1); outline:none; }
 
   .degraded {
     position: absolute;

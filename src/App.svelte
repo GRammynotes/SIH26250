@@ -48,10 +48,13 @@
   let leftCollapsed = $state(false);
   let rightCollapsed = $state(false);
   let logCollapsed = $state(false);
+  let mapFullscreen = $state(false);
+  let savedLeftSize = 18;
+  let savedRightSize = 22;
   let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution'>('coa');
-  let leftPane: { resize: (size: number) => void } | undefined;
-  let rightPane: { resize: (size: number) => void } | undefined;
-  let logPane: { resize: (size: number) => void } | undefined;
+  let leftPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
+  let rightPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
+  let logPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let shortcutToast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   let paletteCommands = $derived<PaletteCommand[]>([
@@ -129,6 +132,10 @@
   function toggleLeftPane() { leftCollapsed = !leftCollapsed; persistCollapsedState(); leftPane?.resize(leftCollapsed ? 3 : 18); }
   function toggleRightPane() { rightCollapsed = !rightCollapsed; persistCollapsedState(); rightPane?.resize(rightCollapsed ? 3 : 22); }
   function toggleLogPane() { logCollapsed = !logCollapsed; persistCollapsedState(); logPane?.resize(logCollapsed ? 3 : 15); }
+  function toggleMapFullscreen() {
+    if (!mapFullscreen) { savedLeftSize = leftPane?.getSize?.() ?? (leftCollapsed ? 3 : 18); savedRightSize = rightPane?.getSize?.() ?? (rightCollapsed ? 3 : 22); mapFullscreen = true; }
+    else { mapFullscreen = false; requestAnimationFrame(() => { leftPane?.resize(savedLeftSize); rightPane?.resize(savedRightSize); }); }
+  }
 
   $effect(() => {
     if (system.aarQueue.length > 0 && !aarMissionId) {
@@ -263,6 +270,7 @@
     const target = event.target as HTMLElement | null;
     if (target?.matches('input, textarea, [contenteditable]')) return;
     if (event.key === 'Escape') {
+      if (mapFullscreen) { toggleMapFullscreen(); return; }
       const topModal = [...modalStack].reverse().find((id) => activeModalIds.includes(id) && !minimizedModals.includes(id));
       if (topModal) { closeModal(topModal); return; }
       if (commandPaletteOpen) { commandPaletteOpen = false; return; }
@@ -341,20 +349,19 @@
   <PaneGroup direction="vertical" autoSaveId="aircommand.layout.v1" class="workspace-layout">
     <Pane defaultSize={85} minSize={60}>
       <PaneGroup direction="horizontal" autoSaveId="aircommand.layout.v1.panels" class="content-layout">
-        <Pane bind:this={leftPane} defaultSize={18} minSize={3} maxSize={30}>
+        {#if !mapFullscreen}<Pane bind:this={leftPane} defaultSize={18} minSize={3} maxSize={30}>
           {#if leftCollapsed}<div class="collapsed-rail"><button title="Expand aircraft and mission panels" aria-label="Expand left panels" onclick={toggleLeftPane}>»</button><span>A</span><span>M</span></div>
           {:else if system.selectedBaseId}<BaseDetailPanel onLoadoutClick={openLoadout} />
           {:else}<aside class="left"><AircraftPanel onCollapse={toggleLeftPane} onLoadout={openLoadout} onAssign={(aircraftId, missionId) => { assignedAircraftId = aircraftId; briefingMissionId = missionId; }} /><MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} onCollapse={toggleLeftPane} /></aside>{/if}
-        </Pane>
-        <PaneResizer class="pane-resizer" />
-        <Pane defaultSize={60} minSize={40}>
+        </Pane><PaneResizer class="pane-resizer" />{/if}
+        <Pane defaultSize={mapFullscreen ? 100 : 60} minSize={40}>
           <section class="center">
-            <TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} />
+            <TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} onFullscreenClick={toggleMapFullscreen} fullscreen={mapFullscreen} />
             <ScenarioControls />
             {#if system.computing}<div class="computing mono">◢ COMPUTING COA · NSGA-II · 4 OBJECTIVES</div>{/if}
           </section>
         </Pane>
-        <PaneResizer class="pane-resizer" />
+        {#if !mapFullscreen}<PaneResizer class="pane-resizer" />
         <Pane bind:this={rightPane} defaultSize={22} minSize={3} maxSize={35}>
           {#if rightCollapsed}<div class="collapsed-rail"><button title="Expand COA panel" aria-label="Expand right panel" onclick={toggleRightPane}>«</button><span>C</span></div>
           {:else}
@@ -374,7 +381,7 @@
               </div>
             </div>
           {/if}
-        </Pane>
+        </Pane>{/if}
       </PaneGroup>
     </Pane>
     <PaneResizer class="pane-resizer vertical-resizer" />
