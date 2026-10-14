@@ -32,6 +32,7 @@
   import PrioritizationSlider from './lib/components/panels/PrioritizationSlider.svelte';
   import CyberPanel from './lib/components/panels/CyberPanel.svelte';
   import CommandStatus from './lib/components/panels/CommandStatus.svelte';
+  import CaptionLayer from './lib/components/overlay/CaptionLayer.svelte';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let flowOpen = $state(false);
@@ -342,6 +343,7 @@
 
 <svelte:window onkeydown={handleGlobalKeydown} />
 <TooltipLayer />
+<CaptionLayer />
 <div class="shell">
   <TopBar
     aircraftCount={system.aircraft.length}

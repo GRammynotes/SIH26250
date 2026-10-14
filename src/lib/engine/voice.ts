@@ -1,5 +1,6 @@
 export type VoicePriority = 'critical' | 'info';
-type QueuedLine = { text: string; priority: VoicePriority };
+export type VoiceFocusTarget = { selector: string; duration: number };
+type QueuedLine = { text: string; priority: VoicePriority; source: string; focus?: VoiceFocusTarget };
 
 let enabled = true;
 let speaking = false;
@@ -21,25 +22,26 @@ export function setVoiceEnabled(value: boolean): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('aircommand:voice-state', { detail: enabled }));
 }
 
-function narrationFor(source: string, message: string): QueuedLine | null {
+function narrationFor(source: string, message: string): Omit<QueuedLine, 'source'> | null {
   const critical: VoicePriority = 'critical';
   if (message.startsWith('MISSION LAUNCHED ·')) {
     const [, name = 'Mission', aircraft = '0 AC'] = message.split('·').map((part) => part.trim());
-    return { text: `Mission ${name} launched. ${Number.parseInt(aircraft, 10) || 0} aircraft tasked.`, priority: 'info' };
+    return { text: `Mission ${name} launched. ${Number.parseInt(aircraft, 10) || 0} aircraft tasked.`, priority: 'info', focus: { selector: '.trajectory-dot, .map-wrap', duration: 3000 } };
   }
   if (message.startsWith('WEAPON RELEASED ·')) {
     const [, weapon = 'weapon', target = 'unknown target'] = message.split('·').map((part) => part.trim());
-    return { text: `Weapon release. ${weapon}. Target ${target}.`, priority: critical };
+    return { text: `Weapon release. ${weapon}. Target ${target}.`, priority: critical, focus: { selector: '.map-wrap', duration: 3000 } };
   }
   if (message.startsWith('IMPACT CONFIRMED ·')) return { text: 'Impact confirmed. Target destroyed.', priority: critical };
-  if (source === 'DECISION' && message.startsWith('AWAITING COMMAND ·')) return { text: `Commander decision required. ${message.split('·').slice(1).join(' ').trim()}.`, priority: critical };
-  if (message.startsWith('THREAT ALERT ·')) return { text: `New threat detected. ${message.split('·').slice(1).join(' ').trim()}.`, priority: critical };
+  if (source === 'DECISION' && message.startsWith('AWAITING COMMAND ·')) return { text: `Commander decision required. ${message.split('·').slice(1).join(' ').trim()}.`, priority: critical, focus: { selector: '.layer:not(.hidden) [role="dialog"]', duration: 3000 } };
+  if (message.startsWith('THREAT ALERT ·')) return { text: `New threat detected. ${message.split('·').slice(1).join(' ').trim()}.`, priority: critical, focus: { selector: '.map-wrap', duration: 3000 } };
   if (message.startsWith('TRACK LOSS HYPOTHESIS ·')) return { text: `Track lost. Hypothesis: ${message.split('·').slice(1).join(' ').trim()}.`, priority: critical };
   if (message.startsWith('MISSION COMPLETE ·')) {
     const name = message.split('·')[1]?.trim() ?? 'Mission';
     return { text: `${name} complete. Return to base.`, priority: 'info' };
   }
   if (source === 'THREAT' && message.includes('NEW THREAT')) return { text: `New threat detected. ${message.split('·').slice(1).join(' ').trim()}.`, priority: critical };
+  if (source === 'COMMAND' && message.startsWith('COA RECOMPUTED')) return { text: 'COA regenerated. Recommended option is ready for review.', priority: 'info', focus: { selector: '.right-tab-content', duration: 3000 } };
   return null;
 }
 
@@ -75,6 +77,8 @@ async function drain(): Promise<void> {
   if (token !== generation || !enabled) { speaking = false; speakingPriority = null; void drain(); return; }
   if (!('speechSynthesis' in window)) { speaking = false; speakingPriority = null; void drain(); return; }
   const utterance = new SpeechSynthesisUtterance(item.text);
+  window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: item.source, text: item.text } }));
+  if (item.focus) window.dispatchEvent(new CustomEvent('aircommand:focus', { detail: { ...item.focus, text: item.text } }));
   utterance.rate = 0.95;
   utterance.lang = 'en-IN';
   const voice = window.speechSynthesis.getVoices().find((candidate) => candidate.lang.toLowerCase() === 'en-in')
@@ -88,8 +92,9 @@ async function drain(): Promise<void> {
 
 export function narrateEvent(source: string, message: string, interrupt = false): void {
   if (!enabled || typeof window === 'undefined') return;
-  const line = narrationFor(source, message);
-  if (!line) return;
+  const narration = narrationFor(source, message);
+  if (!narration) return;
+  const line: QueuedLine = { ...narration, source };
   const critical = interrupt || line.priority === 'critical';
   if (critical && speaking && speakingPriority !== 'critical') {
     generation += 1;
