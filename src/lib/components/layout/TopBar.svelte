@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { system } from '../../stores/systemStore.svelte';
 
   let {
     aircraftCount = 0,
@@ -48,6 +49,13 @@
   <button class="top-btn ref-btn" onclick={() => onReferenceClick?.()}>◈ REFERENCE</button>
   <button class="top-btn" onclick={() => onMetricsClick?.()}>◈ METRICS</button>
   <button class="top-btn" onclick={() => onFlowClick?.()}>◈ MISSION FLOW</button>
+  <button 
+    class="top-btn" 
+    class:active={system.continuousReoptimization}
+    onclick={() => system.toggleContinuousReoptimization()}
+  >
+    ◈ AUTO-OPT
+  </button>
   <span class="sep">//</span>
   <span class="metric">AC <b>{aircraftCount}</b></span>
   <span class="metric">MSN <b>{missionCount}</b></span>
@@ -97,5 +105,10 @@
     border-color: var(--accent-cyan);
     color: var(--accent-cyan);
     box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+  }
+  .top-btn.active {
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+    background: rgba(57, 255, 20, 0.06);
   }
 </style>

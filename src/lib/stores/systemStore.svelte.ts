@@ -37,6 +37,9 @@ class SystemStore {
   tickHandle: number | null = null;
   trackLossAnalysis = $state<TrackLossAnalysis | null>(null);
   spoofedTrackId = $state<string | null>(null);
+  continuousReoptimization = $state(true);
+  reoptimizing = $state(false);
+  reoptimizationTimer: number | null = null;
 
   constructor() {
     const s = generateSystemState();
@@ -52,11 +55,55 @@ class SystemStore {
     this.pushEvent('THREAT', `${s.threats.length} ZONES ACTIVE`, 'warn');
     this.pushEvent('COMMAND', 'AWAITING COMMANDER INPUT', 'info');
     this.startTicker();
+    this.startContinuousReoptimization();
   }
 
   startTicker() {
     if (this.tickHandle !== null) return;
     this.tickHandle = window.setInterval(() => this.tickExecutions(), 1000);
+  }
+
+  startContinuousReoptimization() {
+    if (this.reoptimizationTimer !== null) return;
+    this.reoptimizationTimer = window.setInterval(() => {
+      if (this.continuousReoptimization && !this.computing) {
+        this.silentReoptimize();
+      }
+    }, 30000); // 30 seconds
+  }
+
+  async silentReoptimize() {
+    if (this.computing || this.reoptimizing) return;
+    this.reoptimizing = true;
+    const startT = performance.now();
+    await new Promise((r) => setTimeout(r, 850));
+    this.coas = optimise(this.aircraft, this.missions, this.threats, this.airspaceZones, this.weatherSystems);
+    this.reoptimizing = false;
+    this.coaGenerationCount += 1;
+    this.lastCoaComputeMs = Math.round(performance.now() - startT);
+  }
+
+  triggerReoptimization() {
+    if (!this.continuousReoptimization) return;
+    if (this.reoptimizationTimer) clearTimeout(this.reoptimizationTimer);
+    this.reoptimizationTimer = window.setTimeout(() => {
+      this.silentReoptimize();
+      this.startContinuousReoptimization();
+    }, 2000); // 2 second debounce
+  }
+
+  toggleContinuousReoptimization() {
+    this.continuousReoptimization = !this.continuousReoptimization;
+    if (this.continuousReoptimization) {
+      this.startContinuousReoptimization();
+      this.pushEvent('SYSTEM', 'CONTINUOUS RE-OPTIMISATION ENABLED', 'info');
+    } else {
+      if (this.reoptimizationTimer) {
+        clearTimeout(this.reoptimizationTimer);
+        this.reoptimizationTimer = null;
+      }
+      this.pushEvent('SYSTEM', 'CONTINUOUS RE-OPTIMISATION DISABLED', 'warn');
+    }
   }
 
   pushEvent(source: string, msg: string, level: EventLevel = 'info') {
@@ -94,9 +141,13 @@ class SystemStore {
 
   setAircraftStatus(id: string, status: AircraftStatus) {
     this.aircraft = this.aircraft.map((a) => (a.id === id ? { ...a, status } : a));
+    this.triggerReoptimization();
   }
 
-  addThreat(t: Threat) { this.threats = [...this.threats, t]; }
+  addThreat(t: Threat) { 
+    this.threats = [...this.threats, t]; 
+    this.triggerReoptimization();
+  }
   closeAirspace(id: string) {
     this.airspaceZones = this.airspaceZones.map((zone) => zone.id === id ? { ...zone, status: 'CLOSED' as const } : zone);
     const zone = this.airspaceZones.find((item) => item.id === id);

@@ -18,7 +18,12 @@
 <div class="panel corners">
   <div class="hdr">
     <span>COA ANALYSIS</span>
-    <span class="count">{coas.length > 0 ? `${coas.length} OPTIONS` : 'STANDBY'}</span>
+    <div class="hdr-right">
+      {#if system.reoptimizing}
+        <span class="recomputing">◢ RECOMPUTING</span>
+      {/if}
+      <span class="count">{coas.length > 0 ? `${coas.length} OPTIONS` : 'STANDBY'}</span>
+    </div>
   </div>
 
   {#if coas.length > 0}
@@ -111,6 +116,12 @@
 <style>
   .panel { background: var(--bg-panel); display: flex; flex-direction: column; overflow: hidden; position: relative; height: 100%; }
   .hdr { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; }
+  .hdr-right { display: flex; align-items: center; gap: 10px; }
+  .recomputing { font-size: 8px; letter-spacing: 0.15em; color: var(--accent-cyan); animation: shimmer 0.85s ease-in-out infinite; }
+  @keyframes shimmer {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
   .hdr .count { color: var(--accent-amber); }
   .view-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border-subtle); }
   .view-tabs button { border: 0; background: #0c1015; color: var(--text-muted); font: 9px var(--font-mono); letter-spacing: .12em; padding: 8px; cursor: pointer; }
