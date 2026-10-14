@@ -272,8 +272,30 @@
         map.dragRotate.disable();
       }
     };
+    const handleMatrixHighlight = (event: Event) => {
+      const { aircraftId, missionId } = (event as CustomEvent<{ aircraftId: string; missionId: string | null }>).detail;
+      document.querySelectorAll<HTMLElement>('[data-aircraft-id]').forEach((element) => element.classList.toggle('matrix-highlight-marker', element.dataset.aircraftId === aircraftId && missionId !== null));
+      const source = map?.getSource('matrix-highlight') as maplibregl.GeoJSONSource | undefined;
+      if (!source || !missionId) { source?.setData({ type: 'FeatureCollection', features: [] }); return; }
+      const aircraftItem = system.aircraft.find((item) => item.id === aircraftId);
+      const missionItem = system.missions.find((item) => item.id === missionId);
+      if (!aircraftItem || !missionItem) return;
+      const start: [number, number] = [aircraftItem.position.lng, aircraftItem.position.lat];
+      const finish: [number, number] = [missionItem.target.lng, missionItem.target.lat];
+      const nearestThreat = system.threats.reduce<(typeof system.threats)[number] | null>((nearest, threat) => {
+        if (!nearest) return threat;
+        return Math.hypot(threat.position.lat - aircraftItem.position.lat, threat.position.lng - aircraftItem.position.lng) < Math.hypot(nearest.position.lat - aircraftItem.position.lat, nearest.position.lng - aircraftItem.position.lng) ? threat : nearest;
+      }, null);
+      const features: GeoJSON.Feature[] = [
+        { type: 'Feature', properties: { kind: 'route' }, geometry: { type: 'LineString', coordinates: [start, finish] } },
+        { type: 'Feature', properties: { kind: 'fuel' }, geometry: { type: 'Polygon', coordinates: [circlePolygon(start, Math.max(35, aircraftItem.fuel * 7))] } },
+      ];
+      if (nearestThreat) features.push({ type: 'Feature', properties: { kind: 'wez' }, geometry: { type: 'Polygon', coordinates: [circlePolygon([nearestThreat.position.lng, nearestThreat.position.lat], nearestThreat.radius)] } });
+      source.setData({ type: 'FeatureCollection', features });
+    };
     window.addEventListener('aircommand:map-layer', handleLayerToggle);
     window.addEventListener('aircommand:terrain-3d', handleTerrain3d);
+    window.addEventListener('aircommand:matrix-highlight', handleMatrixHighlight);
     // Expose global loadout handler for popup clicks
     (window as any).__airCommandLoadout = (type: string, tail: string) => {
       onLoadoutClick?.(type, tail);
@@ -292,6 +314,10 @@
 
     map.on('load', () => {
       const m = map!;
+      m.addSource('matrix-highlight', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'matrix-highlight-fuel', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'fuel'], paint: { 'line-color': C.green, 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': .85 } });
+      m.addLayer({ id: 'matrix-highlight-wez', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'wez'], paint: { 'line-color': C.red, 'line-width': 1.5, 'line-dasharray': [1, 2], 'line-opacity': .95 } });
+      m.addLayer({ id: 'matrix-highlight-route', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'route'], paint: { 'line-color': C.cyan, 'line-width': 2.5, 'line-opacity': .95 } });
       baseMarkersList = [];
       for (const base of IAF_BASES) {
         const markerEl = createBaseMarker(base.id);
@@ -315,6 +341,7 @@
     return () => {
       window.removeEventListener('aircommand:map-layer', handleLayerToggle);
       window.removeEventListener('aircommand:terrain-3d', handleTerrain3d);
+      window.removeEventListener('aircommand:matrix-highlight', handleMatrixHighlight);
       delete (window as any).__airCommandLoadout;
       map?.remove();
       map = null;
@@ -716,6 +743,7 @@
     for (const ac of aircraft) {
       const color = ac.status === 'FMC' ? C.green : ac.status === 'PMC' ? C.amber : C.red;
       const wrapper = militarySymbolElement('friendlyAir', 30);
+      wrapper.dataset.aircraftId = ac.id;
       wrapper.style.cursor = 'pointer';
       wrapper.style.transition = 'transform 0.15s ease';
       wrapper.title = `${ac.tailNumber} · ${ac.status}`;
@@ -947,6 +975,7 @@
   :global(.aircraft-status-fmc) { color: var(--accent-green); }
   :global(.aircraft-status-pmc) { color: var(--accent-amber); }
   :global(.aircraft-status-nmc) { color: var(--accent-red); }
+  :global(.matrix-highlight-marker) { transform:scale(1.35); filter:drop-shadow(0 0 9px var(--accent-cyan)); z-index:10; }
 
   :global(.maplibregl-popup) {
     z-index: 20 !important;

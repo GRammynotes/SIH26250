@@ -41,6 +41,8 @@ class SystemStore {
   reoptimizing = $state(false);
   reoptimizationInterval: number | null = null;
   reoptimizationDebounce: number | null = null;
+  prioritization = $state(50);
+  riskBias = $state(0.7);
 
   constructor() {
     const s = generateSystemState();
@@ -79,7 +81,7 @@ class SystemStore {
     const startT = performance.now();
     try {
       await new Promise((r) => setTimeout(r, 850));
-      this.coas = optimise(this.aircraft, this.missions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems);
+      this.coas = optimise(this.aircraft, this.missions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems, this.riskBias);
       this.coaGenerationCount += 1;
       this.lastCoaComputeMs = Math.round(performance.now() - startT);
     } finally {
@@ -87,13 +89,19 @@ class SystemStore {
     }
   }
 
-  triggerReoptimization() {
-    if (!this.continuousReoptimization) return;
+  triggerReoptimization(force = false) {
+    if (!this.continuousReoptimization && !force) return;
     if (this.reoptimizationDebounce !== null) clearTimeout(this.reoptimizationDebounce);
     this.reoptimizationDebounce = window.setTimeout(() => {
       this.reoptimizationDebounce = null;
       this.silentReoptimize();
-    }, 2000); // 2 second debounce
+    }, force ? 250 : 2000);
+  }
+
+  setPrioritization(value: number) {
+    this.prioritization = Math.max(0, Math.min(100, value));
+    this.riskBias = 0.15 + (this.prioritization / 100) * 1.1;
+    this.triggerReoptimization(true);
   }
 
   toggleContinuousReoptimization() {
@@ -124,7 +132,7 @@ class SystemStore {
     this.computing = true;
     const startT = performance.now();
     await new Promise((r) => setTimeout(r, 850));
-    this.coas = optimise(this.aircraft, this.missions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems);
+    this.coas = optimise(this.aircraft, this.missions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems, this.riskBias);
     
     // In DEGRADED mode, reduce confidence values
     if (this.mode === 'DEGRADED') {

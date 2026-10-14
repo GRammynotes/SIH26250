@@ -28,6 +28,8 @@
   import { IAF_BASES } from './lib/data/bases';
   import ModalLayer from './lib/components/panels/ModalLayer.svelte';
   import TooltipLayer from './lib/components/layout/TooltipLayer.svelte';
+  import WeaponMatrix from './lib/components/panels/WeaponMatrix.svelte';
+  import PrioritizationSlider from './lib/components/panels/PrioritizationSlider.svelte';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let flowOpen = $state(false);
@@ -53,7 +55,7 @@
   let mapFullscreen = $state(false);
   let savedLeftSize = 18;
   let savedRightSize = 22;
-  let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution'>('coa');
+  let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution' | 'weapons'>('coa');
   let leftPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let rightPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let logPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
@@ -122,6 +124,8 @@
   }
 
   onMount(() => {
+    const handleMissionBrief = (event: Event) => briefingMissionId = (event as CustomEvent<string>).detail;
+    window.addEventListener('aircommand:mission-brief', handleMissionBrief);
     const saved = readCollapsedState();
     leftCollapsed = saved.left ?? false; rightCollapsed = saved.right ?? false; logCollapsed = saved.log ?? false;
     requestAnimationFrame(() => {
@@ -129,6 +133,7 @@
       if (rightCollapsed) rightPane?.resize(3);
       if (logCollapsed) logPane?.resize(3);
     });
+    return () => window.removeEventListener('aircommand:mission-brief', handleMissionBrief);
   });
 
   function toggleLeftPane() { leftCollapsed = !leftCollapsed; persistCollapsedState(); leftPane?.resize(leftCollapsed ? 3 : 18); }
@@ -296,6 +301,7 @@
       rightTab = ({ '1': 'coa', '2': 'red', '3': 'metrics', '4': 'execution' } as const)[event.key as '1' | '2' | '3' | '4'];
       return;
     }
+    if (event.ctrlKey && event.key === '5') { event.preventDefault(); rightTab = 'weapons'; return; }
     if (event.key === '?') { shortcutHelpOpen = true; return; }
     if (['1', '2', '3'].includes(event.key)) {
       const coa = system.coas.find((item) => item.rank === Number(event.key));
@@ -376,13 +382,15 @@
                 <button role="tab" aria-selected={rightTab === 'red'} class:active={rightTab === 'red'} onclick={() => rightTab = 'red'}>RED VIEW</button>
                 <button role="tab" aria-selected={rightTab === 'metrics'} class:active={rightTab === 'metrics'} onclick={() => rightTab = 'metrics'}>METRICS</button>
                 <button role="tab" aria-selected={rightTab === 'execution'} class:active={rightTab === 'execution'} onclick={() => rightTab = 'execution'}>EXECUTION</button>
+                <button role="tab" aria-selected={rightTab === 'weapons'} class:active={rightTab === 'weapons'} onclick={() => rightTab = 'weapons'}>WEAPONS <kbd>Ctrl+5</kbd></button>
                 <button class="right-collapse" aria-label="Collapse right panel" title="Collapse right panel" onclick={toggleRightPane}>›</button>
               </div>
               <div class="right-tab-content">
                 {#if rightTab === 'coa'}<COAPanel mode="blue" />
                 {:else if rightTab === 'red'}<COAPanel mode="red" />
                 {:else if rightTab === 'metrics'}<MetricsDashboard open={true} inline={true} />
-                {:else}<ExecutionPanel />{/if}
+                {:else if rightTab === 'execution'}<ExecutionPanel />
+                {:else}<div class="weapon-workspace"><WeaponMatrix /><PrioritizationSlider /></div>{/if}
               </div>
             </div>
           {/if}
@@ -482,6 +490,10 @@
   .right-tabs button.active { border-bottom-color:var(--accent-cyan); }
   .right-tabs button.right-collapse { flex:none; padding:0 8px; font-size:14px; }
   .right-tab-content { flex:1; min-height:0; overflow:hidden; position:relative; }
+  .weapon-workspace { display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; }
+  .weapon-workspace > :global(.matrix-panel) { flex:1; min-height:0; }
+  .weapon-workspace > :global(.priority-control) { flex:none; }
+  .right-tabs kbd { display:block; font:6px var(--font-mono); color:var(--accent-cyan); }
   :global(.collapsed-rail) { display:flex; flex-direction:column; align-items:center; gap:12px; height:100%; padding:8px 0; background:var(--bg-panel); color:var(--accent-cyan); font:9px var(--font-mono); box-sizing:border-box; }
   :global(.collapsed-rail button), :global(.collapse-btn) { background:transparent; border:0; color:var(--accent-cyan); font:14px var(--font-mono); cursor:pointer; padding:4px; }
   :global(.collapsed-rail button:focus-visible), :global(.collapse-btn:focus-visible) { outline:1px solid var(--accent-cyan); }

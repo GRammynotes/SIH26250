@@ -201,13 +201,13 @@ function buildCOA(aircraft: Aircraft[], missions: Mission[], threats: Threat[], 
   };
 }
 
-export function generateCOAs(aircraft: Aircraft[], missions: Mission[], threats: Threat[], airspace: AirspaceZone[] = [], weather: WeatherSystem[] = []): COA[] {
+export function generateCOAs(aircraft: Aircraft[], missions: Mission[], threats: Threat[], airspace: AirspaceZone[] = [], weather: WeatherSystem[] = [], riskBias = 0.7): COA[] {
   const coas: COA[] = [
     buildCOA(aircraft, missions, threats, 'aggressive', airspace, weather),
     buildCOA(aircraft, missions, threats, 'balanced', airspace, weather),
     buildCOA(aircraft, missions, threats, 'conservative', airspace, weather),
   ];
-  coas.sort((a, b) => (b.successProbability - b.riskScore * 0.7) - (a.successProbability - a.riskScore * 0.7));
+  coas.sort((a, b) => (b.successProbability - b.riskScore * riskBias) - (a.successProbability - a.riskScore * riskBias));
   coas.forEach((c, i) => (c.rank = i + 1));
   return coas;
 }
