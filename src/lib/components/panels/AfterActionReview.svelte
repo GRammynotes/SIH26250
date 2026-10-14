@@ -95,6 +95,14 @@
       narrative: `Strike package released 2 × ${weaponName} at grid ${activeMission.target.lat.toFixed(2)}N/${activeMission.target.lng.toFixed(2)}E. Post-strike telemetry ${status === 'UNKNOWN' ? 'awaiting correlation' : 'received'} at T+14. BDA confidence ${confidence}.`,
     };
   });
+  const outcomeOdds = $derived.by(() => {
+    const odds = activeMission?.templateId === 'balakot'
+      ? [{ label: 'TARGET DESTROYED', probability: 72, status: 'DESTROYED', consequence: 'Primary target effect achieved; strike package returns for full BDA correlation.' }, { label: 'TARGET DAMAGED', probability: 22, status: 'DAMAGED', consequence: 'Partial effect; re-attack planning and collateral review may be required.' }, { label: 'TARGET MISSED', probability: 6, status: 'MISSED', consequence: 'No confirmed effect; preserve the force and reassess intelligence.' }]
+      : activeMission?.templateId === 'sead_suppression'
+        ? [{ label: 'RADAR SUPPRESSED', probability: 64, status: 'DESTROYED', consequence: 'Threat emission ceases and the follow-on corridor opens.' }, { label: 'RADAR DEGRADED', probability: 27, status: 'DAMAGED', consequence: 'Coverage is reduced but the threat may recover.' }, { label: 'RADAR RELOCATED', probability: 9, status: 'MISSED', consequence: 'Last-known coordinates are empty; update the threat picture.' }]
+        : [{ label: 'TARGET DESTROYED', probability: 68, status: 'DESTROYED', consequence: 'Standoff strike achieves the assessed effect with package outside the engagement zone.' }, { label: 'TARGET DAMAGED', probability: 25, status: 'DAMAGED', consequence: 'Partial effect; refine targeting data before any follow-on.' }, { label: 'TARGET MISSED', probability: 7, status: 'MISSED', consequence: 'No confirmed effect; review weapon updates and target coordinates.' }];
+    return odds;
+  });
 
   function exportAAR() {
     if (!activeMission) return;
@@ -332,6 +340,7 @@
             </div>
             <p>{battleDamage.narrative}</p>
           </div>
+          <div class="outcome-odds"><div class="odds-title">ILLUSTRATIVE OUTCOME MODEL <span>SIMULATION ESTIMATES · NOT OPERATIONAL PREDICTIONS</span></div><div class="odds-grid">{#each outcomeOdds as item}<article class:actual={battleDamage.status === item.status}><b>{item.label}</b><strong>{item.probability}%</strong><p>{item.consequence}</p>{#if battleDamage.status === item.status}<small>ACTUAL EXERCISE OUTCOME</small>{/if}</article>{/each}</div><button class="replay-branch" onclick={handleReplay}>↻ REPLAY WITH DIFFERENT DECISION</button></div>
         </section>
       </div>
 
@@ -348,7 +357,7 @@
             ⇩ EXPORT (.TXT)
           </button>
           <button class="btn btn-replay" onclick={handleReplay}>
-            ↻ REPLAY MISSION
+            ↻ REPLAY WITH DIFFERENT DECISION
           </button>
         </div>
       </footer>
@@ -373,7 +382,7 @@
     max-height: 92vh;
     background: var(--bg-panel);
     border: 1px solid var(--accent-cyan);
-    box-shadow: 0 0 50px rgba(0, 212, 255, 0.22);
+    box-shadow: 0 0 50px color-mix(in srgb, var(--accent-cyan) 22%, transparent);
     display: flex; flex-direction: column;
     overflow: hidden; position: relative;
     font-family: var(--font-mono);
@@ -396,7 +405,7 @@
     display: flex; justify-content: space-between; align-items: flex-start;
     padding: 16px 20px;
     border-bottom: 1px solid var(--border-subtle);
-    background: rgba(0, 212, 255, 0.04);
+    background: color-mix(in srgb, var(--accent-cyan) 4%, transparent);
   }
   .hdr-left { display: flex; flex-direction: column; gap: 4px; }
   .eyebrow {
@@ -421,7 +430,7 @@
   }
   .close-btn:hover {
     border-color: var(--accent-red); color: var(--accent-red);
-    box-shadow: 0 0 8px rgba(255, 45, 124, 0.3);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent-red) 30%, transparent);
   }
 
   .body-scroll {
@@ -451,11 +460,11 @@
 
   .empty-box {
     font-size: 8.5px; color: var(--text-muted); padding: 12px;
-    background: #070b14; border: 1px dashed var(--border-subtle);
+    background: var(--bg-elevated); border: 1px dashed var(--border-subtle);
     letter-spacing: 0.1em;
   }
 
-  .bda-box { border: 1px solid var(--accent-cyan); background: rgba(0, 212, 255, 0.035); padding: 12px; }
+  .bda-box { border: 1px solid var(--accent-cyan); background: color-mix(in srgb, var(--accent-cyan) 3.5000000000000004%, transparent); padding: 12px; }
   .bda-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; }
   .bda-grid div { display: flex; flex-direction: column; gap: 4px; }
   .bda-grid span { color: var(--text-muted); font-size: 8px; letter-spacing: 0.14em; }
@@ -466,11 +475,11 @@
   .bda-box p { margin: 10px 0 0; color: var(--text-secondary); font-size: 9px; letter-spacing: 0.06em; line-height: 1.65; }
 
   /* DECISION TABLE */
-  .table-wrap { overflow-x: auto; background: #070b14; border: 1px solid var(--border-subtle); }
+  .table-wrap { overflow-x: auto; background: var(--bg-elevated); border: 1px solid var(--border-subtle); }
   table { width: 100%; border-collapse: collapse; font-size: 9px; }
   th {
     text-align: left; padding: 8px 12px;
-    background: rgba(0, 212, 255, 0.04); border-bottom: 1px solid var(--border-subtle);
+    background: color-mix(in srgb, var(--accent-cyan) 4%, transparent); border-bottom: 1px solid var(--border-subtle);
     color: var(--text-muted); font-size: 8px; letter-spacing: 0.15em; text-transform: uppercase;
   }
   td { padding: 9px 12px; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
@@ -485,7 +494,7 @@
 
   /* NARRATIVE */
   .narrative-box {
-    background: #070b14; border: 1px solid var(--border-subtle);
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
     padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;
     max-height: 160px; overflow-y: auto;
   }
@@ -496,7 +505,7 @@
   /* AC GRID */
   .ac-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
   .ac-card {
-    background: #070b14; border: 1px solid var(--border-subtle);
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
     padding: 10px 12px; display: flex; flex-direction: column; gap: 8px;
   }
   .ac-top { display: flex; justify-content: space-between; align-items: center; }
@@ -514,19 +523,19 @@
   .fuel-bar .fill { height: 100%; background: var(--accent-cyan); }
 
   .weapon-expended-bar {
-    background: #070b14; border: 1px solid var(--border-subtle);
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
     padding: 9px 12px; display: flex; align-items: center; gap: 10px; font-size: 9px;
   }
   .w-label { color: var(--text-muted); font-size: 8px; letter-spacing: 0.14em; }
   .w-name { color: var(--accent-amber); font-weight: 700; }
   .w-status { font-size: 8px; padding: 2px 7px; border: 1px solid; margin-left: auto; letter-spacing: 0.1em; }
-  .w-status.released { color: var(--accent-green); border-color: var(--accent-green); background: rgba(57, 255, 20, 0.06); }
+  .w-status.released { color: var(--accent-green); border-color: var(--accent-green); background: color-mix(in srgb, var(--accent-green) 6%, transparent); }
   .w-status.retained { color: var(--accent-amber); border-color: var(--accent-amber); background: rgba(255, 170, 0, 0.06); }
 
   /* RISK GRID */
   .risk-grid { display: grid; grid-template-columns: 180px 180px 1fr; gap: 10px; }
   .risk-card {
-    background: #070b14; border: 1px solid var(--border-subtle);
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
     padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;
   }
   .rk-lbl { font-size: 8px; letter-spacing: 0.14em; color: var(--text-muted); text-transform: uppercase; }
@@ -563,18 +572,30 @@
   }
   .btn-export {
     border-color: var(--accent-cyan); color: var(--accent-cyan);
-    background: rgba(0, 212, 255, 0.06);
+    background: color-mix(in srgb, var(--accent-cyan) 6%, transparent);
   }
   .btn-export:hover {
-    background: rgba(0, 212, 255, 0.18);
-    box-shadow: 0 0 10px rgba(0, 212, 255, 0.35);
+    background: color-mix(in srgb, var(--accent-cyan) 18%, transparent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent-cyan) 35%, transparent);
   }
   .btn-replay {
     border-color: var(--accent-green); color: var(--accent-green);
-    background: rgba(57, 255, 20, 0.08);
+    background: color-mix(in srgb, var(--accent-green) 8%, transparent);
   }
   .btn-replay:hover {
-    background: rgba(57, 255, 20, 0.22);
-    box-shadow: 0 0 12px rgba(57, 255, 20, 0.45);
+    background: color-mix(in srgb, var(--accent-green) 22%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--accent-green) 45%, transparent);
   }
+  .outcome-odds { margin-top:10px; padding:10px; border:1px solid var(--border-subtle); background:var(--bg-base); }
+  .odds-title { display:flex; justify-content:space-between; gap:8px; color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.1em; }
+  .odds-title span { color:var(--text-muted); }
+  .odds-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:8px; }
+  .odds-grid article { padding:9px; border:1px solid var(--border-subtle); color:var(--text-secondary); }
+  .odds-grid article.actual { border-color:var(--accent-green); box-shadow:inset 0 0 12px color-mix(in srgb,var(--accent-green) 10%,transparent); }
+  .odds-grid b,.odds-grid strong { display:block; font:8px var(--font-mono); }
+  .odds-grid strong { color:var(--accent-amber); font-size:15px; margin:4px 0; }
+  .odds-grid p { margin:0; font:10px/1.45 var(--font-sans); }
+  .odds-grid small { color:var(--accent-green); display:block; margin-top:7px; font:7px var(--font-mono); }
+  .replay-branch { margin-top:8px; padding:7px 10px; color:var(--accent-cyan); background:transparent; border:1px solid var(--accent-cyan); font:8px var(--font-mono); cursor:pointer; }
+  @media(max-width:700px) { .odds-grid { grid-template-columns:1fr; } }
 </style>
