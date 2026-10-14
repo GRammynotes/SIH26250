@@ -238,6 +238,18 @@
     clearTimeout(actionTimer);
     if (speed > 0) scheduleNextStep();
   });
+
+  $effect(() => {
+    if (!open && isPlaying) {
+      clearTimeout(stepTimer);
+      clearTimeout(actionTimer);
+      isPlaying = false;
+      isPaused = false;
+      stopVoice();
+      document.body.classList.remove('demo-active');
+      window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
+    }
+  });
 </script>
 
 {#if open}

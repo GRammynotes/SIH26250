@@ -62,7 +62,6 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let railCollapsed = $state(false);
   let railWidth = $state(380);
   let railResizing = $state(false);
-  let doubleSpeed = $state(false);
   let mapFocusLocked = $state(true);
   let mapLegendOpen = $state(false);
   let commandPaletteOpen = $state(false);
@@ -101,7 +100,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     ...IAF_BASES.map((item) => ({ id: `base-${item.id}`, label: `${item.name} · ${item.code}`, category: 'BASE', keywords: item.id, kind: 'base' as const, targetId: item.id })),
   ]);
   let activeModalIds = $derived([
-    ...(pending && !railMode ? ['decision'] : []), ...(trackLossOpen ? ['track-loss'] : []),
+    ...(pending && !railMode && !simulationOpen && !probabilisticSimOpen ? ['decision'] : []), ...(trackLossOpen ? ['track-loss'] : []),
     ...(flowOpen ? ['mission-flow'] : []), ...(loadoutOpen ? ['loadout'] : []),
     ...(referenceOpen ? ['reference'] : []), ...(briefingMissionId ? ['briefing'] : []),
     ...(aarMissionId ? ['aar'] : []), ...(metricsOpen ? ['metrics'] : []),
@@ -539,8 +538,8 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       </PaneGroup>
     </Pane>{/if}
   </PaneGroup>
-  {#if railMode && !mapFullscreen}
-    <aside class="rail-right" class:collapsed={railCollapsed} aria-label="Experience rail">
+  {#if railMode || simulationOpen || probabilisticSimOpen}
+    <aside class="rail-right" class:collapsed={railCollapsed} class:hidden={railMode === null || mapFullscreen} aria-label="Experience rail">
       <nav class="rail-tabs-collapsed" aria-label="Experience modes">
         <button class:active={railMode === 'demo'} onclick={() => selectRailMode('demo')} aria-label="Open demo rail">DEMO</button>
         <button class:active={railMode === 'training'} onclick={() => selectRailMode('training')} aria-label="Open training rail">TRAINING</button>
@@ -559,9 +558,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
         </div>
           <button class:active={mapFocusLocked} class="rail-focus-lock" aria-pressed={mapFocusLocked} onclick={() => setMapFocusLock(!mapFocusLocked)}>{mapFocusLocked ? '🔒 FOCUS LOCK' : '🔓 FOCUS LOCK'}</button>
           <button class="rail-refocus" onclick={refocusMap}>⌖ RE-FOCUS</button>
-        <div class="rail-content" class:rail-hidden={railMode !== 'demo'}><ComprehensiveDemo open={comprehensiveDemoOpen} speed2x={doubleSpeed} onSpeedToggle={() => doubleSpeed = !doubleSpeed} onClose={closeExperienceRail} onComplete={() => { demoCompleteOpen = true; closeExperienceRail(); }} /></div>
-        <div class="rail-content" class:rail-hidden={railMode !== 'training'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if SimulationModal}<SimulationModal open={simulationOpen} speed2x={doubleSpeed} onSpeedToggle={() => doubleSpeed = !doubleSpeed} onClose={closeExperienceRail} />{/if}</div>
-        <div class="rail-content" class:rail-hidden={railMode !== 'sim'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if ProbabilisticSimulation}<ProbabilisticSimulation open={probabilisticSimOpen} speed2x={doubleSpeed} onSpeedToggle={() => doubleSpeed = !doubleSpeed} onClose={closeExperienceRail} />{/if}</div>
+        <div class="rail-content" class:rail-hidden={railMode !== 'demo'}><ComprehensiveDemo open={comprehensiveDemoOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} onComplete={() => { demoCompleteOpen = true; closeExperienceRail(); }} /></div>
+        <div class="rail-content" class:rail-hidden={railMode !== 'training'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if SimulationModal}<SimulationModal open={simulationOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
+        <div class="rail-content" class:rail-hidden={railMode !== 'sim'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if ProbabilisticSimulation}<ProbabilisticSimulation open={probabilisticSimOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
         {#if railMode !== 'demo' && pending?.pendingDecision}
           <div class="rail-decision"><DecisionPrompt open={true} rail title={pending.pendingDecision.title} context={pending.pendingDecision.context} message={pending.pendingDecision.message} options={pending.pendingDecision.options ?? pending.pendingDecision.branches.map((branch) => ({ id: branch.id, label: branch.label, description: branch.description, tag: branch.tag, tagColor: branch.tagColor }))} onSelect={handleRailDecision} onClose={() => system.dismissDecision(pending!.id)} /></div>
         {/if}
@@ -576,8 +575,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   <button onclick={startProbabilisticSimulation} aria-label="Start probabilistic simulation">◈ SIM</button>
 </nav>
 {#if comprehensiveDemoOpen}<div class="lock-bar"><span>SYSTEM LOCKED · PRESS ESC TO EXIT</span></div>{/if}
+{#if !railMode && (simulationOpen || probabilisticSimOpen)}<button class="background-running-chip" onclick={() => { railMode = simulationOpen ? 'training' : 'sim'; railCollapsed = false; }}>● RUNNING IN BACKGROUND · OPEN RAIL</button>{/if}
 
-{#if pending?.pendingDecision && !railMode}
+{#if pending?.pendingDecision && !railMode && !simulationOpen && !probabilisticSimOpen}
   <ModalLayer label={modalLabels.decision} zIndex={modalZ('decision')} visible={isModalVisible('decision')} onMinimize={() => minimizeModal('decision')}><DecisionPrompt
     open={true}
     title={pending.pendingDecision.title}
@@ -663,6 +663,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   .shell.rail-open :global(.workspace-layout) { grid-column:1; grid-row:3; }
   .rail-right { position:relative; grid-column:2; grid-row:3; min-width:0; min-height:0; display:flex; flex-direction:column; background:var(--bg-panel); border-left:1px solid var(--border-strong); overflow:visible; }
   .rail-right.collapsed { overflow:hidden; }
+  .rail-right.hidden { display:none; }
   .rail-expanded { min-height:0; flex:1; display:flex; flex-direction:column; position:relative; }
   .rail-expanded.rail-hidden { display:none; }
   .rail-content.rail-hidden { display:none; }
@@ -679,8 +680,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   .rail-toolbar .rail-focus-lock.active { color:var(--accent-cyan); }
   .rail-collapse,.rail-close { width:32px; border:0; border-left:1px solid var(--border-subtle); background:transparent; color:var(--text-secondary); font:16px var(--font-mono); cursor:pointer; }
   .rail-content { min-height:0; flex:1; overflow:auto; }
-  .rail-decision { flex:none; max-height:60%; overflow:auto; border-top:1px solid var(--border-strong); }
+  .rail-decision { flex:0 0 62%; height:62%; min-height:0; max-height:62%; overflow:auto; border-top:1px solid var(--border-strong); }
   .background-chip { margin:8px 10px 0; padding:5px 7px; width:max-content; color:var(--accent-green); border:1px solid var(--border-subtle); font:7px var(--font-mono); letter-spacing:.1em; }
+  .background-running-chip { position:fixed; left:12px; top:38px; z-index:120; padding:5px 8px; color:var(--accent-green); background:var(--bg-panel); border:1px solid var(--border-subtle); font:7px var(--font-mono); letter-spacing:.1em; cursor:pointer; }
   .rail-tabs-collapsed button { flex:1; padding:8px 4px; writing-mode:vertical-rl; transform:rotate(180deg); border:0; border-bottom:1px solid var(--border-subtle); color:var(--text-muted); background:var(--bg-panel); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; }
   .rail-tabs-collapsed button.active { color:var(--accent-cyan); }
   .shell.scenario-hidden { grid-template-rows:32px 0 minmax(0,1fr); }
