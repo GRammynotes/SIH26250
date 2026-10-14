@@ -27,6 +27,7 @@
   import CommandPalette, { type PaletteCommand } from './lib/components/panels/CommandPalette.svelte';
   import { IAF_BASES } from './lib/data/bases';
   import ModalLayer from './lib/components/panels/ModalLayer.svelte';
+  import TooltipLayer from './lib/components/layout/TooltipLayer.svelte';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let flowOpen = $state(false);
@@ -327,6 +328,7 @@
 </script>
 
 <svelte:window onkeydown={handleGlobalKeydown} />
+<TooltipLayer />
 <div class="shell">
   <TopBar
     aircraftCount={system.aircraft.length}
