@@ -199,10 +199,22 @@
       ctx.beginPath(); ctx.moveTo(24, 5); ctx.lineTo(27, 19); ctx.lineTo(41, 27); ctx.lineTo(41, 31); ctx.lineTo(27, 27); ctx.lineTo(26, 40); ctx.lineTo(32, 44); ctx.lineTo(32, 46); ctx.lineTo(24, 44); ctx.lineTo(16, 46); ctx.lineTo(16, 44); ctx.lineTo(22, 40); ctx.lineTo(21, 27); ctx.lineTo(7, 31); ctx.lineTo(7, 27); ctx.lineTo(21, 19); ctx.closePath(); ctx.stroke();
       map.addImage(imageId, ctx.getImageData(0, 0, 48, 48), { pixelRatio: 2 });
     }
-    if (!map.getSource('aircraft-gl')) map.addSource('aircraft-gl', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    if (!map.getSource('aircraft-gl')) map.addSource('aircraft-gl', {
+      type: 'geojson', data: { type: 'FeatureCollection', features: [] }, cluster: true, clusterMaxZoom: 5, clusterRadius: 50,
+    });
+    if (!map.getLayer('aircraft-clusters')) map.addLayer({
+      id: 'aircraft-clusters', type: 'circle', source: 'aircraft-gl', maxzoom: 4, filter: ['has', 'point_count'],
+      paint: { 'circle-color': '#06131d', 'circle-stroke-color': C.cyan, 'circle-stroke-width': 2, 'circle-radius': ['step', ['get', 'point_count'], 13, 10, 17, 25, 22, 40, 28], 'circle-opacity': 0.92 },
+    });
+    if (!map.getLayer('aircraft-cluster-count')) map.addLayer({
+      id: 'aircraft-cluster-count', type: 'symbol', source: 'aircraft-gl', maxzoom: 4, filter: ['has', 'point_count'],
+      layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-font': ['Open Sans Bold'], 'text-size': 12, 'text-allow-overlap': true },
+      paint: { 'text-color': '#e7fbff', 'text-halo-color': '#06131d', 'text-halo-width': 1.2 },
+    });
     if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
-      id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl',
-      layout: { 'icon-image': ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC'], 'icon-size': 0.8, 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+      id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl', minzoom: 4, filter: ['!', ['has', 'point_count']],
+      layout: { 'icon-image': ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.15, 5, 0.35, 8, 0.7, 11, 1, 14, 1.2], 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+      paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0, 4, 0.4, 6, 1] },
     });
     if (!aircraftLayerClickAttached) {
       map.on('click', 'aircraft-gl-symbols', (event) => {
@@ -390,6 +402,11 @@
     });
     map.on('moveend', () => {
       if (map && terrain3dEnabled && !terrainPaused) { map.setTerrain(null); terrainPaused = true; }
+    });
+    map.on('zoom', () => {
+      if (!map || dynamicMarkers.length === 0) return;
+      const display = map.getZoom() < 4 ? 'none' : '';
+      for (const marker of dynamicMarkers) marker.getElement().style.display = display;
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
