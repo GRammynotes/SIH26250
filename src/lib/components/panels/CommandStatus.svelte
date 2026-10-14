@@ -7,7 +7,7 @@
   const link = $derived(system.spoofedTrackId ? 'COMPROMISED' : system.mode === 'DEGRADED' ? 'DEGRADED' : 'SIMULATED · SECURE');
 </script>
 
-<section class="command-status" aria-label="Command status">
+<section class="command-status" aria-label="Command status" data-tour="command-status">
   <header><strong>COMMAND STATUS</strong><span>EXERCISE <button class="hide-panel" aria-label="Hide command status" title="Hide command status" onclick={() => onToggleVisibility?.()}>◉</button></span></header>
   <div class="row"><span>THREAT LEVEL</span><b class:danger={threatLevel === 'ELEVATED'} class:amber={threatLevel === 'HIGH'}><i>{threatLevel === 'ELEVATED' ? '▲' : threatLevel === 'HIGH' ? '◆' : '●'}</i>{threatLevel}</b></div>
   <div class="row"><span>NEXT DECISION</span><b class="decision">{nextDecision}</b></div>

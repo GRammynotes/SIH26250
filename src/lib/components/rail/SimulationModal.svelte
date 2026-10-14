@@ -2,6 +2,7 @@
   import { onDestroy } from 'svelte';
   import { system } from '../../stores/systemStore.svelte';
   import { narrateUtterance } from '../../engine/voice';
+  import { parseMapNarrative } from '../../engine/mapNarrative';
   import type { DecisionBranch } from '../../data/historicalMissions';
   import { HISTORICAL_MISSIONS } from '../../data/historicalMissions';
   import { distanceKm, focusMapElements } from '../../engine/mapNarrative';
@@ -22,9 +23,10 @@
   let pending = $derived(active?.pendingDecision ?? null);
 
   function say(speaker: Dialogue['speaker'], text: string) {
-    turns = [...turns, { speaker, text }].slice(-30);
-    narrateUtterance(text, { source: speaker, speaker: speaker === 'COMMANDER' ? 'commander' : 'agent', priority: speaker === 'SYSTEM' ? 'critical' : 'info' });
-    window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: speaker, text } }));
+    const narrative = parseMapNarrative(text);
+    turns = [...turns, { speaker, text: narrative.text }].slice(-30);
+    narrateUtterance(narrative.text, { source: speaker, speaker: speaker === 'COMMANDER' ? 'commander' : 'agent', priority: speaker === 'SYSTEM' ? 'critical' : 'info' });
+    window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: speaker, text: narrative.text } }));
   }
   function startExercise() {
     if (started) return;
@@ -50,6 +52,7 @@
       say('COMMANDER', `Review the ${mission.name} package. What is the system recommendation?`);
       say('OPS AGENT', `Course of action generated. ${aircraft.length} available aircraft assigned for this training run. AUTO is ${autoDecision ? 'on' : 'off'}; decision points pause for your review when AUTO is off.`);
       system.startMission(mission.id, aircraft.map((item) => item.id), 'sindoor_deep');
+      say('OPS AGENT', `Track @aircraft:${aircraft[0].tailNumber} is moving toward @target:${mission.name}. Monitor the package and target geometry on the tactical picture.`);
       busy = false;
       advanceToDecision();
     }, 900);
@@ -81,6 +84,7 @@
     turns = turns.filter((turn) => !turn.text.startsWith('Decision required:'));
     say('COMMANDER', `Decision: ${branch.label}.`);
     system.resolveDecision(active!.id, branch.id);
+    system.pushEvent('SIMULATION', `TRAINING BRANCH · ${branch.label} · ${branch.outcome.toUpperCase()}`, branch.outcome === 'success' ? 'ok' : 'warn');
     say('OPS AGENT', branch.consequence);
     runner = setTimeout(advanceToDecision, scaledDelay(800));
   }
@@ -116,7 +120,7 @@
 {#if open}
   <div class="mode-chip" title="Practice a historical mission and make commander decisions.">[TRAINING]</div>
   <section class="sim" aria-labelledby="sim-title">
-      <header><div><span class="eyebrow">AUTONOMOUS TRAINING RUN · HISTORICAL CASE STUDY</span><h2 id="sim-title">OP SINDOOR · DEEP STRIKE</h2><p>{history.date} · {history.targetType.toUpperCase()} · SIMULATED, NOT LIVE DATA</p></div><div class="rail-controls"><button class:active={autoDecision} onclick={() => { autoDecision = !autoDecision; if (!autoDecision && decisionTimer) clearTimeout(decisionTimer); }}>AUTO {autoDecision ? 'ON' : 'OFF'}</button><span>{simSpeed === 0 ? 'PAUSED' : `${simSpeed}X`}</span><button class="close" aria-label="Close simulation" onclick={() => onClose?.()}>×</button></div></header>
+      <header><div><span class="eyebrow">AUTONOMOUS TRAINING RUN · HISTORICAL CASE STUDY</span><h2 id="sim-title">OP SINDOOR · DEEP STRIKE</h2><p>{history.date} · {history.targetType.toUpperCase()} · SIMULATED, NOT LIVE DATA</p></div><div class="rail-controls"><button class:active={autoDecision} onclick={() => { autoDecision = !autoDecision; if (!autoDecision && decisionTimer) clearTimeout(decisionTimer); }}>AUTO {autoDecision ? 'ON' : 'OFF'}</button><button class:active={simSpeed === 2} onclick={() => onSpeedChange?.(simSpeed === 2 ? 1 : 2)} aria-label="Toggle 2x speed">⏩ {simSpeed === 2 ? '2x ON' : '2x'}</button><button class="close" aria-label="Close simulation" onclick={() => onClose?.()}>×</button></div></header>
       <div class="story"><strong>MISSION BRIEF</strong><p>{history.narrative}</p><button onclick={jumpToMap}>⌖ FOCUS TRAINING AREA</button></div>
       <div class="body">
         <section class="dialogue" aria-label="Commander and operations agent dialogue">
@@ -124,7 +128,7 @@
             {#if pending}<article class="decision-status"><small>DECISION REQUESTED · {pending.atPhase}</small><h3>{pending.title}</h3><p>{pending.message}</p><small class="auto">{autoDecision ? `AUTO SELECTS A WEIGHTED BRANCH IN ${simSpeed === 0 ? 'PAUSED' : `${6 / simSpeed} SECONDS`}` : 'AUTO OFF · SELECT AN OPTION IN THE DECISION PANEL BELOW'}</small></article>{/if}
             {#if active?.phase === 'COMPLETE'}<article class="decision"><small>AFTER ACTION</small><h3>EXERCISE COMPLETE · {active.outcome}</h3><p>Review the map, event log, and mission review for the recorded result.</p></article>{/if}
         </section>
-        <aside class="state" role="group" aria-label="Live exercise state"><span>LIVE EXERCISE STATE</span><b>{active?.phase ?? 'BRIEFING'}</b><div class="state-row">SCENARIO <strong>{system.activeScenarioFilter?.replaceAll('_', ' ').toUpperCase() ?? 'GLOBAL'}</strong></div><div class="state-row">AIRCRAFT <strong>{active?.aircraftIds.length ?? '—'}</strong></div><div class="state-row">THREATS <strong>{system.scenarioThreats.length}</strong></div><button onclick={() => autoDecision = !autoDecision}>{autoDecision ? 'AUTO DECISIONS ON' : 'AUTO DECISIONS OFF'}</button><button onclick={togglePause}>{paused ? '▶ RESUME' : 'Ⅱ PAUSE'}</button><button onclick={advanceToDecision} disabled={!started || busy || !!pending}>ADVANCE EXERCISE</button></aside>
+        <aside class="state" role="group" aria-label="Live exercise state"><span>LIVE EXERCISE STATE</span><b>{active?.phase ?? 'BRIEFING'}</b><div class="state-row">SCENARIO <strong>{system.activeScenarioFilter?.replaceAll('_', ' ').toUpperCase() ?? 'GLOBAL'}</strong></div><div class="state-row">AIRCRAFT <strong>{active?.aircraftIds.length ?? '—'}</strong></div><div class="state-row">THREATS <strong>{system.scenarioThreats.length}</strong></div><button onclick={togglePause}>{paused ? '▶ RESUME' : 'Ⅱ PAUSE'}</button><button onclick={advanceToDecision} disabled={!started || busy || !!pending}>ADVANCE EXERCISE</button></aside>
       </div>
       <footer><span>◈ SYSTEM-GUIDED · DECISIONS ARE REVERSIBLE WITHIN THIS TRAINING SESSION</span><button onclick={togglePause}>{paused ? '▶ RESUME' : 'Ⅱ PAUSE'}</button><button onclick={() => onClose?.()}>CLOSE EXERCISE</button></footer>
   </section>
@@ -148,3 +152,4 @@
   footer { display:flex; justify-content:space-between; align-items:center; gap:5px; padding:9px 10px; border-top:1px solid var(--border-subtle); } footer span { margin-right:auto; color:var(--text-muted); font:7px var(--font-mono); letter-spacing:.05em; }
   @media(max-width:760px) { footer { flex-wrap:wrap; } footer span { width:100%; } }
 </style>
+

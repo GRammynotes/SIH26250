@@ -11,10 +11,11 @@
   import { system } from '../../stores/systemStore.svelte';
   import { SCENARIO_AREAS } from '../../engine/scenario';
   import { createTrailPathDeriver } from '../../engine/mapTrailCache';
-  import { experienceBounds } from '../../data/scenarioBounds';
+  import { experienceBounds, experienceBoundsOrScenario } from '../../data/scenarioBounds';
   import { clearSimulationTrails, getSimulationFrame, setSimulationAnimationActive } from '../../engine/simAnimation.svelte';
   import type { MapFocusElement } from '../../engine/mapNarrative';
   import TacticalReadout from './TacticalReadout.svelte';
+  import MapNarrativePointer from './MapNarrativePointer.svelte';
 
   let {
     onBaseSelect,
@@ -363,12 +364,12 @@
       else { map.dragPan.enable(); map.scrollZoom.enable(); map.doubleClickZoom.enable(); map.keyboard.enable(); }
     };
     const handleFocusLock = (event: Event) => applyFocusLock(Boolean((event as CustomEvent<boolean>).detail));
-    const refocus = () => map?.fitBounds(experienceBounds(system.activeScenarioFilter ?? 'deep_strike'), { padding: 80, duration: 1200 });
+    const refocus = () => map?.fitBounds(experienceBoundsOrScenario(system.activeScenarioFilter ?? 'deep_strike', SCENARIO_AREAS), { padding: 80, duration: 1200 });
     const handleExperienceMode = (event: Event) => {
       const { mode, scenario } = (event as CustomEvent<{ mode: string | null; scenario: string | null }>).detail;
       if (mode) {
         const key = scenario ?? (mode === 'training' ? 'deep_strike' : null);
-        map?.fitBounds(experienceBounds(key), { padding: 80, duration: 1200 });
+        map?.fitBounds(experienceBoundsOrScenario(key, SCENARIO_AREAS), { padding: 80, duration: 1200 });
         applyFocusLock(true);
       }
     };
@@ -549,6 +550,8 @@
       m.addSource('simulation-impacts', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'simulation-impact-pulse', type: 'fill', source: 'simulation-impacts', paint: { 'fill-color': C.red, 'fill-opacity': ['*', ['-', 1, ['get', 'progress']], .26] } });
       m.addLayer({ id: 'simulation-impact-outline', type: 'line', source: 'simulation-impacts', paint: { 'line-color': C.red, 'line-width': 2, 'line-opacity': ['-', 1, ['get', 'progress']] } });
+      m.addSource('simulation-impact-flashes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'simulation-impact-flash', type: 'circle', source: 'simulation-impact-flashes', paint: { 'circle-radius': 14, 'circle-color': C.red, 'circle-opacity': .75, 'circle-stroke-color': C.red, 'circle-stroke-width': 4, 'circle-stroke-opacity': .45 } });
       m.addSource('simulation-radar-sweep', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'simulation-radar-sweep-line', type: 'line', source: 'simulation-radar-sweep', paint: { 'line-color': C.amber, 'line-width': 1.5, 'line-opacity': .7, 'line-dasharray': [2, 1] } });
       m.addSource('simulation-threat-pulse', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -644,7 +647,7 @@
     const aircraft = system.scenarioAircraft;
     const missions = system.scenarioMissions;
     const threats = system.scenarioThreats;
-    const area = scenarioKey ? (SCENARIO_AREAS[scenarioKey] ?? experienceBounds(scenarioKey)) : null;
+    const area = scenarioKey ? experienceBoundsOrScenario(scenarioKey, SCENARIO_AREAS) : null;
     const inArea = (points: { lng: number; lat: number }[]) => !area || points.some((p) => p.lng >= area[0][0] && p.lng <= area[1][0] && p.lat >= area[0][1] && p.lat <= area[1][1]);
     const airspace = scenarioKey ? system.airspaceZones.filter((zone) => inArea(zone.polygon)) : system.airspaceZones;
     const weather = scenarioKey ? system.weatherSystems.filter((item) => inArea(item.polygon)) : system.weatherSystems;
@@ -946,7 +949,12 @@
     const impactSource = map.getSource('simulation-impacts') as maplibregl.GeoJSONSource | undefined;
     impactSource?.setData({ type: 'FeatureCollection', features: frame.impacts.map((impact) => ({ type: 'Feature' as const, properties: { progress: impact.progress }, geometry: { type: 'Polygon' as const, coordinates: [circlePolygon(impact.coordinates, Math.max(.05, impact.progress * 2))] } })) });
     const assetSource = map.getSource('assets-gl') as maplibregl.GeoJSONSource | undefined;
-    if (assetSource && Object.keys(frame.assets).length) assetSource.setData({ type: 'FeatureCollection', features: GROUND_ASSETS.map((asset) => { const pos = frame.assets[asset.id] ?? asset.position; return { type: 'Feature' as const, properties: { id: asset.id, label: asset.designation, type: asset.type, status: asset.status, color: C.green, opacity: 1, armament: asset.armament, rangeKm: asset.range_km }, geometry: { type: 'Point' as const, coordinates: [pos.lng, pos.lat] as [number, number] } }; }) });
+    if (assetSource && Object.keys(frame.assets).length) assetSource.setData({ type: 'FeatureCollection', features: [
+      ...(showGround ? GROUND_ASSETS.map((asset) => { const pos = frame.assets[asset.id] ?? asset.position; return { type: 'Feature' as const, properties: { id: asset.id, label: asset.designation, type: asset.type, status: asset.status, color: C.green, opacity: 1, armament: asset.armament, rangeKm: asset.range_km }, geometry: { type: 'Point' as const, coordinates: [pos.lng, pos.lat] as [number, number] } }; }) : []),
+      ...(showEnemy ? ENEMY_ASSETS.map((asset) => ({ type: 'Feature' as const, properties: { id: asset.id, label: asset.designation, type: asset.type, behaviour: asset.behaviour, color: C.red, opacity: 1, rangeKm: asset.engagementRange_km, probabilityKill: asset.probabilityKill }, geometry: { type: 'Point' as const, coordinates: [asset.position.lng, asset.position.lat] as [number, number] } })) : []),
+    ] });
+    const flashSource = map.getSource('simulation-impact-flashes') as maplibregl.GeoJSONSource | undefined;
+    flashSource?.setData({ type: 'FeatureCollection', features: frame.impacts.filter((impact) => impact.flash).map((impact) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: impact.coordinates } })) });
     const radarSource = map.getSource('simulation-radar-sweep') as maplibregl.GeoJSONSource | undefined;
     radarSource?.setData({ type: 'FeatureCollection', features: GROUND_ASSETS.filter((asset) => asset.type === 'sam' || asset.type === 'radar').map((asset) => { const pos = frame.assets[asset.id] ?? asset.position; const angle = (frame.assets[asset.id]?.heading ?? 0) * Math.PI / 180; return { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [[pos.lng, pos.lat], [pos.lng + Math.cos(angle) * .11, pos.lat + Math.sin(angle) * .11]] } }; }) });
     const threatSource = map.getSource('simulation-threat-pulse') as maplibregl.GeoJSONSource | undefined;
@@ -962,11 +970,12 @@
   function toggleEnemy() { showEnemy = !showEnemy; }
 </script>
 
-<div class="map-wrap">
+<div class="map-wrap" data-tour="map">
   <div class="map-canvas" class:impact-shake={getSimulationFrame().impacts.some((impact) => impact.flash)} bind:this={container}></div>
   {#if mapZoom < 5 && overviewFmcCount > 0}<div class="theater-aircraft-count" title={`${overviewFmcCount} FMC aircraft in this theater view`}>{overviewFmcCount}</div>{/if}
   {#each narrativeMarkers as marker, index (`${marker.label}-${index}`)}<div class="narrative-focus-marker" role="img" aria-label={`Map focus: ${marker.label}`} style={`left:${marker.x}px;top:${marker.y}px;opacity:${marker.opacity}`}><span aria-hidden="true">{marker.label}</span></div>{/each}
   {#if mapReady && map}<TrajectoryLayer {map} />{/if}
+  {#if mapReady && map}<MapNarrativePointer {map} />{/if}
   {#if theaterMapVisible}<TacticalReadout />{/if}
 
   <!-- LAYER 3: Scanline & Vignette Overlay -->

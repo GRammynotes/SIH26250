@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { COMPREHENSIVE_DEMO_STEPS, getStepGlossaryTerms } from '../../demo/comprehensiveDemoScript';
   import { narrateUtterance, stopVoice } from '../../engine/voice';
+  import { parseMapNarrative } from '../../engine/mapNarrative';
 
   let { open = false, simSpeed = 1, onSpeedChange, onClose, onComplete }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onSpeedChange?: (speed: 0 | 1 | 2 | 4) => void; onClose?: () => void; onComplete?: () => void } = $props();
 
@@ -36,9 +37,12 @@
   // Execute current step
   function executeStep() {
     if (!currentStep || isPaused || !isPlaying) return;
+    window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
+    const narration = parseMapNarrative(currentStep.narration);
+    const caption = parseMapNarrative(currentStep.caption).text;
 
     window.dispatchEvent(new CustomEvent('aircommand:focus', {
-      detail: { selector: currentStep.element ?? '.center', duration: currentStep.duration || 5000, text: currentStep.title },
+      detail: { selector: currentStep.element ?? '[data-tour="map"]', duration: currentStep.duration || 5000, text: caption },
     }));
 
     // Dispatch caption event
@@ -46,14 +50,14 @@
       new CustomEvent('aircommand:caption', {
         detail: {
           source: 'DEMO',
-          text: currentStep.caption,
+          text: caption,
         },
       })
     );
 
     // Voice narration
     if (voiceEnabled) {
-      narrateUtterance(currentStep.narration, {
+      narrateUtterance(narration.text, {
         source: 'DEMO',
         speaker: 'agent',
         priority: 'info',
@@ -359,7 +363,7 @@
           >
             {voiceEnabled ? '◉ VOICE ON' : '○ VOICE OFF'}
           </button>
-          <span class="control-speed" aria-live="polite">{simSpeed === 0 ? 'PAUSED' : `${simSpeed}X PLAYBACK`}</span>
+          <button class="control-btn" class:active={simSpeed === 2} onclick={() => onSpeedChange?.(simSpeed === 2 ? 1 : 2)} aria-label="Toggle 2x speed">⏩ {simSpeed === 2 ? '2x ON' : '2x'}</button>
           <button
             class="control-btn"
             onclick={togglePause}

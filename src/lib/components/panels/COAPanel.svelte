@@ -19,7 +19,7 @@
   );
 </script>
 
-<div class="panel corners">
+<div class="panel corners" data-tour="coa-panel">
   <div class="hdr">
     <span>{system.mode === 'DEGRADED' ? 'DEGRADED · SINGLE-SOURCE MODE' : 'COA ANALYSIS'}</span>
     <div class="hdr-right">
@@ -117,7 +117,7 @@
     {/if}
   </div>
 
-  <button class="gen" onclick={() => system.generateCOAs()} disabled={system.computing}>
+  <button class="gen" data-tour="generate-coa" onclick={() => system.generateCOAs()} disabled={system.computing}>
     <span>{btnLabel}</span>
   </button>
 </div>
