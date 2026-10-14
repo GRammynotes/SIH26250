@@ -10,6 +10,8 @@
   import TrajectoryLayer from './TrajectoryLayer.svelte';
   import { type AirspaceZone, type WeatherSystem } from '../../types';
   import { system } from '../../stores/systemStore.svelte';
+  import { SCENARIO_AREAS } from '../../engine/scenario';
+  import TacticalReadout from './TacticalReadout.svelte';
 
   let {
     onBaseSelect,
@@ -30,6 +32,7 @@
   let groundMarkersList: maplibregl.Marker[] = [];
   let baseMarkersList: { id: string; marker: maplibregl.Marker; el: HTMLElement }[] = [];
   let aircraftLayerClickAttached = false;
+  let lastScenarioView: string | null | undefined;
 
   // Map layer toggle states
   let showTerrain = $state(true);
@@ -320,6 +323,9 @@
 
     map.on('load', () => {
       const m = map!;
+      m.addSource('scenario-area', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'scenario-area-fill', type: 'fill', source: 'scenario-area', paint: { 'fill-color': C.cyan, 'fill-opacity': 0.035 } });
+      m.addLayer({ id: 'scenario-area-outline', type: 'line', source: 'scenario-area', paint: { 'line-color': C.cyan, 'line-width': 1.6, 'line-opacity': 0.78, 'line-dasharray': [1.2, 1.6] } });
       m.addSource('matrix-highlight', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'matrix-highlight-fuel', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'fuel'], paint: { 'line-color': C.green, 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': .85 } });
       m.addLayer({ id: 'matrix-highlight-wez', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'wez'], paint: { 'line-color': C.red, 'line-width': 1.5, 'line-dasharray': [1, 2], 'line-opacity': .95 } });
@@ -401,11 +407,27 @@
   // Reactive updates for aircraft, threats, missions, base selection
   $effect(() => {
     if (!mapReady || !map) return;
-    const aircraft = system.aircraft;
-    const missions = system.missions;
-    const threats = system.threats;
-    const airspace = system.airspaceZones;
-    const weather = system.weatherSystems;
+    const scenarioKey = system.activeScenarioFilter;
+    const aircraft = system.scenarioAircraft;
+    const missions = system.scenarioMissions;
+    const threats = system.scenarioThreats;
+    const area = scenarioKey ? SCENARIO_AREAS[scenarioKey] : null;
+    const inArea = (points: { lng: number; lat: number }[]) => !area || points.some((p) => p.lng >= area[0][0] && p.lng <= area[1][0] && p.lat >= area[0][1] && p.lat <= area[1][1]);
+    const airspace = scenarioKey ? system.airspaceZones.filter((zone) => inArea(zone.polygon)) : system.airspaceZones;
+    const weather = scenarioKey ? system.weatherSystems.filter((item) => inArea(item.polygon)) : system.weatherSystems;
+    if (scenarioKey !== lastScenarioView) {
+      lastScenarioView = scenarioKey;
+      if (area) map.fitBounds(area, { padding: 70, duration: 850, maxZoom: 7.4 });
+      else if (scenarioKey === null) map.flyTo({ center: [79, 31], zoom: 4.2, duration: 850 });
+    }
+    const areaSource = map.getSource('scenario-area') as maplibregl.GeoJSONSource | undefined;
+    if (areaSource) {
+      const features: GeoJSON.Feature[] = area ? [{
+        type: 'Feature', properties: { id: scenarioKey },
+        geometry: { type: 'Polygon', coordinates: [[[area[0][0], area[0][1]], [area[1][0], area[0][1]], [area[1][0], area[1][1]], [area[0][0], area[1][1]], [area[0][0], area[0][1]]]] },
+      }] : [];
+      areaSource.setData({ type: 'FeatureCollection', features });
+    }
     const selectedCoa = system.coas.find((coa) => coa.id === system.selectedCoaId) ?? null;
     const selBase = system.selectedBaseId;
 
@@ -418,6 +440,8 @@
 
     // Update selected base styling
     for (const b of baseMarkersList) {
+      const base = IAF_BASES.find((item) => item.id === b.id);
+      b.el.style.opacity = !area || !base || inArea([{ lng: base.lng, lat: base.lat }]) ? '1' : '.28';
       if (b.id === selBase) {
         b.el.classList.add('selected');
       } else {
@@ -797,6 +821,7 @@
     if (showGround) {
       for (const ga of GROUND_ASSETS) {
         const markerEl = createGroundAssetMarker(ga);
+        markerEl.style.opacity = !area || inArea([ga.position]) ? '1' : '.24';
         dynamicMarkers.push(
           new maplibregl.Marker({ element: markerEl })
             .setLngLat([ga.position.lng, ga.position.lat])
@@ -821,6 +846,7 @@
     if (showEnemy) {
       for (const asset of ENEMY_ASSETS) {
         const markerEl = createEnemyMarker(asset);
+        markerEl.style.opacity = !area || inArea([asset.position]) ? '1' : '.24';
         dynamicMarkers.push(new maplibregl.Marker({ element: markerEl })
           .setLngLat([asset.position.lng, asset.position.lat])
           .setPopup(new maplibregl.Popup({ offset: 12, closeButton: false }).setHTML(
@@ -845,6 +871,7 @@
 <div class="map-wrap">
   <div class="map-canvas" bind:this={container}></div>
   {#if mapReady && map}<TrajectoryLayer {map} />{/if}
+  <TacticalReadout />
 
   <!-- LAYER 3: Scanline & Vignette Overlay -->
   <div class="scanlines" aria-hidden="true"></div>

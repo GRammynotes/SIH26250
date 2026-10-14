@@ -9,20 +9,23 @@
          : l === 'alert' ? 'var(--accent-red)'
          : 'var(--accent-cyan)';
   }
+  const visibleEvents = $derived(system.activeScenarioFilter
+    ? system.events.filter((event) => event.scenario === system.activeScenarioFilter)
+    : system.events);
 </script>
 
 <div class="log">
   <div class="hdr">
     <span>MISSION LOG</span>
-    <span class="log-actions"><span class="count">{system.events.length} ENTRIES</span><button aria-label={collapsed ? 'Expand event log' : 'Collapse event log'} title={collapsed ? 'Expand event log' : 'Collapse event log'} onclick={() => onToggle?.()}>{collapsed ? '⌃' : '⌄'}</button></span>
+    <span class="log-actions"><span class="count">{visibleEvents.length} ENTRIES</span><button aria-label={collapsed ? 'Expand event log' : 'Collapse event log'} title={collapsed ? 'Expand event log' : 'Collapse event log'} onclick={() => onToggle?.()}>{collapsed ? '⌃' : '⌄'}</button></span>
   </div>
   {#if !collapsed}<div class="entries">
-    {#if system.events.length > 30}
-      <SvelteVirtualList items={system.events} itemKey={(item, index) => `${item.time}-${item.source}-${index}`} defaultEstimatedItemHeight={18} containerClass="event-virtual" viewportClass="event-viewport" viewportLabel="Mission event log">
+    {#if visibleEvents.length > 30}
+      <SvelteVirtualList items={visibleEvents} itemKey={(item, index) => `${item.time}-${item.source}-${index}`} defaultEstimatedItemHeight={18} containerClass="event-virtual" viewportClass="event-viewport" viewportLabel="Mission event log">
         {#snippet renderItem(e)}<div class="entry"><span class="t">[{e.time}Z]</span><span class="classification-tag">[U]</span><span class="src" style="color:{levelColor(e.level)};">{e.source}</span><span class="msg">{e.msg}</span></div>{/snippet}
       </SvelteVirtualList>
     {:else}
-      {#each system.events as e, index (`${e.time}-${e.source}-${index}`)}
+      {#each visibleEvents as e, index (`${e.time}-${e.source}-${index}`)}
         <div class="entry"><span class="t">[{e.time}Z]</span><span class="classification-tag">[U]</span><span class="src" style="color:{levelColor(e.level)};">{e.source}</span><span class="msg">{e.msg}</span></div>
       {/each}
     {/if}

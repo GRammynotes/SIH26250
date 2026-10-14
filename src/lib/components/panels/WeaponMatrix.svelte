@@ -4,16 +4,16 @@
 
   const selectedCoa = $derived(system.coas.find((coa) => coa.id === system.selectedCoaId) ?? system.coas[0]);
   const coverage = $derived([1, 2, 3].map((priority) => {
-    const missions = system.missions.filter((mission) => mission.priority === priority);
+    const missions = system.scenarioMissions.filter((mission) => mission.priority === priority);
     const covered = missions.filter((mission) => (selectedCoa?.assignments[mission.id]?.length ?? 0) > 0).length;
     return { priority, covered, total: missions.length, percent: missions.length ? Math.round((covered / missions.length) * 100) : 0 };
   }));
 
   function assessment(aircraftId: string, missionId: string) {
-    const aircraft = system.aircraft.find((item) => item.id === aircraftId);
-    const mission = system.missions.find((item) => item.id === missionId);
+    const aircraft = system.scenarioAircraft.find((item) => item.id === aircraftId);
+    const mission = system.scenarioMissions.find((item) => item.id === missionId);
     if (!aircraft || !mission || aircraft.status === 'NMC') return null;
-    return assessSingleAssignment(aircraft, mission.target, mission.targetType, system.threats);
+    return assessSingleAssignment(aircraft, mission.target, mission.targetType, system.scenarioThreats);
   }
 
   function highlight(aircraftId: string, missionId: string | null) {
@@ -24,7 +24,7 @@
 <section class="matrix-panel" aria-label="Weapon platform match matrix">
   <header><strong>MISSION PRIORITY</strong><span>SELECTED PLAN · {selectedCoa ? `OPTION ${selectedCoa.rank}` : 'STANDBY'}</span></header>
   <div class="mission-strip">
-    {#each system.missions as mission (mission.id)}
+    {#each system.scenarioMissions as mission (mission.id)}
       <button aria-label="Brief {mission.name}, priority {mission.priority}" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:mission-brief', { detail: mission.id }))}>
         <i class="p{mission.priority}">P{mission.priority}</i><span>{mission.name}</span><b>{selectedCoa?.assignments[mission.id]?.length ?? 0}</b>
       </button>
@@ -34,11 +34,11 @@
   <header class="matrix-heading"><strong>PLATFORM × TARGET</strong><span>HOVER / FOCUS TO LOCATE</span></header>
   <div class="matrix-scroll">
     <table>
-      <thead><tr><th>TAIL</th>{#each system.missions as mission (mission.id)}<th title="{mission.name} · P{mission.priority}">P{mission.priority}<br />{mission.name.slice(0, 3)}</th>{/each}</tr></thead>
+      <thead><tr><th>TAIL</th>{#each system.scenarioMissions as mission (mission.id)}<th title="{mission.name} · P{mission.priority}">P{mission.priority}<br />{mission.name.slice(0, 3)}</th>{/each}</tr></thead>
       <tbody>
-        {#each system.aircraft as aircraft (aircraft.id)}
+        {#each system.scenarioAircraft as aircraft (aircraft.id)}
           <tr><th>{aircraft.tailNumber}</th>
-            {#each system.missions as mission (mission.id)}
+            {#each system.scenarioMissions as mission (mission.id)}
               {@const result = assessment(aircraft.id, mission.id)}
               <td>
                 {#if result}

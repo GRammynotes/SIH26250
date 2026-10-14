@@ -10,7 +10,7 @@
   let groupBy = $state<'PRIORITY' | 'STATUS' | 'TARGET TYPE'>('PRIORITY');
   let expandedMission = $state<string | null>(null);
   const filters = ['ALL', 'P1', 'P2', 'P3', 'ACTIVE', 'COMPLETE'];
-  const visibleMissions = $derived.by(() => system.missions
+  const visibleMissions = $derived.by(() => system.scenarioMissions
     .filter((mission) => filter === 'ALL' || (filter.startsWith('P') && mission.priority === Number(filter.slice(1))) || mission.status === filter)
     .filter((mission) => `${mission.name} ${mission.id} ${mission.targetType} ${mission.status}`.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name)));
@@ -33,7 +33,7 @@
     const ids = coa.assignments[missionId] ?? [];
     if (ids.length === 0) return;
     // Pick the template based on the target type
-    const mission = system.missions.find((m) => m.id === missionId);
+    const mission = system.scenarioMissions.find((m) => m.id === missionId);
     if (!mission) return;
     const map: Record<string, string> = {
       'hardened-bunker': 'sindoor_deep',
@@ -84,7 +84,7 @@
 <div class="mission-block corners">
   <div class="hdr">
     <span>MISSIONS</span>
-    <span class="hdr-actions"><span class="count">{system.missions.length} QUEUED</span><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
+    <span class="hdr-actions"><span class="count">{system.scenarioMissions.length} QUEUED</span><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
   </div>
   <div class="mission-tools">
     <input bind:value={search} placeholder="SEARCH MISSIONS" aria-label="Search missions" />

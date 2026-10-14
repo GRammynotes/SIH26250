@@ -1,6 +1,6 @@
 import { generateSystemState } from '../data/seed';
 import { generateCOAs as optimise } from '../engine/optimisation';
-import { SCENARIOS, SCENARIO_LABELS, type ScenarioStep } from '../engine/scenario';
+import { SCENARIOS, SCENARIO_LABELS, type ScenarioStep, SCENARIO_AREAS, SCENARIO_MISSION_SETS } from '../engine/scenario';
 import { HISTORICAL_MISSIONS } from '../data/historicalMissions';
 import {
   createActiveMission, nextPhase, phaseDuration, progressFraction, interpolatePosition,
@@ -15,7 +15,7 @@ import { narrateEvent } from '../engine/voice';
 import type { Aircraft, Mission, Threat, COA, AircraftStatus } from '../types';
 
 export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
-export interface EventEntry { time: string; source: string; msg: string; level: EventLevel; }
+export interface EventEntry { time: string; source: string; msg: string; level: EventLevel; scenario?: string | null; }
 
 class SystemStore {
   aircraft = $state.raw<Aircraft[]>([]);
@@ -30,6 +30,9 @@ class SystemStore {
   mode = $state<'NORMAL' | 'DEGRADED'>('NORMAL');
   computing = $state(false);
   activeScenario = $state<string | null>(null);
+  activeScenarioFilter = $state<string | null>(null);
+  scenarioOnlyMissionIds = $state.raw<string[]>([]);
+  scenarioTimers: number[] = [];
   activeMissions = $state<ActiveMission[]>([]);
   coaGenerationCount = $state(0);
   coaSelectionCount = $state(0);
@@ -44,6 +47,43 @@ class SystemStore {
   reoptimizationDebounce: number | null = null;
   prioritization = $state(50);
   riskBias = $state(0.7);
+
+  get scenarioMissions(): Mission[] {
+    const key = this.activeScenarioFilter;
+    if (!key) return this.missions.filter((mission) => !this.scenarioOnlyMissionIds.includes(mission.id));
+    const missionSet = SCENARIO_MISSION_SETS[key];
+    if (missionSet) return missionSet.map((mission) => this.missions.find((existing) => existing.id === mission.id) ?? mission);
+    const types: Record<string, string[]> = {
+      aircraft_nmc: ['aircraft'], multi_crisis: ['radar-site', 'troop-concentration', 'aircraft'],
+      radar_loss: ['radar-site', 'c2-node'], track_loss: ['aircraft', 'c2-node'],
+      data_poisoning: ['aircraft', 'radar-site'], air_superiority: ['aircraft'],
+      sead_campaign: ['radar-site'], deep_strike: ['hardened-bunker', 'c2-node', 'fuel-depot', 'runway'],
+    };
+    const selected = this.missions.filter((m) => (types[key] ?? []).includes(m.targetType));
+    return selected.length ? selected : this.missions.slice(0, 3);
+  }
+
+  get scenarioAircraft(): Aircraft[] {
+    const key = this.activeScenarioFilter;
+    if (!key) return this.aircraft;
+    const targets = this.scenarioMissions;
+    const relevant = this.aircraft.filter((ac) => targets.some((m) => {
+      const dLat = (ac.position.lat - m.target.lat) * 111;
+      const dLng = (ac.position.lng - m.target.lng) * 91;
+      return Math.hypot(dLat, dLng) <= Math.max(80, ac.fuel * 5.5);
+    }));
+    return relevant.length ? relevant : this.aircraft;
+  }
+
+  get scenarioThreats(): Threat[] {
+    const key = this.activeScenarioFilter;
+    if (!key) return this.threats;
+    const bounds = SCENARIO_AREAS[key];
+    if (!bounds) return this.threats;
+    const [[minLng, minLat], [maxLng, maxLat]] = bounds;
+    const inArea = this.threats.filter((t) => t.position.lng >= minLng && t.position.lng <= maxLng && t.position.lat >= minLat && t.position.lat <= maxLat);
+    return inArea.length ? inArea : this.threats.slice(0, 2);
+  }
 
   constructor() {
     const s = generateSystemState();
@@ -82,7 +122,7 @@ class SystemStore {
     const startT = performance.now();
     try {
       await new Promise((r) => setTimeout(r, 850));
-      this.coas = optimise(this.aircraft, this.missions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems, this.riskBias);
+      this.coas = optimise(this.scenarioAircraft, this.scenarioMissions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems, this.riskBias);
       this.coaGenerationCount += 1;
       this.lastCoaComputeMs = Math.round(performance.now() - startT);
     } finally {
@@ -125,7 +165,7 @@ class SystemStore {
 
   pushEvent(source: string, msg: string, level: EventLevel = 'info') {
     const time = new Date().toISOString().slice(11, 23);
-    this.events = [...this.events, { time, source, msg, level }].slice(-80);
+    this.events = [...this.events, { time, source, msg, level, scenario: this.activeScenarioFilter }].slice(-120);
     narrateEvent(source, msg, level === 'alert');
   }
 
@@ -134,7 +174,7 @@ class SystemStore {
     this.computing = true;
     const startT = performance.now();
     await new Promise((r) => setTimeout(r, 850));
-    this.coas = optimise(this.aircraft, this.missions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems, this.riskBias);
+    this.coas = optimise(this.scenarioAircraft, this.scenarioMissions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems, this.riskBias);
     
     // In DEGRADED mode, reduce confidence values
     if (this.mode === 'DEGRADED') {
@@ -159,8 +199,9 @@ class SystemStore {
   }
 
   private optimisationThreats(): Threat[] {
-    if (this.mode !== 'DEGRADED') return this.threats;
-    return this.threats.map((threat) => ({
+    const threats = this.scenarioThreats;
+    if (this.mode !== 'DEGRADED') return threats;
+    return threats.map((threat) => ({
       ...threat,
       probability: Math.max(0, Math.min(100, Math.round(threat.probability + (Math.random() * 30 - 15)))),
     }));
@@ -374,14 +415,34 @@ class SystemStore {
   runScenario(name: string) {
     const steps = SCENARIOS[name];
     if (!steps) return;
+    this.clearScenarioTimers();
     this.activeScenario = name;
+    this.activeScenarioFilter = name;
+    const sceneMissions = SCENARIO_MISSION_SETS[name] ?? [];
+    const additions = sceneMissions.filter((mission) => !this.missions.some((existing) => existing.id === mission.id));
+    if (additions.length) {
+      this.scenarioOnlyMissionIds = [...this.scenarioOnlyMissionIds, ...additions.map((mission) => mission.id)];
+      this.missions = [...this.missions, ...additions];
+    }
     this.pushEvent('SCENARIO', `START · ${SCENARIO_LABELS[name]}`, 'info');
+    void this.generateCOAs();
     let lastDelay = 0;
     for (const step of steps) {
       lastDelay = Math.max(lastDelay, step.delay);
-      setTimeout(() => this.execute(step), step.delay);
+      this.scenarioTimers.push(window.setTimeout(() => this.execute(step), step.delay));
     }
-    setTimeout(() => { this.activeScenario = null; }, lastDelay + 2000);
+    this.scenarioTimers.push(window.setTimeout(() => { this.activeScenario = null; this.scenarioTimers = []; }, lastDelay + 2000));
+  }
+
+  setScenarioFilter(name: string | null) {
+    if (!name) { this.clearScenarioTimers(); this.activeScenario = null; }
+    this.activeScenarioFilter = name;
+    if (name) void this.generateCOAs();
+  }
+
+  private clearScenarioTimers() {
+    for (const timer of this.scenarioTimers) window.clearTimeout(timer);
+    this.scenarioTimers = [];
   }
 
   private execute(step: ScenarioStep) {
@@ -440,9 +501,11 @@ class SystemStore {
   }
 
   reset() {
+    this.clearScenarioTimers();
     const s = generateSystemState();
     this.aircraft = s.aircraft;
     this.missions = s.missions;
+    this.scenarioOnlyMissionIds = [];
     this.threats = s.threats;
     this.airspaceZones = freshAirspace();
     this.weatherSystems = freshWeather();
@@ -451,6 +514,7 @@ class SystemStore {
     this.selectedBaseId = null;
     this.mode = 'NORMAL';
     this.activeScenario = null;
+    this.activeScenarioFilter = null;
     this.activeMissions = [];
     this.pushEvent('SYSTEM', 'STATE RESET · BASELINE RESTORED', 'ok');
   }

@@ -3,7 +3,7 @@
   import { system } from './lib/stores/systemStore.svelte';
   import TopBar from './lib/components/layout/TopBar.svelte';
   import TacticalMap from './lib/components/map/TacticalMap.svelte';
-  import ScenarioControls from './lib/components/map/ScenarioControls.svelte';
+  import ScenarioBar from './lib/components/layout/ScenarioBar.svelte';
   import AircraftPanel from './lib/components/panels/AircraftPanel.svelte';
   import MissionPanel from './lib/components/panels/MissionPanel.svelte';
   import BaseDetailPanel from './lib/components/panels/BaseDetailPanel.svelte';
@@ -360,6 +360,7 @@
     demoActive={demoActive}
     modalCount={activeModalIds.length}
   />
+  <ScenarioBar />
 
   <PaneGroup direction="vertical" autoSaveId="aircommand.layout.v1" class="workspace-layout">
     <Pane defaultSize={66} minSize={55}>
@@ -379,7 +380,6 @@
         <Pane defaultSize={mapFullscreen ? 100 : 57} minSize={40}>
           <section class="center">
             <TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} onFullscreenClick={toggleMapFullscreen} fullscreen={mapFullscreen} />
-            <ScenarioControls />
             {#if system.computing}<div class="computing mono">◢ COMPUTING COA · NSGA-II · 4 OBJECTIVES</div>{/if}
           </section>
         </Pane>

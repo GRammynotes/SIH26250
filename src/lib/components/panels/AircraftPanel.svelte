@@ -8,7 +8,7 @@
   let sortBy = $state<'STATUS' | 'BASE' | 'TYPE' | 'FUEL'>('STATUS');
   let assigningId = $state<string | null>(null);
   let expandedId = $state<string | null>(null);
-  const sorted = $derived([...system.aircraft]
+  const sorted = $derived([...system.scenarioAircraft]
     .filter((aircraft) => filter === 'ALL' || aircraft.status === filter)
     .sort((a, b) => {
       if (sortBy === 'STATUS') { const rank: Record<string, number> = { FMC: 0, PMC: 1, NMC: 2 }; return rank[a.status] - rank[b.status]; }
@@ -18,9 +18,9 @@
     }));
 
   const counts = $derived({
-    fmc: system.aircraft.filter((a) => a.status === 'FMC').length,
-    pmc: system.aircraft.filter((a) => a.status === 'PMC').length,
-    nmc: system.aircraft.filter((a) => a.status === 'NMC').length,
+    fmc: system.scenarioAircraft.filter((a) => a.status === 'FMC').length,
+    pmc: system.scenarioAircraft.filter((a) => a.status === 'PMC').length,
+    nmc: system.scenarioAircraft.filter((a) => a.status === 'NMC').length,
   });
 
   function statusColor(s: string) {
@@ -54,7 +54,7 @@
 <aside class="panel corners">
   <div class="hdr">
     <span>FORCE ROSTER</span>
-    <span class="hdr-actions"><span class="count">{system.aircraft.length} TRACKED</span><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
+    <span class="hdr-actions"><span class="count">{system.scenarioAircraft.length} TRACKED</span><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
   </div>
   <div class="sub">
     <span style="color:var(--accent-green);">✓ FMC {counts.fmc}</span>
