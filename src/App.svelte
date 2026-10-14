@@ -373,7 +373,7 @@
 <TooltipLayer />
 <CaptionLayer />
 <FocusPointer />
-<div class="shell" class:fullscreen={mapFullscreen} data-fullscreen={mapFullscreen ? 'true' : 'false'}>
+<div class="shell" class:fullscreen={mapFullscreen} class:scenario-hidden={!panelVisibility.scenarioBar} data-fullscreen={mapFullscreen ? 'true' : 'false'}>
   {#if !mapFullscreen}
   <TopBar
     aircraftCount={system.aircraft.length}
@@ -399,7 +399,7 @@
   {/if}
 
   <PaneGroup direction="vertical" autoSaveId="aircommand.layout.v1" class="workspace-layout">
-    <Pane defaultSize={66} minSize={55}>
+    <Pane defaultSize={90} minSize={55} maxSize={92}>
       <PaneGroup direction="horizontal" autoSaveId="aircommand.layout.v1.panels" class="content-layout">
         {#if !mapFullscreen && (panelVisibility.forceRoster || panelVisibility.missions)}<Pane bind:this={leftPane} defaultSize={15} minSize={3} maxSize={30}>
           {#if leftCollapsed}<div class="collapsed-rail"><button title="Expand aircraft and mission panels" aria-label="Expand left panels" onclick={toggleLeftPane}>»</button><span>A</span><span>M</span></div>
@@ -447,7 +447,7 @@
       </PaneGroup>
     </Pane>
     {#if !mapFullscreen && (panelVisibility.missionLog || panelVisibility.commandStatus)}<PaneResizer class="pane-resizer vertical-resizer" />
-    <Pane bind:this={logPane} defaultSize={34} minSize={3} maxSize={45}>
+    <Pane bind:this={logPane} defaultSize={10} minSize={8} maxSize={45}>
       <PaneGroup direction="horizontal" autoSaveId="aircommand.command-row" class="command-row">
         {#if panelVisibility.missionLog}<Pane defaultSize={panelVisibility.commandStatus ? 70 : 100} minSize={48}><EventLog collapsed={logCollapsed} onToggle={toggleLogPane} onToggleVisibility={() => setPanelVisibility('missionLog', false)} /></Pane>{/if}
         {#if panelVisibility.missionLog && panelVisibility.commandStatus}<PaneResizer class="pane-resizer" />{/if}
@@ -529,14 +529,16 @@
 
   .shell {
     width: 100vw; height: 100vh;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows:32px 40px minmax(0,1fr);
+    grid-template-columns:1fr;
     background: #1a242e;
-    gap: 1px;
+    gap: 0;
   }
-  :global(.workspace-layout) { flex: 1; min-height: 0; }
-  .shell.fullscreen { display:grid; grid-template-rows:1fr; grid-template-columns:1fr; grid-template-areas:"center"; gap:0; }
-  :global(.shell.fullscreen > .workspace-layout) { grid-area:center; width:100%; height:100%; min-height:0; }
+  :global(.workspace-layout) { grid-row:3; width:100%; height:100%; min-height:0; }
+  .shell.scenario-hidden { grid-template-rows:32px 0 minmax(0,1fr); }
+  .shell.fullscreen { grid-template-rows:1fr; grid-template-columns:1fr; grid-template-areas:"center"; gap:0; }
+  :global(.shell.fullscreen > .workspace-layout) { grid-area:center; grid-row:1; width:100%; height:100%; min-height:0; }
   :global(.content-layout) { width: 100%; height: 100%; }
   :global(.content-layout [data-pane]), :global(.workspace-layout [data-pane]) { transition:flex-basis .2s ease; }
   .left { display:flex; flex-direction:column; gap:1px; background:#1a242e; overflow:hidden; height:100%; }
