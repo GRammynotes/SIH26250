@@ -33,7 +33,10 @@
   let container: HTMLDivElement;
   let map: maplibregl.Map | null = null;
   let mapReady = $state(false);
+  let mapZoom = $state(4.2);
+  let mapCenterLabel = $state('31.0°N / 79.0°E');
   let dynamicMarkers: maplibregl.Marker[] = [];
+  let aircraftCountMarker: maplibregl.Marker | null = null;
   let groundMarkersList: maplibregl.Marker[] = [];
   let baseMarkersList: { id: string; marker: maplibregl.Marker; el: HTMLElement }[] = [];
   let aircraftLayerClickAttached = false;
@@ -41,13 +44,15 @@
   let terrain3dEnabled = false;
   let terrainPaused = false;
   let terrainResumeTimer: ReturnType<typeof setTimeout> | undefined;
+  let diagramExplanation = $state('');
+  let diagramExplanationTimer: ReturnType<typeof setTimeout> | undefined;
   const circlePolygonCache = new Map<string, number[][]>();
   const threatPolyCache = new Map<string, { key: string; outer: number[][]; mid: number[][]; inner: number[][] }>();
   const aircraftMarkerHtmlCache = new Map<string, string>();
   const aircraftDomMarkers = new Map<string, maplibregl.Marker>();
 
   // Map layer toggle states
-  let showTerrain = $state(true);
+  let showTerrain = $state(false);
   let showGrid = $state(true);
   let showTrails = $state(true);
   let showThreats = $state(true);
@@ -124,6 +129,7 @@
 
   const MAP_STYLE: maplibregl.StyleSpecification = {
     version: 8,
+    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
     sources: {
       osm: {
         type: 'raster',
@@ -150,8 +156,9 @@
         id: 'hillshade-base',
         type: 'hillshade',
         source: 'terrain-dem',
+        minzoom: 5,
         maxzoom: 10,
-        layout: { visibility: 'visible' },
+        layout: { visibility: 'none' },
         paint: {
           'hillshade-shadow-color': '#000814',
           'hillshade-highlight-color': '#1a3a5c',
@@ -165,8 +172,9 @@
         id: 'hillshade-detail',
         type: 'hillshade',
         source: 'terrain-dem',
+        minzoom: 5,
         maxzoom: 10,
-        layout: { visibility: 'visible' },
+        layout: { visibility: 'none' },
         paint: {
           'hillshade-shadow-color': '#00101f',
           'hillshade-highlight-color': '#0d2a44',
@@ -205,21 +213,22 @@
       map.addImage(imageId, ctx.getImageData(0, 0, 48, 48), { pixelRatio: 2 });
     }
     if (!map.getSource('aircraft-gl')) map.addSource('aircraft-gl', {
-      type: 'geojson', data: { type: 'FeatureCollection', features: [] }, cluster: true, clusterMaxZoom: 5, clusterRadius: 50,
+      type: 'geojson', data: { type: 'FeatureCollection', features: [] }, cluster: true, clusterMaxZoom: 6, clusterRadius: 50,
+      clusterProperties: { fmc: ['+', ['case', ['==', ['get', 'status'], 'FMC'], 1, 0]] },
     });
     if (!map.getLayer('aircraft-clusters')) map.addLayer({
-      id: 'aircraft-clusters', type: 'circle', source: 'aircraft-gl', maxzoom: 4, filter: ['has', 'point_count'],
-      paint: { 'circle-color': '#06131d', 'circle-stroke-color': C.cyan, 'circle-stroke-width': 2, 'circle-radius': ['step', ['get', 'point_count'], 13, 10, 17, 25, 22, 40, 28], 'circle-opacity': 0.92 },
+      id: 'aircraft-clusters', type: 'circle', source: 'aircraft-gl', maxzoom: 6, filter: ['has', 'point_count'],
+      paint: { 'circle-color': '#00d4ff', 'circle-stroke-color': '#00d4ff', 'circle-stroke-width': 1, 'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'], 2, 10, 50, 20, 200, 30], 'circle-opacity': 0.35 },
     });
     if (!map.getLayer('aircraft-cluster-count')) map.addLayer({
-      id: 'aircraft-cluster-count', type: 'symbol', source: 'aircraft-gl', maxzoom: 4, filter: ['has', 'point_count'],
-      layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-font': ['Open Sans Bold'], 'text-size': 12, 'text-allow-overlap': true },
-      paint: { 'text-color': '#e7fbff', 'text-halo-color': '#06131d', 'text-halo-width': 1.2 },
+      id: 'aircraft-cluster-count', type: 'symbol', source: 'aircraft-gl', maxzoom: 6, filter: ['has', 'point_count'],
+      layout: { 'text-field': ['get', 'point_count'], 'text-font': ['Open Sans Bold'], 'text-size': 13, 'text-allow-overlap': true },
+      paint: { 'text-color': '#f3fbff', 'text-halo-color': '#06131d', 'text-halo-width': 1.6 },
     });
     if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
       id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl', minzoom: 4, filter: ['!', ['has', 'point_count']],
-      layout: { 'icon-image': ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 2, 0.15, 5, 0.35, 8, 0.7, 11, 1, 14, 1.2], 'icon-allow-overlap': true, 'icon-ignore-placement': true },
-      paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0, 4, 0.4, 6, 1] },
+      layout: { 'icon-image': ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.3, 7, 0.6, 10, 1, 13, 1.3], 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+      paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 5, 0.7, 6, 1] },
     });
     if (!aircraftLayerClickAttached) {
       map.on('click', 'aircraft-gl-symbols', (event) => {
@@ -232,6 +241,30 @@
       map.on('mouseleave', 'aircraft-gl-symbols', () => { if (map) map.getCanvas().style.cursor = ''; });
       aircraftLayerClickAttached = true;
     }
+  }
+
+  function updateAircraftCountMarker(aircraft: typeof system.aircraft) {
+    if (!map) return;
+    if (aircraft.length <= 20) { aircraftCountMarker?.remove(); aircraftCountMarker = null; return; }
+    const center = aircraft.reduce((sum, item) => ({ lng: sum.lng + item.position.lng / aircraft.length, lat: sum.lat + item.position.lat / aircraft.length }), { lng: 0, lat: 0 });
+    if (!aircraftCountMarker) {
+      const badge = document.createElement('button');
+      badge.className = 'aircraft-count-cluster'; badge.type = 'button';
+      badge.setAttribute('aria-label', `${aircraft.length} aircraft in theater; zoom to force picture`);
+      badge.title = `${aircraft.length} aircraft · theater aggregation`;
+      badge.addEventListener('click', () => {
+        const current = system.aircraft;
+        if (!current.length) return;
+        const focus = current.reduce((sum, item) => ({ lng: sum.lng + item.position.lng / current.length, lat: sum.lat + item.position.lat / current.length }), { lng: 0, lat: 0 });
+        map?.flyTo({ center: [focus.lng, focus.lat], zoom: 4.2, duration: 700 });
+      });
+      aircraftCountMarker = new maplibregl.Marker({ element: badge, anchor: 'center' }).setLngLat([center.lng, center.lat]).addTo(map);
+    } else aircraftCountMarker.setLngLat([center.lng, center.lat]);
+    const badge = aircraftCountMarker.getElement();
+    badge.textContent = String(aircraft.length);
+    badge.setAttribute('aria-label', `${aircraft.length} aircraft in theater; zoom to force picture`);
+    const zoom = map.getZoom();
+    badge.style.display = zoom < 4 ? 'grid' : 'none';
   }
 
   // Upgraded Hexagonal Base Marker with rotating radar sweep
@@ -417,12 +450,48 @@
       attributionControl: false,
       dragRotate: false,
     });
+    const onDiagramFocus = (event: Event) => {
+      const detail = (event as CustomEvent<{ bounds?: [[number, number], [number, number]]; text: string }>).detail;
+      if (detail.bounds && map) {
+        map.flyTo({ center: [(detail.bounds[0][0] + detail.bounds[1][0]) / 2, (detail.bounds[0][1] + detail.bounds[1][1]) / 2], zoom: Math.min(7.8, Math.max(5.5, map.getZoom())), duration: 1200 });
+        const ring = map.getSource('diagram-focus-area') as maplibregl.GeoJSONSource | undefined;
+        ring?.setData({
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            properties: {},
+            geometry: {
+              type: 'Polygon',
+              coordinates: [[
+                [detail.bounds[0][0], detail.bounds[0][1]],
+                [detail.bounds[1][0], detail.bounds[0][1]],
+                [detail.bounds[1][0], detail.bounds[1][1]],
+                [detail.bounds[0][0], detail.bounds[1][1]],
+                [detail.bounds[0][0], detail.bounds[0][1]],
+              ]],
+            },
+          }],
+        });
+      }
+      diagramExplanation = detail.text;
+      if (diagramExplanationTimer) clearTimeout(diagramExplanationTimer);
+      diagramExplanationTimer = setTimeout(() => {
+        diagramExplanation = '';
+        const ring = map?.getSource('diagram-focus-area') as maplibregl.GeoJSONSource | undefined;
+        ring?.setData({ type: 'FeatureCollection', features: [] });
+      }, 5000);
+    };
+    window.addEventListener('aircommand:diagram-focus', onDiagramFocus);
     map.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     map.on('movestart', () => {
       if (terrainResumeTimer) clearTimeout(terrainResumeTimer);
       if (map && terrain3dEnabled && terrainPaused) { map.setTerrain({ source: 'terrain-dem', exaggeration: 1.5 }); terrainPaused = false; }
     });
     map.on('moveend', () => {
+      if (map) {
+        const center = map.getCenter();
+        mapCenterLabel = `${Math.abs(center.lat).toFixed(1)}°${center.lat >= 0 ? 'N' : 'S'} / ${Math.abs(center.lng).toFixed(1)}°${center.lng >= 0 ? 'E' : 'W'}`;
+      }
       if (map && terrain3dEnabled) {
         map.setTerrain(null); terrainPaused = true;
         if (terrainResumeTimer) clearTimeout(terrainResumeTimer);
@@ -432,9 +501,27 @@
       }
     });
     map.on('zoom', () => {
-      if (!map || dynamicMarkers.length === 0) return;
-      const display = map.getZoom() < 4 ? 'none' : '';
+      if (!map) return;
+      const zoom = map.getZoom();
+      mapZoom = zoom;
+      const center = map.getCenter();
+      mapCenterLabel = `${Math.abs(center.lat).toFixed(1)}°${center.lat >= 0 ? 'N' : 'S'} / ${Math.abs(center.lng).toFixed(1)}°${center.lng >= 0 ? 'E' : 'W'}`;
+      const display = zoom < 4 ? 'none' : '';
       for (const marker of dynamicMarkers) marker.getElement().style.display = display;
+      const hillshadeVisibility = showTerrain && zoom >= 8 ? 'visible' : 'none';
+      if (map.getLayer('hillshade-base')) map.setLayoutProperty('hillshade-base', 'visibility', hillshadeVisibility);
+      if (map.getLayer('hillshade-detail')) map.setLayoutProperty('hillshade-detail', 'visibility', hillshadeVisibility);
+      for (const base of baseMarkersList) {
+        base.el.style.display = zoom < 3.2 ? 'none' : '';
+        const symbol = base.el.querySelector<HTMLElement>('.mil-symbol');
+        if (symbol) { symbol.style.transform = `scale(${Math.max(.55, Math.min(1, .55 + (zoom - 3.2) * .16))})`; symbol.style.transformOrigin = 'center'; }
+        const sweep = base.el.querySelector<HTMLElement>('.radar-sweep');
+        if (sweep) sweep.style.display = zoom < 6 ? 'none' : '';
+      }
+      if (aircraftCountMarker) {
+        const badge = aircraftCountMarker.getElement();
+        badge.style.display = zoom < 4 ? 'grid' : 'none';
+      }
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
@@ -444,6 +531,11 @@
       m.addSource('scenario-area', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'scenario-area-fill', type: 'fill', source: 'scenario-area', paint: { 'fill-color': C.cyan, 'fill-opacity': 0.035 } });
       m.addLayer({ id: 'scenario-area-outline', type: 'line', source: 'scenario-area', paint: { 'line-color': C.cyan, 'line-width': 1.6, 'line-opacity': 0.78, 'line-dasharray': [1.2, 1.6] } });
+      m.addSource('diagram-focus-area', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'diagram-focus-outline', type: 'line', source: 'diagram-focus-area', paint: { 'line-color': C.cyan, 'line-width': 3, 'line-opacity': 0.95, 'line-dasharray': [1, 1.5] } });
+      const hillshadeVisibility = showTerrain && m.getZoom() >= 8 ? 'visible' : 'none';
+      m.setLayoutProperty('hillshade-base', 'visibility', hillshadeVisibility);
+      m.setLayoutProperty('hillshade-detail', 'visibility', hillshadeVisibility);
       m.addSource('matrix-highlight', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'matrix-highlight-fuel', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'fuel'], paint: { 'line-color': C.green, 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': .85 } });
       m.addLayer({ id: 'matrix-highlight-wez', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'wez'], paint: { 'line-color': C.red, 'line-width': 1.5, 'line-dasharray': [1, 2], 'line-opacity': .95 } });
@@ -465,10 +557,13 @@
           .addTo(m);
         baseMarkersList.push({ id: base.id, marker: mk, el: markerEl });
       }
+      m.fire('zoom');
       mapReady = true;
     });
 
     return () => {
+      window.removeEventListener('aircommand:diagram-focus', onDiagramFocus);
+      if (diagramExplanationTimer) clearTimeout(diagramExplanationTimer);
       window.removeEventListener('aircommand:map-layer', handleLayerToggle);
       window.removeEventListener('aircommand:terrain-3d', handleTerrain3d);
       window.removeEventListener('aircommand:matrix-highlight', handleMatrixHighlight);
@@ -483,7 +578,7 @@
   function toggleTerrain() {
     showTerrain = !showTerrain;
     if (!map) return;
-    const vis = showTerrain ? 'visible' : 'none';
+    const vis = showTerrain && map.getZoom() >= 8 ? 'visible' : 'none';
     if (map.getLayer('hillshade-base')) map.setLayoutProperty('hillshade-base', 'visibility', vis);
     if (map.getLayer('hillshade-detail')) map.setLayoutProperty('hillshade-detail', 'visibility', vis);
   }
@@ -561,6 +656,7 @@
 
     ensureAircraftLayer();
     const aircraftSource = map.getSource('aircraft-gl') as maplibregl.GeoJSONSource | undefined;
+    updateAircraftCountMarker(aircraft);
     if (aircraftSource) {
       aircraftSource.setData({ type: 'FeatureCollection', features: aircraft.map((ac) => ({ type: 'Feature', properties: { id: ac.id, tailNumber: ac.tailNumber, status: ac.status, type: ac.type, fuel: ac.fuel, base: ac.base.toUpperCase() }, geometry: { type: 'Point', coordinates: [ac.position.lng, ac.position.lat] } })) });
       map.setLayoutProperty('aircraft-gl-symbols', 'visibility', aircraft.length > 20 ? 'visible' : 'none');
@@ -731,7 +827,7 @@
       source: 'threat-zones',
       filter: ['==', 'radiusLevel', 'outer'],
       layout: { visibility: threatVis },
-      paint: { 'fill-color': C.red, 'fill-opacity': 0.06 },
+      paint: { 'fill-color': C.red, 'fill-opacity': 0.022 },
     });
 
     // 2. Mid ring: fill 0.10
@@ -741,7 +837,7 @@
       source: 'threat-zones',
       filter: ['==', 'radiusLevel', 'mid'],
       layout: { visibility: threatVis },
-      paint: { 'fill-color': C.red, 'fill-opacity': 0.10 },
+      paint: { 'fill-color': C.red, 'fill-opacity': 0.04 },
     });
 
     // 3. Inner ring: fill 0.16
@@ -751,7 +847,7 @@
       source: 'threat-zones',
       filter: ['==', 'radiusLevel', 'inner'],
       layout: { visibility: threatVis },
-      paint: { 'fill-color': C.red, 'fill-opacity': 0.16 },
+      paint: { 'fill-color': C.red, 'fill-opacity': 0.07 },
     });
 
     // Outer dashed outline 1px, opacity 0.45
@@ -1003,13 +1099,14 @@
     <div class="cross-dot"></div>
   </div>
 
-  <div class="coord tl mono">THEATER MAP / GRID 78 · 34°N / 78°E</div>
+  <div class="coord tl mono">THEATER MAP · {mapCenterLabel}</div>
   <button class="theater-toggle" aria-label={theaterMapVisible ? 'Hide theater data panel' : 'Show theater data panel'} title="Toggle theater data panel; map remains visible" onclick={() => onToggleTheaterVisibility?.()}>◉</button>
-  <div class="coord tr mono">ZOOM 4.2 · MERCATOR</div>
+  <div class="coord tr mono">ZOOM {mapZoom.toFixed(1)} · MERCATOR</div>
   <button class="fullscreen-btn" aria-label={fullscreen ? 'Exit map fullscreen' : 'Enter map fullscreen'} title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen map'} onclick={() => onFullscreenClick?.()}>{fullscreen ? '⛶ EXIT FULLSCREEN' : '⛶ FULLSCREEN'}</button>
   <TerrainToggle />
-  <div class="coord bl mono">SCALE 1:5,000,000</div>
+  <div class="coord bl mono">SCALE · WGS84</div>
   <div class="coord br mono">WGS84 · EGM96</div>
+  {#if diagramExplanation}<aside class="diagram-explanation" aria-live="polite"><span>TACTICAL PICTURE · DIAGRAM CONTEXT</span><p>{diagramExplanation}</p></aside>{/if}
   <div class="bearing north mono" aria-hidden="true">N · 000°</div>
   <div class="bearing east mono" aria-hidden="true">E · 090°</div>
   <div class="bearing south mono" aria-hidden="true">S · 180°</div>
@@ -1030,9 +1127,7 @@
     inset: 0;
   }
 
-  :global(.maplibregl-canvas) {
-    filter: invert(1) hue-rotate(180deg) brightness(0.82) saturate(0.5) contrast(1.12);
-  }
+  :global(.maplibregl-canvas) { filter: invert(1) hue-rotate(180deg) brightness(.66) saturate(.38) contrast(.96); }
 
   /* LAYER 3: Scanlines and Vignette */
   .scanlines {
@@ -1118,6 +1213,11 @@
   .fullscreen-btn { position:absolute; top:28px; right:10px; z-index:7; padding:6px 9px; background:rgba(5,8,15,.9); border:1px solid var(--border-strong); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; transition:background .18s,border-color .18s; }
   .theater-toggle { position:absolute; top:25px; left:10px; z-index:7; padding:4px 7px; background:rgba(5,8,15,.9); border:1px solid var(--border-strong); color:var(--accent-cyan); font:10px var(--font-mono); cursor:pointer; }
   .fullscreen-btn:hover,.fullscreen-btn:focus-visible { border-color:var(--accent-cyan); background:rgba(0,212,255,.1); outline:none; }
+  .diagram-explanation { position:absolute; z-index:8; left:50%; bottom:34px; transform:translateX(-50%); width:min(520px,calc(100% - 32px)); padding:11px 14px; background:rgba(5,8,15,.94); border:1px solid var(--accent-cyan); border-left:3px solid var(--accent-cyan); box-shadow:0 8px 30px rgba(0,0,0,.55); pointer-events:none; }
+  .diagram-explanation span { color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.16em; }
+  .diagram-explanation p { margin:5px 0 0; color:var(--text-primary); font:12px/1.45 var(--font-sans); }
+  :global(.aircraft-count-cluster) { display:grid; place-items:center; width:44px; height:44px; border:2px solid var(--accent-cyan); border-radius:50%; color:#f3fbff; background:rgba(5,24,34,.96); box-shadow:0 0 0 5px rgba(0,212,255,.12),0 0 18px rgba(0,212,255,.35); font:700 15px var(--font-mono); cursor:pointer; transition:transform .15s,box-shadow .15s; }
+  :global(.aircraft-count-cluster:hover) { transform:scale(1.08); box-shadow:0 0 0 7px rgba(0,212,255,.17),0 0 22px rgba(0,212,255,.5); }
 
   .degraded {
     position: absolute;
