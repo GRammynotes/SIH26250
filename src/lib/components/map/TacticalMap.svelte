@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import maplibregl, { setMaxParallelImageRequests } from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { IAF_BASES } from '../../data/bases';
@@ -11,6 +11,7 @@
   import { type AirspaceZone, type WeatherSystem } from '../../types';
   import { system } from '../../stores/systemStore.svelte';
   import { SCENARIO_AREAS } from '../../engine/scenario';
+  import { createTrailPathDeriver } from '../../engine/mapTrailCache';
   import TacticalReadout from './TacticalReadout.svelte';
 
   let {
@@ -59,15 +60,14 @@
 
   let trailHistory = $state.raw<Record<string, [number, number][]>>({});
   let lastAircraftPositionKey = '';
-  let lastTrailDerivedKey = '';
-  let trailDerivedCache: Record<string, [number, number][]> = {};
+  const deriveTrailPaths = createTrailPathDeriver();
 
   $effect(() => {
     const aircraft = system.aircraft;
     const key = JSON.stringify(aircraft.map((ac) => [ac.id, ac.position.lng, ac.position.lat]));
     if (key === lastAircraftPositionKey) return;
     lastAircraftPositionKey = key;
-    const next = { ...trailHistory };
+    const next = { ...untrack(() => trailHistory) };
     for (const ac of aircraft) {
       const points = [...(next[ac.id] ?? [])];
       const position: [number, number] = [ac.position.lng, ac.position.lat];
@@ -79,13 +79,7 @@
     trailHistory = next;
   });
 
-  const trails = $derived.by(() => {
-    const key = JSON.stringify(trailHistory);
-    if (key === lastTrailDerivedKey) return trailDerivedCache;
-    lastTrailDerivedKey = key;
-    trailDerivedCache = Object.fromEntries(Object.entries(trailHistory).map(([id, points]) => [id, points.map(([lng, lat]) => [lng, lat] as [number, number])]));
-    return trailDerivedCache;
-  });
+  const trails = $derived.by(() => deriveTrailPaths(trailHistory));
 
   // Build grid GeoJSON (1 degree lines lat 25-40, lng 65-95)
   function createGridGeoJson(): GeoJSON.FeatureCollection {
@@ -314,6 +308,13 @@
       properties: 'status' in item ? { id: item.id, type: item.type, status: item.status } : { id: item.id, type: item.type, severity: item.severity },
       geometry: { type: 'Polygon', coordinates: [[...item.polygon.map((point) => [point.lng, point.lat]), [item.polygon[0].lng, item.polygon[0].lat]]] },
     }));
+  }
+
+  function setGeoJSONSource(sourceId: string, data: GeoJSON.FeatureCollection): void {
+    if (!map) return;
+    const source = map.getSource(sourceId) as maplibregl.GeoJSONSource | undefined;
+    if (source) source.setData(data);
+    else map.addSource(sourceId, { type: 'geojson', data });
   }
 
   onMount(() => {
@@ -667,15 +668,8 @@
       });
     }
 
-    map.addSource('threat-zones', {
-      type: 'geojson',
-      data: { type: 'FeatureCollection', features: threatFeatures },
-    });
-
-    map.addSource('threat-centers', {
-      type: 'geojson',
-      data: { type: 'FeatureCollection', features: threatCenterFeatures },
-    });
+    setGeoJSONSource('threat-zones', { type: 'FeatureCollection', features: threatFeatures });
+    setGeoJSONSource('threat-centers', { type: 'FeatureCollection', features: threatCenterFeatures });
 
     const threatVis = showThreats ? 'visible' : 'none';
 
@@ -773,7 +767,7 @@
     });
 
     // Operational airspace and weather layers are recreated from the current store state.
-    map.addSource('airspace-zones', { type: 'geojson', data: { type: 'FeatureCollection', features: polygonFeatures(airspace) } });
+    setGeoJSONSource('airspace-zones', { type: 'FeatureCollection', features: polygonFeatures(airspace) });
     map.addLayer({
       id: 'airspace-fill', type: 'fill', source: 'airspace-zones', layout: { visibility: showAirspace ? 'visible' : 'none' },
       paint: { 'fill-color': ['match', ['get', 'type'], 'corridor', C.cyan, 'kill-box', C.amber, 'restricted', C.red, '#64748b'], 'fill-opacity': ['case', ['==', ['get', 'status'], 'CLOSED'], 0.16, 0.08] },
@@ -782,7 +776,7 @@
       id: 'airspace-line', type: 'line', source: 'airspace-zones', layout: { visibility: showAirspace ? 'visible' : 'none' },
       paint: { 'line-color': ['match', ['get', 'type'], 'corridor', C.cyan, 'kill-box', C.amber, 'restricted', C.red, '#64748b'], 'line-width': 1.3, 'line-dasharray': [3, 2] },
     });
-    map.addSource('weather-systems', { type: 'geojson', data: { type: 'FeatureCollection', features: polygonFeatures(weather) } });
+    setGeoJSONSource('weather-systems', { type: 'FeatureCollection', features: polygonFeatures(weather) });
     map.addLayer({
       id: 'weather-fill', type: 'fill', source: 'weather-systems', layout: { visibility: showWeather ? 'visible' : 'none' },
       paint: { 'fill-color': ['match', ['get', 'type'], 'storm', '#2878ff', 'fog', '#94a3b8', 'front', '#00d4ff', '#39ff14'], 'fill-opacity': ['interpolate', ['linear'], ['get', 'severity'], 1, 0.025, 5, 0.18] },

@@ -98,7 +98,8 @@
     const open = activeModalIds;
     const next = [...modalStack.filter((id) => open.includes(id)), ...open.filter((id) => !modalStack.includes(id))];
     if (next.join('|') !== modalStack.join('|')) modalStack = next;
-    minimizedModals = minimizedModals.filter((id) => open.includes(id));
+    const nextMinimized = minimizedModals.filter((id) => open.includes(id));
+    if (nextMinimized.join('|') !== minimizedModals.join('|')) minimizedModals = nextMinimized;
   });
 
   function isModalVisible(id: string) { return visibleModalIds.includes(id); }

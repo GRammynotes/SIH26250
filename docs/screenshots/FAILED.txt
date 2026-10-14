@@ -1,0 +1,13 @@
+modals/06-after-action-review.png: locator.click: Timeout 5000ms exceeded.
+modals/09-glossary.png: locator.click: Timeout 5000ms exceeded.
+features/11-trajectory-mid-flight.png: locator.waitFor: Timeout 7000ms exceeded.
+features/12-trajectory-impact.png: locator.waitFor: Timeout 7000ms exceeded.
+features/13-voice-caption-active.png: locator.click: Timeout 5000ms exceeded.
+features/14-focus-pointer.png: locator.waitFor: Timeout 7000ms exceeded.
+features/18-3d-terrain.png: locator.click: Timeout 5000ms exceeded.
+states/19-track-loss-decision.png: locator.waitFor: Timeout 7000ms exceeded.
+states/22-loadout-su30.png: locator.click: Timeout 5000ms exceeded.
+states/23-loadout-rafale.png: locator.click: Timeout 5000ms exceeded.
+runtime: state_unsafe_mutation
+Updating state inside `$derived(...)`, `$inspect(...)` or a template expression is forbidden. If the value should not be reactive, declare it without `$state`
+https://svelte.dev/e/state_unsafe_mutation
