@@ -4,6 +4,7 @@
   import { narrateUtterance } from '../../engine/voice';
   import type { DecisionBranch } from '../../data/historicalMissions';
   import { HISTORICAL_MISSIONS } from '../../data/historicalMissions';
+  import { distanceKm, focusMapElements } from '../../engine/mapNarrative';
 
   let { open = false, simSpeed = 1, onSpeedChange, onClose }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onSpeedChange?: (speed: 0 | 1 | 2 | 4) => void; onClose?: () => void } = $props();
   const scaledDelay = (base: number) => simSpeed === 0 ? 2147483647 : base / simSpeed;
@@ -29,6 +30,7 @@
     if (started) return;
     started = true;
     busy = true;
+    say('SYSTEM', 'TRAINING MODE. This runs a historical IAF mission with scripted decision points. You act as commander. Pick branches. See how choices change the outcome. Purpose: practice decision-making under operational pressure.');
     say('SYSTEM', `HISTORICAL TRAINING CASE · ${history.reference} · ${history.date}. Simulation values are illustrative.`);
     say('OPS AGENT', history.narrative);
     system.runScenario('deep_strike');
@@ -43,6 +45,8 @@
         return;
       }
       simMissionId = mission.id;
+      focusMapElements([{ type: 'aircraft', id: aircraft[0].tailNumber, label: `${aircraft[0].tailNumber} · ${distanceKm(aircraft[0].position, mission.target)} km` }, { type: 'target', id: mission.name, label: mission.name }]);
+      say('OPS AGENT', `Review ${aircraft[0].tailNumber} and target ${mission.name} on the map before choosing a branch.`);
       say('COMMANDER', `Review the ${mission.name} package. What is the system recommendation?`);
       say('OPS AGENT', `Course of action generated. ${aircraft.length} available aircraft assigned for this training run. AUTO is ${autoDecision ? 'on' : 'off'}; decision points pause for your review when AUTO is off.`);
       system.startMission(mission.id, aircraft.map((item) => item.id), 'sindoor_deep');
@@ -74,6 +78,7 @@
     if (decisionTimer) clearTimeout(decisionTimer);
     const branch = pending.branches.find((item) => item.id === branchId);
     if (!branch) return;
+    turns = turns.filter((turn) => !turn.text.startsWith('Decision required:'));
     say('COMMANDER', `Decision: ${branch.label}.`);
     system.resolveDecision(active!.id, branch.id);
     say('OPS AGENT', branch.consequence);
@@ -109,6 +114,7 @@
 </script>
 
 {#if open}
+  <div class="mode-chip" title="Practice a historical mission and make commander decisions.">[TRAINING]</div>
   <section class="sim" aria-labelledby="sim-title">
       <header><div><span class="eyebrow">AUTONOMOUS TRAINING RUN · HISTORICAL CASE STUDY</span><h2 id="sim-title">OP SINDOOR · DEEP STRIKE</h2><p>{history.date} · {history.targetType.toUpperCase()} · SIMULATED, NOT LIVE DATA</p></div><div class="rail-controls"><button class:active={autoDecision} onclick={() => { autoDecision = !autoDecision; if (!autoDecision && decisionTimer) clearTimeout(decisionTimer); }}>AUTO {autoDecision ? 'ON' : 'OFF'}</button><span>{simSpeed === 0 ? 'PAUSED' : `${simSpeed}X`}</span><button class="close" aria-label="Close simulation" onclick={() => onClose?.()}>×</button></div></header>
       <div class="story"><strong>MISSION BRIEF</strong><p>{history.narrative}</p><button onclick={jumpToMap}>⌖ FOCUS TRAINING AREA</button></div>
@@ -125,6 +131,7 @@
 {/if}
 
 <style>
+  .mode-chip { width:max-content; margin:6px 12px 0; padding:4px 7px; color:var(--accent-green); border:1px solid var(--accent-green); font:8px var(--font-mono); letter-spacing:.1em; }
   .sim { width:100%; min-height:100%; display:flex; flex-direction:column; overflow:visible; color:var(--text-primary); background:var(--bg-panel); font-family:var(--font-mono); }
   header { display:flex; justify-content:space-between; align-items:start; gap:8px; padding:12px; border-bottom:1px solid var(--border-subtle); background:color-mix(in srgb, var(--accent-cyan) 3%, transparent); } .eyebrow, .state>span { color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.12em; } h2 { margin:7px 0 2px; font:600 15px var(--font-mono); letter-spacing:.05em; } header p { margin:0; color:var(--text-muted); font:8px var(--font-mono); letter-spacing:.08em; } .close { border:0; color:var(--text-muted); background:transparent; font-size:20px; cursor:pointer; }
   .rail-controls { flex:none; display:flex; gap:4px; }
