@@ -26,6 +26,7 @@
   import GlossaryModal from './lib/components/panels/GlossaryModal.svelte';
   import CommandPalette, { type PaletteCommand } from './lib/components/panels/CommandPalette.svelte';
   import { IAF_BASES } from './lib/data/bases';
+  import ModalLayer from './lib/components/panels/ModalLayer.svelte';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let flowOpen = $state(false);
@@ -42,6 +43,8 @@
   let glossaryOpen = $state(false);
   let demoCompleteOpen = $state(false);
   let commandPaletteOpen = $state(false);
+  let modalStack = $state<string[]>([]);
+  let minimizedModals = $state<string[]>([]);
   let leftCollapsed = $state(false);
   let rightCollapsed = $state(false);
   let logCollapsed = $state(false);
@@ -66,6 +69,43 @@
     ...system.aircraft.map((item) => ({ id: `aircraft-${item.id}`, label: `${item.tailNumber} · ${item.type}`, category: 'AIRCRAFT', keywords: `${item.base} ${item.status} ${item.type}`, kind: 'aircraft' as const, targetId: item.id })),
     ...IAF_BASES.map((item) => ({ id: `base-${item.id}`, label: `${item.name} · ${item.code}`, category: 'BASE', keywords: item.id, kind: 'base' as const, targetId: item.id })),
   ]);
+  let activeModalIds = $derived([
+    ...(pending ? ['decision'] : []), ...(trackLossOpen ? ['track-loss'] : []),
+    ...(flowOpen ? ['mission-flow'] : []), ...(loadoutOpen ? ['loadout'] : []),
+    ...(referenceOpen ? ['reference'] : []), ...(briefingMissionId ? ['briefing'] : []),
+    ...(aarMissionId ? ['aar'] : []), ...(metricsOpen ? ['metrics'] : []),
+    ...(shortcutHelpOpen ? ['shortcuts'] : []), ...(glossaryOpen ? ['glossary'] : []),
+    ...(demoCompleteOpen ? ['demo-complete'] : []), ...(commandPaletteOpen ? ['command-palette'] : []),
+  ]);
+  let visibleModalIds = $derived(modalStack.filter((id) => activeModalIds.includes(id) && !minimizedModals.includes(id)).slice(-3));
+  let dockedModalIds = $derived(activeModalIds.filter((id) => minimizedModals.includes(id) || !visibleModalIds.includes(id)));
+  const modalLabels: Record<string, string> = { decision: 'DECISION', 'track-loss': 'TRACK LOSS', 'mission-flow': 'MISSION FLOW', loadout: 'LOADOUT', reference: 'REFERENCE', briefing: 'BRIEFING', aar: 'AFTER ACTION', metrics: 'METRICS', shortcuts: 'SHORTCUTS', glossary: 'GLOSSARY', 'demo-complete': 'DEMO COMPLETE', 'command-palette': 'COMMAND PALETTE' };
+
+  $effect(() => {
+    const open = activeModalIds;
+    const next = [...modalStack.filter((id) => open.includes(id)), ...open.filter((id) => !modalStack.includes(id))];
+    if (next.join('|') !== modalStack.join('|')) modalStack = next;
+    minimizedModals = minimizedModals.filter((id) => open.includes(id));
+  });
+
+  function isModalVisible(id: string) { return visibleModalIds.includes(id); }
+  function modalZ(id: string) { return 200 + Math.max(0, modalStack.indexOf(id)); }
+  function minimizeModal(id: string) { minimizedModals = [...new Set([...minimizedModals, id])]; }
+  function restoreModal(id: string) { minimizedModals = minimizedModals.filter((item) => item !== id); modalStack = [...modalStack.filter((item) => item !== id), id]; }
+  function closeModal(id: string) {
+    if (id === 'decision' && pending) system.dismissDecision(pending.id);
+    else if (id === 'track-loss') { system.trackLossAnalysis = null; trackLossOpen = false; }
+    else if (id === 'mission-flow') flowOpen = false;
+    else if (id === 'loadout') loadoutOpen = false;
+    else if (id === 'reference') referenceOpen = false;
+    else if (id === 'briefing') briefingMissionId = null;
+    else if (id === 'aar') aarMissionId = null;
+    else if (id === 'metrics') metricsOpen = false;
+    else if (id === 'shortcuts') shortcutHelpOpen = false;
+    else if (id === 'glossary') glossaryOpen = false;
+    else if (id === 'demo-complete') demoCompleteOpen = false;
+    else if (id === 'command-palette') commandPaletteOpen = false;
+  }
 
   function readCollapsedState() {
     try { return JSON.parse(localStorage.getItem('aircommand.panels.v1') ?? '{}') as { left?: boolean; right?: boolean; log?: boolean }; }
@@ -223,6 +263,9 @@
     const target = event.target as HTMLElement | null;
     if (target?.matches('input, textarea, [contenteditable]')) return;
     if (event.key === 'Escape') {
+      const topModal = [...modalStack].reverse().find((id) => activeModalIds.includes(id) && !minimizedModals.includes(id));
+      if (topModal) { closeModal(topModal); return; }
+      if (commandPaletteOpen) { commandPaletteOpen = false; return; }
       if (glossaryOpen) glossaryOpen = false;
       else if (shortcutHelpOpen) shortcutHelpOpen = false;
       else if (metricsOpen) metricsOpen = false;
@@ -292,7 +335,7 @@
     onDegradedToggle={() => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED')}
     onLayerToggle={toggleMapLayer}
     demoActive={false}
-    modalCount={[flowOpen, referenceOpen, metricsOpen, loadoutOpen, briefingMissionId !== null, aarMissionId !== null, trackLossOpen, glossaryOpen, shortcutHelpOpen].filter(Boolean).length}
+    modalCount={activeModalIds.length}
   />
 
   <PaneGroup direction="vertical" autoSaveId="aircommand.layout.v1" class="workspace-layout">
@@ -340,7 +383,7 @@
 </div>
 
 {#if pending?.pendingDecision}
-  <DecisionPrompt
+  <ModalLayer label={modalLabels.decision} zIndex={modalZ('decision')} visible={isModalVisible('decision')} onMinimize={() => minimizeModal('decision')}><DecisionPrompt
     open={true}
     title={pending.pendingDecision.title}
     context={pending.pendingDecision.context}
@@ -354,11 +397,11 @@
     }))}
     onSelect={(o) => handleDecision(o.id)}
     onClose={() => system.dismissDecision(pending!.id)}
-  />
+  /></ModalLayer>
 {/if}
 
 {#if system.trackLossAnalysis}
-  <DecisionPrompt
+  <ModalLayer label={modalLabels['track-loss']} zIndex={modalZ('track-loss')} visible={isModalVisible('track-loss')} onMinimize={() => minimizeModal('track-loss')}><DecisionPrompt
     open={trackLossOpen}
     title="TRACK LOSS ANALYSIS"
     context={system.trackLossAnalysis.context}
@@ -370,38 +413,39 @@
     ]}
     onSelect={handleTrackLossDecision}
     onClose={() => { system.trackLossAnalysis = null; trackLossOpen = false; }}
-  />
+  /></ModalLayer>
 {/if}
 
-<MissionFlowModal open={flowOpen} onClose={() => (flowOpen = false)} />
-<LoadoutModal open={loadoutOpen} aircraftType={loadoutType} tailNumber={loadoutTail} onClose={() => (loadoutOpen = false)} />
-<ReferenceLibrary open={referenceOpen} onClose={() => (referenceOpen = false)} />
-<CommanderBriefing
+{#if flowOpen}<ModalLayer label={modalLabels['mission-flow']} zIndex={modalZ('mission-flow')} visible={isModalVisible('mission-flow')} onMinimize={() => minimizeModal('mission-flow')}><MissionFlowModal open={flowOpen} onClose={() => (flowOpen = false)} /></ModalLayer>{/if}
+{#if loadoutOpen}<ModalLayer label={modalLabels.loadout} zIndex={modalZ('loadout')} visible={isModalVisible('loadout')} onMinimize={() => minimizeModal('loadout')}><LoadoutModal open={loadoutOpen} aircraftType={loadoutType} tailNumber={loadoutTail} onClose={() => (loadoutOpen = false)} /></ModalLayer>{/if}
+{#if referenceOpen}<ModalLayer label={modalLabels.reference} zIndex={modalZ('reference')} visible={isModalVisible('reference')} onMinimize={() => minimizeModal('reference')}><ReferenceLibrary open={referenceOpen} onClose={() => (referenceOpen = false)} /></ModalLayer>{/if}
+{#if briefingMissionId}<ModalLayer label={modalLabels.briefing} zIndex={modalZ('briefing')} visible={isModalVisible('briefing')} onMinimize={() => minimizeModal('briefing')}><CommanderBriefing
   open={briefingMissionId !== null}
   missionId={briefingMissionId}
   onApprove={handleApprove}
   onClose={() => (briefingMissionId = null)}
-/>
-<AfterActionReview
+/></ModalLayer>{/if}
+{#if aarMissionId}<ModalLayer label={modalLabels.aar} zIndex={modalZ('aar')} visible={isModalVisible('aar')} onMinimize={() => minimizeModal('aar')}><AfterActionReview
   missionId={aarMissionId}
   onClose={() => (aarMissionId = null)}
   onReplay={(id) => {
     system.replayMission(id);
     aarMissionId = null;
   }}
-/>
-<MetricsDashboard open={metricsOpen} onClose={() => (metricsOpen = false)} />
-<ShortcutHelp open={shortcutHelpOpen} onClose={() => shortcutHelpOpen = false} />
-<GlossaryModal open={glossaryOpen} onClose={() => glossaryOpen = false} />
-<CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={() => commandPaletteOpen = false} onSelect={selectPaletteCommand} />
+/></ModalLayer>{/if}
+{#if metricsOpen}<ModalLayer label={modalLabels.metrics} zIndex={modalZ('metrics')} visible={isModalVisible('metrics')} onMinimize={() => minimizeModal('metrics')}><MetricsDashboard open={metricsOpen} onClose={() => (metricsOpen = false)} /></ModalLayer>{/if}
+{#if shortcutHelpOpen}<ModalLayer label={modalLabels.shortcuts} zIndex={modalZ('shortcuts')} visible={isModalVisible('shortcuts')} onMinimize={() => minimizeModal('shortcuts')}><ShortcutHelp open={shortcutHelpOpen} onClose={() => shortcutHelpOpen = false} /></ModalLayer>{/if}
+{#if glossaryOpen}<ModalLayer label={modalLabels.glossary} zIndex={modalZ('glossary')} visible={isModalVisible('glossary')} onMinimize={() => minimizeModal('glossary')}><GlossaryModal open={glossaryOpen} onClose={() => glossaryOpen = false} /></ModalLayer>{/if}
+{#if commandPaletteOpen}<ModalLayer label={modalLabels['command-palette']} zIndex={modalZ('command-palette')} visible={isModalVisible('command-palette')} onMinimize={() => minimizeModal('command-palette')}><CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={() => commandPaletteOpen = false} onSelect={selectPaletteCommand} /></ModalLayer>{/if}
 {#if demoCompleteOpen}
-  <div class="overlay" role="presentation">
+  <ModalLayer label={modalLabels['demo-complete']} zIndex={modalZ('demo-complete')} visible={isModalVisible('demo-complete')} onMinimize={() => minimizeModal('demo-complete')}><div class="overlay" role="presentation">
     <section class="demo-complete" role="dialog" aria-modal="true" aria-label="Demo complete">
       <h2>DEMO COMPLETE</h2><p>You are now free to explore.</p>
       <div><button onclick={() => { demoCompleteOpen = false; system.generateCOAs(); }}>▸ GENERATE COA NOW</button><button onclick={() => demoCompleteOpen = false}>◈ EXPLORE FREELY</button></div>
     </section>
-  </div>
+  </div></ModalLayer>
 {/if}
+{#if dockedModalIds.length > 0}<div class="modal-dock" aria-label="Minimized modals">{#each dockedModalIds as id (id)}<button title="Restore {modalLabels[id]}" aria-label="Restore {modalLabels[id]}" onclick={() => restoreModal(id)}>{modalLabels[id]}</button>{/each}</div>{/if}
 {#if shortcutToast}<div class="shortcut-toast">{shortcutToast}</div>{/if}
 
 <style>
@@ -440,6 +484,8 @@
   .demo-complete p { color:var(--text-muted); font-size:11px; }
   .demo-complete div { display:flex; justify-content:center; gap:10px; margin-top:22px; }
   .demo-complete button { padding:9px 12px; background:transparent; border:1px solid var(--border-strong); color:var(--accent-cyan); font:9px var(--font-mono); cursor:pointer; }
+  .modal-dock { position:fixed; right:12px; bottom:12px; z-index:500; display:flex; flex-direction:column; gap:5px; }
+  .modal-dock button { padding:7px 9px; background:var(--bg-panel); border:1px solid var(--accent-cyan); color:var(--accent-cyan); font:8px var(--font-mono); cursor:pointer; }
 
   .computing {
     position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
