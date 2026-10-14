@@ -55,6 +55,9 @@
               <div class="dot"></div>
               {#if p !== 'RTB'}<div class="line"></div>{/if}
               <div class="tlabel">{p}</div>
+              {#each am.decisionsMade.filter((decision) => decision.point.atPhase === p) as decision, decisionIndex (`${decision.at}-${decisionIndex}`)}
+                <button class="decision-chip" type="button" title={`${decision.point.title}: ${decision.branch.label}`} aria-label={`Decision at ${p}: ${decision.branch.label}`}>◆<small>{decision.branch.label}</small></button>
+              {/each}
             </div>
           {/each}
         </div>
@@ -132,6 +135,9 @@
     align-items: center;
     position: relative;
   }
+  .decision-chip { position:absolute; top:19px; z-index:2; display:flex; flex-direction:column; align-items:center; gap:2px; padding:0; border:0; background:transparent; color:var(--accent-cyan); font:9px var(--font-mono); cursor:help; }
+  .decision-chip small { max-width:76px; padding:2px 3px; border:1px solid var(--border-strong); background:var(--bg-panel); color:var(--text-secondary); font-size:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .decision-chip:focus-visible { outline:1px solid var(--accent-cyan); outline-offset:2px; }
   .dot {
     width: 8px; height: 8px;
     border: 1px solid var(--border-strong);

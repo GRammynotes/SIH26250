@@ -30,8 +30,13 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   import ComprehensiveDemo from './lib/components/rail/ComprehensiveDemo.svelte';
   import MapLegend from './lib/components/map/MapLegend.svelte';
   import { narrateUtterance } from './lib/engine/voice';
+  import type { DecisionBranch } from './lib/data/historicalMissions';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
+  let decisionProcessing = $state(false);
+  let decisionImpact = $state<{ lines: string[]; branchLabel: string } | null>(null);
+  let decisionTimer: ReturnType<typeof setTimeout> | undefined;
+  let impactTimer: ReturnType<typeof setTimeout> | undefined;
   let TacticalMap = $state<Component<any> | null>(null);
   let MissionFlowModal = $state<Component<any> | null>(null);
   let LoadoutModal = $state<Component<any> | null>(null);
@@ -238,20 +243,54 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     }
   });
 
-  function handleDecision(branchId: string) {
-    if (pending) system.resolveDecision(pending.id, branchId);
+  function decisionPreview(branch: DecisionBranch) {
+    const riskDelta = branch.effect.riskDelta ?? 0;
+    const etaDelta = Math.round((branch.effect.missionDelayMin ?? 0) / 5);
+    const successDelta = Math.round((branch.outcome === 'success' ? 12 : branch.outcome === 'partial' ? 0 : branch.outcome === 'escalate' ? -10 : -22) - riskDelta * 0.35 - etaDelta * 0.3);
+    const baseline = Math.max(20, Math.min(90, 66 - ((pending?.riskDelta ?? 0) * 0.3)));
+    return { successDelta, successProbability: Math.max(5, Math.min(98, baseline + successDelta)), riskDelta, etaDelta };
   }
 
-  function handleRailDecision(option: { id: string }) {
-    if (!pending?.pendingDecision) return;
-    const activeMission = pending;
-    const branch = activeMission.pendingDecision.branches.find((item) => item.id === option.id);
-    if (!branch) return;
-    system.resolveDecision(activeMission.id, branch.id);
-    narrateUtterance(`Commander selected ${branch.label}. ${branch.consequence}`, { source: 'COMMANDER', speaker: 'commander' });
-    window.dispatchEvent(new CustomEvent('aircommand:rail-decision-resolved', { detail: { missionId: activeMission.missionId, branchId: branch.id } }));
-    window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: 'COMMANDER', text: branch.consequence } }));
+  function decisionOptions() {
+    const point = pending?.pendingDecision;
+    if (!point) return [];
+    return point.branches.map((branch) => ({ id: branch.id, label: branch.label, description: branch.description, tag: branch.tag, tagColor: branch.tagColor, preview: decisionPreview(branch) }));
   }
+
+  function resolveDecisionWithLatency(branchId: string) {
+    if (!pending?.pendingDecision || decisionProcessing) return;
+    const activeMission = pending;
+    const point = activeMission.pendingDecision;
+    const branch = point.branches.find((item) => item.id === branchId);
+    if (!branch) return;
+    decisionProcessing = true;
+    if (decisionTimer) clearTimeout(decisionTimer);
+    decisionTimer = setTimeout(() => {
+      const before = { threats: system.scenarioThreats.length, risk: activeMission.riskDelta, probability: Math.max(5, Math.min(98, 66 - activeMission.riskDelta * 0.3)), aircraft: [...activeMission.aircraftIds] };
+      system.resolveDecision(activeMission.id, branch.id);
+      const after = { threats: system.scenarioThreats.length, risk: activeMission.riskDelta, probability: Math.max(5, Math.min(98, 66 - activeMission.riskDelta * 0.3)), aircraft: [...activeMission.aircraftIds] };
+      const lines = [
+        `Threat count ${before.threats} → ${after.threats}${after.threats > before.threats ? ' (new SAM spawned)' : ''}`,
+        ...(branch.effect.killAircraft ? [`Aircraft reassigned: ${branch.effect.killAircraft} removed from ${activeMission.missionName}`] : []),
+        `Success probability ${before.probability}% → ${after.probability}%`,
+        `Risk ${before.risk} → ${after.risk}`,
+        `Timeline shifted ${branch.effect.missionDelayMin ? `${branch.effect.missionDelayMin > 0 ? '+' : ''}${branch.effect.missionDelayMin}m` : 'no change'}`,
+      ];
+      decisionImpact = { lines, branchLabel: branch.label };
+      if (impactTimer) clearTimeout(impactTimer);
+      impactTimer = setTimeout(() => decisionImpact = null, 3000);
+      setTimeout(() => system.pushEvent('INTEL', 'INTEL: threat assessment updated', 'info'), 1500);
+      setTimeout(() => system.pushEvent('COMMAND', 'COMMAND: COA regenerated', 'info'), 3500);
+      setTimeout(() => system.pushEvent('EXEC', 'EXEC: mission resumed', 'ok'), 5500);
+      decisionProcessing = false;
+      narrateUtterance(`Commander selected ${branch.label}. ${branch.consequence}`, { source: 'COMMANDER', speaker: 'commander' });
+      window.dispatchEvent(new CustomEvent('aircommand:rail-decision-resolved', { detail: { missionId: activeMission.missionId, branchId: branch.id } }));
+      window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: 'COMMANDER', text: branch.consequence } }));
+    }, 1200);
+  }
+
+  function handleDecision(branchId: string) { resolveDecisionWithLatency(branchId); }
+  function handleRailDecision(option: { id: string }) { resolveDecisionWithLatency(option.id); }
 
   function handleTrackLossDecision(option: { id: string; label: string }) {
     if (!system.trackLossAnalysis) return;
@@ -563,7 +602,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
         <div class="rail-content" class:rail-hidden={railMode !== 'training'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if SimulationModal}<SimulationModal open={simulationOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
         <div class="rail-content" class:rail-hidden={railMode !== 'sim'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if ProbabilisticSimulation}<ProbabilisticSimulation open={probabilisticSimOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
         {#if railMode !== 'demo' && pending?.pendingDecision}
-          <div class="rail-decision"><DecisionPrompt open={true} rail title={pending.pendingDecision.title} context={pending.pendingDecision.context} message={pending.pendingDecision.message} options={pending.pendingDecision.options ?? pending.pendingDecision.branches.map((branch) => ({ id: branch.id, label: branch.label, description: branch.description, tag: branch.tag, tagColor: branch.tagColor }))} onSelect={handleRailDecision} onClose={() => system.dismissDecision(pending!.id)} /></div>
+          <div class="rail-decision"><DecisionPrompt open={true} rail title={pending.pendingDecision.title} context={pending.pendingDecision.context} message={pending.pendingDecision.message} options={decisionOptions()} processing={decisionProcessing} onSelect={handleRailDecision} onClose={() => system.dismissDecision(pending!.id)} /></div>
         {/if}
       </div>
     </aside>
@@ -584,17 +623,14 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     title={pending.pendingDecision.title}
     context={pending.pendingDecision.context}
     message={pending.pendingDecision.message}
-    options={pending.pendingDecision.options ?? pending.pendingDecision.branches.map((b) => ({
-      id: b.id,
-      label: b.label,
-      description: b.description,
-      tag: b.tag,
-      tagColor: b.tagColor,
-    }))}
+    options={decisionOptions()}
+    processing={decisionProcessing}
     onSelect={(o) => handleDecision(o.id)}
     onClose={() => system.dismissDecision(pending!.id)}
   /></ModalLayer>
 {/if}
+
+{#if decisionImpact}<aside class="decision-impact" role="status" aria-live="polite"><header><b>DECISION IMPACT</b><span>{decisionImpact.branchLabel}</span></header>{#each decisionImpact.lines as line}<p>→ {line}</p>{/each}</aside>{/if}
 
 {#if system.trackLossAnalysis}
   <ModalLayer label={modalLabels['track-loss']} zIndex={modalZ('track-loss')} visible={isModalVisible('track-loss')} onMinimize={() => minimizeModal('track-loss')}><DecisionPrompt
@@ -682,6 +718,11 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   .rail-collapse,.rail-close { width:32px; border:0; border-left:1px solid var(--border-subtle); background:transparent; color:var(--text-secondary); font:16px var(--font-mono); cursor:pointer; }
   .rail-content { min-height:0; flex:1; overflow:auto; }
   .rail-decision { flex:0 0 62%; height:62%; min-height:0; max-height:62%; overflow:auto; border-top:1px solid var(--border-strong); }
+  .decision-impact { position:fixed; z-index:150; left:50%; bottom:112px; transform:translateX(-50%); width:min(560px,90vw); padding:12px 14px; border:1px solid var(--accent-cyan); background:rgba(5,8,15,.96); box-shadow:0 8px 32px rgba(0,0,0,.45); animation:decision-impact-in .18s ease-out; font-family:var(--font-mono); }
+  .decision-impact header { display:flex; justify-content:space-between; gap:12px; padding:0 0 7px; border-bottom:1px solid var(--border-subtle); color:var(--accent-cyan); font-size:9px; letter-spacing:.12em; }
+  .decision-impact header span { color:var(--text-muted); font-size:8px; }
+  .decision-impact p { margin:6px 0 0; color:var(--text-secondary); font-size:8px; letter-spacing:.03em; }
+  @keyframes decision-impact-in { from { opacity:0; transform:translate(-50%,6px); } to { opacity:1; transform:translate(-50%,0); } }
   .background-chip { margin:8px 10px 0; padding:5px 7px; width:max-content; color:var(--accent-green); border:1px solid var(--border-subtle); font:7px var(--font-mono); letter-spacing:.1em; }
   .background-running-chip { position:fixed; left:12px; top:38px; z-index:120; padding:5px 8px; color:var(--accent-green); background:var(--bg-panel); border:1px solid var(--border-subtle); font:7px var(--font-mono); letter-spacing:.1em; cursor:pointer; }
   .rail-tabs-collapsed button { flex:1; padding:8px 4px; writing-mode:vertical-rl; transform:rotate(180deg); border:0; border-bottom:1px solid var(--border-subtle); color:var(--text-muted); background:var(--bg-panel); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; }
