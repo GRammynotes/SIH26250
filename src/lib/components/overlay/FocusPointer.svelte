@@ -26,11 +26,16 @@
       window.clearTimeout(timer);
       timer = window.setTimeout(refresh, Math.min(detail.duration || 3000, 3000));
     };
+    const clear = () => {
+      cues = [];
+      window.clearTimeout(timer);
+    };
     window.addEventListener('aircommand:focus', add);
+    window.addEventListener('aircommand:focus-clear', clear);
     window.addEventListener('resize', refresh);
     window.addEventListener('scroll', refresh, true);
     window.addEventListener('click', handleUserClick, true);
-    return () => { window.removeEventListener('aircommand:focus', add); window.removeEventListener('resize', refresh); window.removeEventListener('scroll', refresh, true); window.removeEventListener('click', handleUserClick, true); window.clearTimeout(timer); };
+    return () => { window.removeEventListener('aircommand:focus', add); window.removeEventListener('aircommand:focus-clear', clear); window.removeEventListener('resize', refresh); window.removeEventListener('scroll', refresh, true); window.removeEventListener('click', handleUserClick, true); window.clearTimeout(timer); };
   });
 
   const maskPath = $derived.by(() => {

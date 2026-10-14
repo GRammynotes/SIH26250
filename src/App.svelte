@@ -12,10 +12,6 @@
   import DecisionPrompt from './lib/components/panels/DecisionPrompt.svelte';
   import EventLog from './lib/components/panels/EventLog.svelte';
   import CommanderBriefing from './lib/components/panels/CommanderBriefing.svelte';
-  import { driver } from 'driver.js';
-  import 'driver.js/dist/driver.css';
-  import { DEMO_STEPS } from './lib/demo/demoScript';
-  import { demoConfig } from './lib/demo/demoConfig';
   import { PaneGroup, Pane, PaneResizer } from 'paneforge';
   import ShortcutHelp from './lib/components/panels/ShortcutHelp.svelte';
   import GlossaryModal from './lib/components/panels/GlossaryModal.svelte';
@@ -29,6 +25,9 @@
   import CommandStatus from './lib/components/panels/CommandStatus.svelte';
   import CaptionLayer from './lib/components/overlay/CaptionLayer.svelte';
   import FocusPointer from './lib/components/overlay/FocusPointer.svelte';
+  import SystemGuide from './lib/components/panels/SystemGuide.svelte';
+  import ComprehensiveDemo from './lib/components/panels/ComprehensiveDemo.svelte';
+  import { narrateUtterance } from './lib/engine/voice';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let TacticalMap = $state<Component<any> | null>(null);
@@ -37,6 +36,9 @@
   let ReferenceLibrary = $state<Component<any> | null>(null);
   let AfterActionReview = $state<Component<any> | null>(null);
   let MetricsDashboard = $state<Component<any> | null>(null);
+  let SimulationModal = $state<Component<any> | null>(null);
+  let simulationOpen = $state(false);
+  let systemGuideOpen = $state(false);
   let flowOpen = $state(false);
   let referenceOpen = $state(false);
   let metricsOpen = $state(false);
@@ -51,6 +53,7 @@
   let glossaryOpen = $state(false);
   let demoCompleteOpen = $state(false);
   let demoActive = $state(false);
+  let comprehensiveDemoOpen = $state(false);
   let commandPaletteOpen = $state(false);
   let modalStack = $state<string[]>([]);
   let minimizedModals = $state<string[]>([]);
@@ -75,7 +78,8 @@
     { id: 'act-metrics', label: 'Open Metrics Dashboard', category: 'ACTION', keywords: 'analytics stats', kind: 'action' },
     { id: 'act-glossary', label: 'Open Glossary', category: 'ACTION', keywords: 'terms definitions help', kind: 'action' },
     { id: 'act-shortcuts', label: 'Show Keyboard Shortcuts', category: 'ACTION', keywords: 'hotkeys help', kind: 'action' },
-    { id: 'act-demo', label: 'Start Demo', category: 'ACTION', keywords: 'tour walkthrough', kind: 'action' },
+    { id: 'act-demo', label: 'Start Comprehensive Demo', category: 'ACTION', keywords: 'tour walkthrough comprehensive', kind: 'action' },
+    { id: 'act-simulation', label: 'Start Training Simulation', category: 'ACTION', keywords: 'training historical exercise', kind: 'action' },
     { id: 'act-auto', label: 'Toggle Auto-Opt', category: 'ACTION', keywords: 'continuous reoptimisation', kind: 'action' },
     { id: 'act-degraded', label: 'Toggle Degraded Mode', category: 'ACTION', keywords: 'sensor edge mode', kind: 'action' },
     { id: 'act-reset', label: 'Reset System', category: 'ACTION', keywords: 'restore baseline', kind: 'action' },
@@ -84,16 +88,21 @@
     ...IAF_BASES.map((item) => ({ id: `base-${item.id}`, label: `${item.name} · ${item.code}`, category: 'BASE', keywords: item.id, kind: 'base' as const, targetId: item.id })),
   ]);
   let activeModalIds = $derived([
-    ...(pending ? ['decision'] : []), ...(trackLossOpen ? ['track-loss'] : []),
+    ...(pending && !simulationOpen ? ['decision'] : []), ...(trackLossOpen ? ['track-loss'] : []),
     ...(flowOpen ? ['mission-flow'] : []), ...(loadoutOpen ? ['loadout'] : []),
     ...(referenceOpen ? ['reference'] : []), ...(briefingMissionId ? ['briefing'] : []),
     ...(aarMissionId ? ['aar'] : []), ...(metricsOpen ? ['metrics'] : []),
     ...(shortcutHelpOpen ? ['shortcuts'] : []), ...(glossaryOpen ? ['glossary'] : []),
     ...(demoCompleteOpen ? ['demo-complete'] : []), ...(commandPaletteOpen ? ['command-palette'] : []),
+    ...(simulationOpen ? ['simulation'] : []), ...(comprehensiveDemoOpen ? ['comprehensive-demo'] : []),
   ]);
+  let previousModalIds: string[] = [];
+  let previousRightTab: typeof rightTab = 'coa';
+  let previousLeftPanelTab: typeof leftPanelTab = 'roster';
+  let previousScenarioFilter: string | null = null;
   let visibleModalIds = $derived(modalStack.filter((id) => activeModalIds.includes(id) && !minimizedModals.includes(id)).slice(-3));
   let dockedModalIds = $derived(activeModalIds.filter((id) => minimizedModals.includes(id) || !visibleModalIds.includes(id)));
-  const modalLabels: Record<string, string> = { decision: 'DECISION', 'track-loss': 'TRACK LOSS', 'mission-flow': 'MISSION FLOW', loadout: 'LOADOUT', reference: 'REFERENCE', briefing: 'BRIEFING', aar: 'AFTER ACTION', metrics: 'METRICS', shortcuts: 'SHORTCUTS', glossary: 'GLOSSARY', 'demo-complete': 'DEMO COMPLETE', 'command-palette': 'COMMAND PALETTE' };
+  const modalLabels: Record<string, string> = { decision: 'DECISION', 'track-loss': 'TRACK LOSS', 'mission-flow': 'MISSION FLOW', loadout: 'LOADOUT', reference: 'REFERENCE', briefing: 'BRIEFING', aar: 'AFTER ACTION', metrics: 'METRICS', shortcuts: 'SHORTCUTS', glossary: 'GLOSSARY', 'demo-complete': 'DEMO COMPLETE', 'command-palette': 'COMMAND PALETTE', simulation: 'SIMULATION', 'comprehensive-demo': 'COMPREHENSIVE DEMO' };
 
   $effect(() => {
     const open = activeModalIds;
@@ -101,6 +110,29 @@
     if (next.join('|') !== modalStack.join('|')) modalStack = next;
     const nextMinimized = minimizedModals.filter((id) => open.includes(id));
     if (nextMinimized.join('|') !== minimizedModals.join('|')) minimizedModals = nextMinimized;
+  });
+
+  $effect(() => {
+    const current = activeModalIds;
+    for (const id of current.filter((item) => !previousModalIds.includes(item))) {
+      if (id !== 'command-palette') narrateUtterance(`${modalLabels[id] ?? id} opened.`, { source: 'SYSTEM', speaker: 'agent' });
+    }
+    for (const id of previousModalIds.filter((item) => !current.includes(item))) {
+      if (id !== 'command-palette') narrateUtterance(`${modalLabels[id] ?? id} closed.`, { source: 'SYSTEM', speaker: 'agent' });
+    }
+    previousModalIds = [...current];
+  });
+  $effect(() => {
+    const tab = rightTab;
+    if (tab !== previousRightTab) { previousRightTab = tab; narrateUtterance(`${tab.toUpperCase()} panel selected.`, { source: 'SYSTEM', speaker: 'agent' }); }
+  });
+  $effect(() => {
+    const tab = leftPanelTab;
+    if (tab !== previousLeftPanelTab) { previousLeftPanelTab = tab; narrateUtterance(`${tab === 'roster' ? 'Force roster' : 'Missions'} panel selected.`, { source: 'SYSTEM', speaker: 'agent' }); }
+  });
+  $effect(() => {
+    const filter = system.activeScenarioFilter;
+    if (filter !== previousScenarioFilter) { previousScenarioFilter = filter; if (filter !== null) narrateUtterance(`${filter.replaceAll('_', ' ')} scenario selected. Map and console panels are aligning to this exercise.`, { source: 'SYSTEM', speaker: 'agent' }); }
   });
 
   function isModalVisible(id: string) { return visibleModalIds.includes(id); }
@@ -116,6 +148,7 @@
     else if (id === 'briefing') briefingMissionId = null;
     else if (id === 'aar') aarMissionId = null;
     else if (id === 'metrics') metricsOpen = false;
+    else if (id === 'simulation') { simulationOpen = false; demoActive = false; }
     else if (id === 'shortcuts') shortcutHelpOpen = false;
     else if (id === 'glossary') glossaryOpen = false;
     else if (id === 'demo-complete') demoCompleteOpen = false;
@@ -150,13 +183,16 @@
     if (loadoutOpen && !LoadoutModal) void import('./lib/components/panels/LoadoutModal.svelte').then((module) => LoadoutModal = module.default);
     if (referenceOpen && !ReferenceLibrary) void import('./lib/components/panels/ReferenceLibrary.svelte').then((module) => ReferenceLibrary = module.default);
     if (aarMissionId && !AfterActionReview) void import('./lib/components/panels/AfterActionReview.svelte').then((module) => AfterActionReview = module.default);
+    if (simulationOpen && !SimulationModal) void import('./lib/components/panels/SimulationModal.svelte').then((module) => SimulationModal = module.default);
     if ((metricsOpen || rightTab === 'metrics') && !MetricsDashboard) void import('./lib/components/panels/MetricsDashboard.svelte').then((module) => MetricsDashboard = module.default);
   });
 
   onMount(() => {
     void import('./lib/components/map/TacticalMap.svelte').then((module) => TacticalMap = module.default);
     const handleMissionBrief = (event: Event) => briefingMissionId = (event as CustomEvent<string>).detail;
+    const handleSelectRightTab = (event: Event) => rightTab = (event as CustomEvent<typeof rightTab>).detail;
     window.addEventListener('aircommand:mission-brief', handleMissionBrief);
+    window.addEventListener('aircommand:select-right-tab', handleSelectRightTab);
     const saved = readCollapsedState();
     leftCollapsed = saved.left ?? false; rightCollapsed = saved.right ?? false; logCollapsed = saved.log ?? false;
     panelVisibility = { ...panelVisibility, ...(saved.visibility ?? {}) };
@@ -165,7 +201,7 @@
       if (rightCollapsed) rightPane?.resize(3);
       if (logCollapsed) logPane?.resize(3);
     });
-    return () => window.removeEventListener('aircommand:mission-brief', handleMissionBrief);
+    return () => { window.removeEventListener('aircommand:mission-brief', handleMissionBrief); window.removeEventListener('aircommand:select-right-tab', handleSelectRightTab); };
   });
 
   function toggleLeftPane() { leftCollapsed = !leftCollapsed; persistCollapsedState(); leftPane?.resize(leftCollapsed ? 3 : 15); }
@@ -259,52 +295,41 @@
 
   function startDemo() {
     demoActive = true;
-    const steps = DEMO_STEPS.map((s) => ({
-      element: s.element,
-      popover: {
-        title: s.title,
-        description: s.description,
-        side: s.side,
-        align: 'center' as const,
-      },
-      onHighlightStarted: () => {
-        if (s.action) {
-          s.action();
-        }
-      },
-    }));
+    comprehensiveDemoOpen = true;
+  }
 
-    const driverObj = driver({
-      ...demoConfig,
-      steps,
-      onNextClick: (_element, _step, { driver }) => {
-        if (driver.getActiveIndex() === DEMO_STEPS.length - 1) {
-          driver.destroy();
-          demoCompleteOpen = true;
-        } else driver.moveNext();
-      },
-      onDestroyStarted: () => {
-        demoActive = false;
-        driverObj.destroy();
-      },
-    });
+  function startSimulation() {
+    simulationOpen = true;
+  }
 
-    driverObj.drive();
+  function navigateGuide(panel: string) {
+    systemGuideOpen = false;
+    if (panel === 'simulation') { startSimulation(); return; }
+    if (panel === 'demo') { startDemo(); return; }
+    const routes: Record<string, () => void> = {
+      reference: () => referenceOpen = true, flow: () => flowOpen = true,
+      roster: () => { leftPanelTab = 'roster'; panelVisibility = { ...panelVisibility, forceRoster: true }; },
+      coa: () => rightTab = 'coa', red: () => rightTab = 'red',
+    };
+    routes[panel]?.();
   }
 
   function runShortcut(key: string) {
     const actions: Record<string, () => void> = {
       g: () => system.generateCOAs(), r: () => referenceOpen = true,
       f: () => flowOpen = true, m: () => metricsOpen = true, d: startDemo,
+      s: startSimulation,
     };
     actions[key]?.();
-    const labels: Record<string, string> = { g: 'GENERATE COA', r: 'REFERENCE', f: 'MISSION FLOW', m: 'METRICS', d: 'DEMO' };
+    if (labelsForShortcut[key]) narrateUtterance(`${labelsForShortcut[key]} opened.`, { source: 'SYSTEM', speaker: 'agent' });
+    const labels: Record<string, string> = { g: 'GENERATE COA', r: 'REFERENCE', f: 'MISSION FLOW', m: 'METRICS', d: 'DEMO', s: 'SIMULATION' };
     if (labels[key]) {
       shortcutToast = `SHORTCUT: ${labels[key]}`;
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(() => shortcutToast = '', 1200);
     }
   }
+  const labelsForShortcut: Record<string, string> = { r: 'Reference library', f: 'Mission flow', m: 'Metrics dashboard', d: 'Comprehensive demo', s: 'Historical simulation' };
 
   function handleGlobalKeydown(event: KeyboardEvent) {
     if (event.ctrlKey && event.key.toLowerCase() === 'k') { event.preventDefault(); commandPaletteOpen = true; return; }
@@ -357,7 +382,7 @@
       'act-generate': () => system.generateCOAs(), 'act-reference': () => referenceOpen = true,
       'act-flow': () => flowOpen = true, 'act-metrics': () => metricsOpen = true,
       'act-glossary': () => glossaryOpen = true, 'act-shortcuts': () => shortcutHelpOpen = true,
-      'act-demo': startDemo, 'act-auto': () => system.toggleContinuousReoptimization(),
+      'act-demo': startDemo, 'act-simulation': startSimulation, 'act-auto': () => system.toggleContinuousReoptimization(),
       'act-degraded': () => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED'),
       'act-reset': () => system.reset(),
     };
@@ -383,8 +408,10 @@
     onReferenceClick={() => (referenceOpen = true)}
     onMetricsClick={() => (metricsOpen = true)}
     onDemoClick={startDemo}
+    onSimulationClick={startSimulation}
     onGlossaryClick={() => glossaryOpen = true}
     onShortcutHelpClick={() => shortcutHelpOpen = true}
+    onGuideClick={() => { systemGuideOpen = !systemGuideOpen; narrateUtterance(systemGuideOpen ? 'System guide opened.' : 'System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }}
     onGenerate={() => system.generateCOAs()}
     onReset={() => system.reset()}
     onDegradedToggle={() => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED')}
@@ -457,7 +484,7 @@
   </PaneGroup>
 </div>
 
-{#if pending?.pendingDecision}
+{#if pending?.pendingDecision && !simulationOpen}
   <ModalLayer label={modalLabels.decision} zIndex={modalZ('decision')} visible={isModalVisible('decision')} onMinimize={() => minimizeModal('decision')}><DecisionPrompt
     open={true}
     title={pending.pendingDecision.title}
@@ -512,6 +539,9 @@
 {#if shortcutHelpOpen}<ModalLayer label={modalLabels.shortcuts} zIndex={modalZ('shortcuts')} visible={isModalVisible('shortcuts')} onMinimize={() => minimizeModal('shortcuts')}><ShortcutHelp open={shortcutHelpOpen} onClose={() => shortcutHelpOpen = false} /></ModalLayer>{/if}
 {#if glossaryOpen}<ModalLayer label={modalLabels.glossary} zIndex={modalZ('glossary')} visible={isModalVisible('glossary')} onMinimize={() => minimizeModal('glossary')}><GlossaryModal open={glossaryOpen} onClose={() => glossaryOpen = false} /></ModalLayer>{/if}
 {#if commandPaletteOpen}<ModalLayer label={modalLabels['command-palette']} zIndex={modalZ('command-palette')} visible={isModalVisible('command-palette')} onMinimize={() => minimizeModal('command-palette')}><CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={() => commandPaletteOpen = false} onSelect={selectPaletteCommand} /></ModalLayer>{/if}
+{#if simulationOpen && SimulationModal}<ModalLayer label={modalLabels.simulation} zIndex={modalZ('simulation')} visible={isModalVisible('simulation')} onMinimize={() => minimizeModal('simulation')}><SimulationModal open={simulationOpen} onClose={() => { simulationOpen = false; demoActive = false; narrateUtterance('Historical simulation closed.', { source: 'SYSTEM', speaker: 'agent' }); }} /></ModalLayer>{/if}
+{#if comprehensiveDemoOpen}<ComprehensiveDemo open={comprehensiveDemoOpen} onClose={() => { comprehensiveDemoOpen = false; demoActive = false; narrateUtterance('Comprehensive demo closed.', { source: 'SYSTEM', speaker: 'agent' }); }} onComplete={() => { demoCompleteOpen = true; comprehensiveDemoOpen = false; }} />{/if}
+<SystemGuide open={systemGuideOpen} onClose={() => { systemGuideOpen = false; narrateUtterance('System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }} onNavigate={navigateGuide} />
 {#if demoCompleteOpen}
   <ModalLayer label={modalLabels['demo-complete']} zIndex={modalZ('demo-complete')} visible={isModalVisible('demo-complete')} onMinimize={() => minimizeModal('demo-complete')}><div class="overlay" role="presentation">
     <section class="demo-complete" role="dialog" aria-modal="true" aria-label="Demo complete">
@@ -531,13 +561,16 @@
     width: 100vw; height: 100vh;
     display: grid;
     grid-template-rows:32px 40px minmax(0,1fr);
-    grid-template-columns:1fr;
+    grid-template-columns:minmax(0,1fr);
     background: #1a242e;
     gap: 0;
   }
   :global(.workspace-layout) { grid-row:3; width:100%; height:100%; min-height:0; }
   .shell.scenario-hidden { grid-template-rows:32px 0 minmax(0,1fr); }
-  .shell.fullscreen { grid-template-rows:1fr; grid-template-columns:1fr; grid-template-areas:"center"; gap:0; }
+  .shell.fullscreen { grid-template-rows:1fr; grid-template-columns:minmax(0,1fr); grid-template-areas:"center"; gap:0; }
+  .shell { min-width:0; overflow:hidden; }
+  :global(.workspace-layout),:global(.content-layout) { min-width:0; max-width:100%; overflow:hidden; }
+  :global(.content-layout [data-pane]),:global(.workspace-layout [data-pane]) { min-width:0 !important; }
   :global(.shell.fullscreen > .workspace-layout) { grid-area:center; grid-row:1; width:100%; height:100%; min-height:0; }
   :global(.content-layout) { width: 100%; height: 100%; }
   :global(.content-layout [data-pane]), :global(.workspace-layout [data-pane]) { transition:flex-basis .2s ease; }
