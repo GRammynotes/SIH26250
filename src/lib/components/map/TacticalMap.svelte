@@ -846,12 +846,16 @@
     <div class="cross-dot"></div>
   </div>
 
-  <div class="coord tl mono">GRID 34°N / 78°E · SECTOR KASHMIR</div>
+  <div class="coord tl mono">THEATER MAP / GRID 78 · 34°N / 78°E</div>
   <div class="coord tr mono">ZOOM 4.2 · MERCATOR</div>
   <button class="fullscreen-btn" aria-label={fullscreen ? 'Exit map fullscreen' : 'Enter map fullscreen'} title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen map'} onclick={() => onFullscreenClick?.()}>{fullscreen ? '⛶ EXIT FULLSCREEN' : '⛶ FULLSCREEN'}</button>
   <TerrainToggle />
   <div class="coord bl mono">SCALE 1:5,000,000</div>
   <div class="coord br mono">WGS84 · EGM96</div>
+  <div class="bearing north mono" aria-hidden="true">N · 000°</div>
+  <div class="bearing east mono" aria-hidden="true">E · 090°</div>
+  <div class="bearing south mono" aria-hidden="true">S · 180°</div>
+  <div class="bearing west mono" aria-hidden="true">W · 270°</div>
 
 </div>
 
@@ -950,6 +954,9 @@
   .coord.tr { top: 8px; right: 10px; }
   .coord.bl { bottom: 8px; left: 10px; }
   .coord.br { bottom: 8px; right: 10px; }
+  .bearing { position:absolute; z-index:5; color:var(--text-muted); font:7px var(--font-mono); opacity:.65; pointer-events:none; }
+  .bearing.north { top:34px; left:50%; transform:translateX(-50%); }.bearing.south { bottom:34px; left:50%; transform:translateX(-50%); }
+  .bearing.east { right:10px; top:50%; transform:translateY(-50%); writing-mode:vertical-rl; }.bearing.west { left:10px; top:50%; transform:translateY(-50%); writing-mode:vertical-rl; }
   .fullscreen-btn { position:absolute; top:28px; right:10px; z-index:7; padding:6px 9px; background:rgba(5,8,15,.9); border:1px solid var(--border-strong); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; transition:background .18s,border-color .18s; }
   .fullscreen-btn:hover,.fullscreen-btn:focus-visible { border-color:var(--accent-cyan); background:rgba(0,212,255,.1); outline:none; }
 

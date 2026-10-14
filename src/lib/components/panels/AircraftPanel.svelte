@@ -27,7 +27,7 @@
 
   function handleAircraftRowKeydown(event: KeyboardEvent, aircraftId: string) {
     const row = event.currentTarget as HTMLElement;
-    const rows = Array.from(row.parentElement?.querySelectorAll<HTMLElement>('.row[tabindex="0"]') ?? []);
+    const rows = Array.from(row.parentElement?.querySelectorAll<HTMLElement>('.row[tabindex="-1"]') ?? []);
     const index = rows.indexOf(row);
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
@@ -57,7 +57,7 @@
   </div>
   <div class="list">
     {#each sorted as ac (ac.id)}
-      <div class="row" tabindex="0" role="group" aria-label="Aircraft {ac.tailNumber}, {ac.status}" onkeydown={(event) => handleAircraftRowKeydown(event, ac.id)}>
+      <div class="row" tabindex="-1" role="group" aria-label="Aircraft {ac.tailNumber}, {ac.status}" onkeydown={(event) => handleAircraftRowKeydown(event, ac.id)}>
         <div class="line1">
           <span class="tail">{ac.tailNumber}</span>
           <span class="status" style="color:{statusColor(ac.status)};" aria-label="{ac.status === 'FMC' ? 'Fully mission capable' : ac.status === 'PMC' ? 'Partially mission capable' : 'Not mission capable'}">

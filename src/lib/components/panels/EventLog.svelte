@@ -12,7 +12,7 @@
 
 <div class="log">
   <div class="hdr">
-    <span>EVENT LOG</span>
+    <span>MISSION LOG</span>
     <span class="log-actions"><span class="count">{system.events.length} ENTRIES</span><button aria-label={collapsed ? 'Expand event log' : 'Collapse event log'} title={collapsed ? 'Expand event log' : 'Collapse event log'} onclick={() => onToggle?.()}>{collapsed ? '⌃' : '⌄'}</button></span>
   </div>
   {#if !collapsed}<div class="entries">

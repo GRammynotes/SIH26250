@@ -31,6 +31,7 @@
   import WeaponMatrix from './lib/components/panels/WeaponMatrix.svelte';
   import PrioritizationSlider from './lib/components/panels/PrioritizationSlider.svelte';
   import CyberPanel from './lib/components/panels/CyberPanel.svelte';
+  import CommandStatus from './lib/components/panels/CommandStatus.svelte';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let flowOpen = $state(false);
@@ -57,6 +58,7 @@
   let savedLeftSize = 18;
   let savedRightSize = 22;
   let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution' | 'weapons' | 'cyber'>('coa');
+  let leftPanelTab = $state<'roster' | 'missions'>('roster');
   let leftPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let rightPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let logPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
@@ -137,11 +139,11 @@
     return () => window.removeEventListener('aircommand:mission-brief', handleMissionBrief);
   });
 
-  function toggleLeftPane() { leftCollapsed = !leftCollapsed; persistCollapsedState(); leftPane?.resize(leftCollapsed ? 3 : 18); }
-  function toggleRightPane() { rightCollapsed = !rightCollapsed; persistCollapsedState(); rightPane?.resize(rightCollapsed ? 3 : 22); }
+  function toggleLeftPane() { leftCollapsed = !leftCollapsed; persistCollapsedState(); leftPane?.resize(leftCollapsed ? 3 : 15); }
+  function toggleRightPane() { rightCollapsed = !rightCollapsed; persistCollapsedState(); rightPane?.resize(rightCollapsed ? 3 : 28); }
   function toggleLogPane() { logCollapsed = !logCollapsed; persistCollapsedState(); logPane?.resize(logCollapsed ? 3 : 15); }
   function toggleMapFullscreen() {
-    if (!mapFullscreen) { savedLeftSize = leftPane?.getSize?.() ?? (leftCollapsed ? 3 : 18); savedRightSize = rightPane?.getSize?.() ?? (rightCollapsed ? 3 : 22); mapFullscreen = true; }
+    if (!mapFullscreen) { savedLeftSize = leftPane?.getSize?.() ?? (leftCollapsed ? 3 : 15); savedRightSize = rightPane?.getSize?.() ?? (rightCollapsed ? 3 : 28); mapFullscreen = true; }
     else { mapFullscreen = false; requestAnimationFrame(() => { leftPane?.resize(savedLeftSize); rightPane?.resize(savedRightSize); }); }
   }
 
@@ -360,14 +362,21 @@
   />
 
   <PaneGroup direction="vertical" autoSaveId="aircommand.layout.v1" class="workspace-layout">
-    <Pane defaultSize={85} minSize={60}>
+    <Pane defaultSize={66} minSize={55}>
       <PaneGroup direction="horizontal" autoSaveId="aircommand.layout.v1.panels" class="content-layout">
-        {#if !mapFullscreen}<Pane bind:this={leftPane} defaultSize={18} minSize={3} maxSize={30}>
+        {#if !mapFullscreen}<Pane bind:this={leftPane} defaultSize={15} minSize={3} maxSize={30}>
           {#if leftCollapsed}<div class="collapsed-rail"><button title="Expand aircraft and mission panels" aria-label="Expand left panels" onclick={toggleLeftPane}>»</button><span>A</span><span>M</span></div>
           {:else if system.selectedBaseId}<BaseDetailPanel onLoadoutClick={openLoadout} />
-          {:else}<aside class="left"><AircraftPanel onCollapse={toggleLeftPane} onLoadout={openLoadout} onAssign={(aircraftId, missionId) => { assignedAircraftId = aircraftId; briefingMissionId = missionId; }} /><MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} onCollapse={toggleLeftPane} /></aside>{/if}
+          {:else}<aside class="left">
+            <div class="left-tabs" role="tablist" aria-label="Left panel">
+              <button role="tab" aria-selected={leftPanelTab === 'roster'} class:active={leftPanelTab === 'roster'} onclick={() => leftPanelTab = 'roster'}>FORCE ROSTER</button>
+              <button role="tab" aria-selected={leftPanelTab === 'missions'} class:active={leftPanelTab === 'missions'} onclick={() => leftPanelTab = 'missions'}>MISSIONS</button>
+            </div>
+            {#if leftPanelTab === 'roster'}<AircraftPanel onCollapse={toggleLeftPane} onLoadout={openLoadout} onAssign={(aircraftId, missionId) => { assignedAircraftId = aircraftId; briefingMissionId = missionId; }} />
+            {:else}<MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} onCollapse={toggleLeftPane} />{/if}
+          </aside>{/if}
         </Pane><PaneResizer class="pane-resizer" />{/if}
-        <Pane defaultSize={mapFullscreen ? 100 : 60} minSize={40}>
+        <Pane defaultSize={mapFullscreen ? 100 : 57} minSize={40}>
           <section class="center">
             <TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} onFullscreenClick={toggleMapFullscreen} fullscreen={mapFullscreen} />
             <ScenarioControls />
@@ -375,17 +384,17 @@
           </section>
         </Pane>
         {#if !mapFullscreen}<PaneResizer class="pane-resizer" />
-        <Pane bind:this={rightPane} defaultSize={22} minSize={3} maxSize={35}>
+        <Pane bind:this={rightPane} defaultSize={28} minSize={3} maxSize={35}>
           {#if rightCollapsed}<div class="collapsed-rail"><button title="Expand COA panel" aria-label="Expand right panel" onclick={toggleRightPane}>«</button><span>C</span></div>
           {:else}
             <div class="right-wrap">
               <div class="right-tabs" role="tablist" aria-label="Right panel">
                 <button role="tab" aria-selected={rightTab === 'coa'} class:active={rightTab === 'coa'} onclick={() => rightTab = 'coa'}>COA</button>
                 <button role="tab" aria-selected={rightTab === 'red'} class:active={rightTab === 'red'} onclick={() => rightTab = 'red'}>RED VIEW</button>
-                <button role="tab" aria-selected={rightTab === 'metrics'} class:active={rightTab === 'metrics'} onclick={() => rightTab = 'metrics'}>METRICS</button>
-                <button role="tab" aria-selected={rightTab === 'execution'} class:active={rightTab === 'execution'} onclick={() => rightTab = 'execution'}>EXECUTION</button>
                 <button role="tab" aria-selected={rightTab === 'weapons'} class:active={rightTab === 'weapons'} onclick={() => rightTab = 'weapons'}>WEAPONS <kbd>Ctrl+5</kbd></button>
                 <button role="tab" aria-selected={rightTab === 'cyber'} class:active={rightTab === 'cyber'} onclick={() => rightTab = 'cyber'}>CYBER <kbd>Ctrl+6</kbd></button>
+                <button role="tab" aria-selected={rightTab === 'metrics'} class:active={rightTab === 'metrics'} onclick={() => rightTab = 'metrics'}>METRICS <kbd>Ctrl+3</kbd></button>
+                <button role="tab" aria-selected={rightTab === 'execution'} class:active={rightTab === 'execution'} onclick={() => rightTab = 'execution'}>EXECUTION <kbd>Ctrl+4</kbd></button>
                 <button class="right-collapse" aria-label="Collapse right panel" title="Collapse right panel" onclick={toggleRightPane}>›</button>
               </div>
               <div class="right-tab-content">
@@ -402,7 +411,13 @@
       </PaneGroup>
     </Pane>
     <PaneResizer class="pane-resizer vertical-resizer" />
-    <Pane bind:this={logPane} defaultSize={15} minSize={3} maxSize={40}><EventLog collapsed={logCollapsed} onToggle={toggleLogPane} /></Pane>
+    <Pane bind:this={logPane} defaultSize={34} minSize={3} maxSize={45}>
+      <PaneGroup direction="horizontal" autoSaveId="aircommand.command-row" class="command-row">
+        <Pane defaultSize={70} minSize={48}><EventLog collapsed={logCollapsed} onToggle={toggleLogPane} /></Pane>
+        <PaneResizer class="pane-resizer" />
+        <Pane defaultSize={30} minSize={22}><CommandStatus /></Pane>
+      </PaneGroup>
+    </Pane>
   </PaneGroup>
 </div>
 
@@ -486,11 +501,16 @@
   :global(.workspace-layout) { flex: 1; min-height: 0; }
   :global(.content-layout) { width: 100%; height: 100%; }
   :global(.content-layout [data-pane]), :global(.workspace-layout [data-pane]) { transition:flex-basis .2s ease; }
-  .left { display: grid; grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1px; background: #1a242e; overflow: hidden; height: 100%; }
+  .left { display:flex; flex-direction:column; gap:1px; background:#1a242e; overflow:hidden; height:100%; }
+  .left-tabs { display:flex; flex:none; gap:1px; background:var(--border-subtle); }
+  .left-tabs button { flex:1; padding:8px 4px; border:0; border-bottom:2px solid transparent; background:var(--bg-base); color:var(--text-muted); font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; }
+  .left-tabs button.active { color:var(--accent-cyan); border-bottom-color:var(--accent-cyan); }
+  .left > :global(.panel), .left > :global(.mission-block) { flex:1; min-height:0; }
+  :global(.command-row) { height:100%; width:100%; }
   .right-wrap { position:relative; height:100%; display:flex; flex-direction:column; background:var(--bg-panel); }
   .right-tabs { display:flex; align-items:stretch; flex:none; border-bottom:1px solid var(--border-subtle); background:var(--bg-base); }
   .right-tabs { overflow-x:auto; }
-  .right-tabs button { flex:1; padding:9px 4px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--text-muted); font:8px var(--font-mono); letter-spacing:.1em; cursor:pointer; transition:color .18s,border-color .18s; }
+  .right-tabs button { flex:1; min-width:58px; padding:9px 4px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--text-muted); font:8px var(--font-mono); letter-spacing:.1em; cursor:pointer; transition:color .18s,border-color .18s; }
   .right-tabs button:hover,.right-tabs button.active { color:var(--accent-cyan); }
   .right-tabs button.active { border-bottom-color:var(--accent-cyan); }
   .right-tabs button.right-collapse { flex:none; padding:0 8px; font-size:14px; }

@@ -58,7 +58,7 @@
 
   function handleMissionRowKeydown(event: KeyboardEvent, missionId: string) {
     const row = event.currentTarget as HTMLElement;
-    const rows = Array.from(row.parentElement?.querySelectorAll<HTMLElement>('.row[tabindex="0"]') ?? []);
+    const rows = Array.from(row.parentElement?.querySelectorAll<HTMLElement>('.row[tabindex="-1"]') ?? []);
     const index = rows.indexOf(row);
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
@@ -86,7 +86,7 @@
     {#each groups as [groupName, missions] (groupName)}
       <div class="group-label">{groupName} · {missions.length}</div>
       {#each missions as m (m.id)}
-      <div class="row" class:expanded={expandedMission === m.id} style="border-left:3px solid {priColor(m.priority)}" tabindex="0" role="group" aria-label="Mission {m.name}, priority {m.priority}" onkeydown={(event) => handleMissionRowKeydown(event, m.id)} onclick={(event) => { if (!(event.target as HTMLElement).closest('button')) onMissionSelect?.(m.id); }}>
+      <div class="row" class:expanded={expandedMission === m.id} style="border-left:3px solid {priColor(m.priority)}" tabindex="-1" role="group" aria-label="Mission {m.name}, priority {m.priority}" onkeydown={(event) => handleMissionRowKeydown(event, m.id)} onclick={(event) => { if (!(event.target as HTMLElement).closest('button')) onMissionSelect?.(m.id); }}>
         <div class="line1">
           <span class="name">{m.name}</span>
           <div class="line1-right">
