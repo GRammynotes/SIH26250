@@ -1,9 +1,11 @@
 {
-  "fcp": 660,
-  "fps_mean": 6.94,
-  "fps_min": 6,
-  "bundle_kb": 2098.41,
+  "fcp": 1120,
+  "fps_mean": 6.4,
+  "fps_min": 5,
+  "bundle_kb": 1286.33,
+  "bundle_gzip_kb": 364.81,
   "mission_started": true,
-  "measurement": "Headless Chromium requestAnimationFrame samples during scripted map panning",
-  "url": "http://localhost:5173/"
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "measurement": "Headless Chromium requestAnimationFrame samples during scripted map panning with a live training sortie",
+  "url": "http://127.0.0.1:5301/"
 }

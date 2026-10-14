@@ -3,9 +3,8 @@
   import maplibregl, { setMaxParallelImageRequests } from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { IAF_BASES } from '../../data/bases';
-  import { GROUND_ASSETS, type GroundAsset } from '../../data/groundAssets';
-  import { ENEMY_ASSETS, type EnemyAsset } from '../../data/enemyAssets';
-  import { militarySymbolElement, type MilitarySymbolKind } from '../../data/militarySymbols';
+  import { GROUND_ASSETS } from '../../data/groundAssets';
+  import { ENEMY_ASSETS } from '../../data/enemyAssets';
   import TerrainToggle from './TerrainToggle.svelte';
   import TrajectoryLayer from './TrajectoryLayer.svelte';
   import { type AirspaceZone, type WeatherSystem } from '../../types';
@@ -35,10 +34,6 @@
   let mapReady = $state(false);
   let mapZoom = $state(3.8);
   let mapCenterLabel = $state('31.0°N / 79.0°E');
-  let dynamicMarkers: maplibregl.Marker[] = [];
-  let aircraftCountMarker: maplibregl.Marker | null = null;
-  let groundMarkersList: maplibregl.Marker[] = [];
-  let baseMarkersList: { id: string; marker: maplibregl.Marker; el: HTMLElement }[] = [];
   let aircraftLayerClickAttached = false;
   let lastScenarioView: string | null | undefined;
   let terrain3dEnabled = false;
@@ -47,9 +42,7 @@
   let diagramExplanation = $state('');
   let diagramExplanationTimer: ReturnType<typeof setTimeout> | undefined;
   const circlePolygonCache = new Map<string, number[][]>();
-  const threatPolyCache = new Map<string, { key: string; outer: number[][]; mid: number[][]; inner: number[][] }>();
-  const aircraftMarkerHtmlCache = new Map<string, string>();
-  const aircraftDomMarkers = new Map<string, maplibregl.Marker>();
+  const threatPolyCache = new Map<string, number[][]>();
 
   // Map layer toggle states
   let showTerrain = $state(false);
@@ -61,13 +54,18 @@
   let showWeather = $state(true);
   let showEnemy = $state(true);
 
+  const palette = getComputedStyle(document.documentElement);
   const C = {
-    cyan: '#00d4ff',
-    amber: '#ffb800',
-    red: '#ff2d7c',
-    green: '#39ff14',
-    muted: '#64748b',
-    border: '#2a3447',
+    cyan: palette.getPropertyValue('--accent-cyan').trim(),
+    amber: palette.getPropertyValue('--accent-amber').trim(),
+    red: palette.getPropertyValue('--accent-red').trim(),
+    green: palette.getPropertyValue('--accent-green').trim(),
+    muted: palette.getPropertyValue('--text-muted').trim(),
+    border: palette.getPropertyValue('--border-strong').trim(),
+    base: palette.getPropertyValue('--bg-base').trim(),
+    text: palette.getPropertyValue('--text-primary').trim(),
+    secondary: palette.getPropertyValue('--text-secondary').trim(),
+    elevated: palette.getPropertyValue('--bg-elevated').trim(),
   };
 
   let trailHistory = $state.raw<Record<string, [number, number][]>>({});
@@ -145,6 +143,14 @@
         maxzoom: 12,
         attribution: 'Terrain: Mapzen/AWS',
       },
+      'hillshade-dem': {
+        type: 'raster-dem',
+        tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        encoding: 'terrarium',
+        maxzoom: 12,
+        attribution: 'Terrain: Mapzen/AWS',
+      },
       'tactical-grid': {
         type: 'geojson',
         data: createGridGeoJson(),
@@ -155,31 +161,31 @@
       {
         id: 'hillshade-base',
         type: 'hillshade',
-        source: 'terrain-dem',
+        source: 'hillshade-dem',
         minzoom: 5,
         maxzoom: 10,
         layout: { visibility: 'none' },
         paint: {
-          'hillshade-shadow-color': '#000814',
-          'hillshade-highlight-color': '#1a3a5c',
+          'hillshade-shadow-color': C.base,
+          'hillshade-highlight-color': C.elevated,
           'hillshade-exaggeration': 0.35,
           'hillshade-illumination-anchor': 'viewport',
           'hillshade-illumination-direction': 315,
-          'hillshade-accent-color': '#000814',
+          'hillshade-accent-color': C.base,
         },
       },
       {
         id: 'hillshade-detail',
         type: 'hillshade',
-        source: 'terrain-dem',
+        source: 'hillshade-dem',
         minzoom: 5,
         maxzoom: 10,
         layout: { visibility: 'none' },
         paint: {
-          'hillshade-shadow-color': '#00101f',
-          'hillshade-highlight-color': '#0d2a44',
+          'hillshade-shadow-color': C.base,
+          'hillshade-highlight-color': C.elevated,
           'hillshade-exaggeration': 0.5,
-          'hillshade-accent-color': '#00101f',
+          'hillshade-accent-color': C.base,
         },
       },
       {
@@ -188,18 +194,13 @@
         source: 'tactical-grid',
         layout: { visibility: 'visible' },
         paint: {
-          'line-color': 'rgba(0, 212, 255, 0.08)',
+          'line-color': C.cyan,
+          'line-opacity': 0.08,
           'line-width': 1,
         },
       },
     ],
   };
-
-  function el(html: string): HTMLDivElement {
-    const d = document.createElement('div');
-    d.innerHTML = html.trim();
-    return d.firstElementChild as HTMLDivElement;
-  }
 
   function ensureAircraftLayer() {
     if (!map) return;
@@ -218,29 +219,29 @@
     });
     if (!map.getLayer('aircraft-clusters')) map.addLayer({
       id: 'aircraft-clusters', type: 'circle', source: 'aircraft-gl', maxzoom: 6, filter: ['has', 'point_count'],
-      paint: { 'circle-color': '#00d4ff', 'circle-stroke-color': '#00d4ff', 'circle-stroke-width': 1, 'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'], 2, 10, 50, 20, 200, 30], 'circle-opacity': 0.35 },
+      paint: { 'circle-color': C.cyan, 'circle-stroke-color': C.cyan, 'circle-stroke-width': 1, 'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'], 2, 10, 50, 20, 200, 30], 'circle-opacity': 0.35 },
     });
     if (!map.getLayer('aircraft-cluster-count')) map.addLayer({
       id: 'aircraft-cluster-count', type: 'symbol', source: 'aircraft-gl', maxzoom: 6, filter: ['has', 'point_count'],
       layout: { 'text-field': ['get', 'point_count'], 'text-font': ['Open Sans Bold'], 'text-size': 13, 'text-allow-overlap': true },
-      paint: { 'text-color': '#f3fbff', 'text-halo-color': '#06131d', 'text-halo-width': 1.6 },
+      paint: { 'text-color': C.text, 'text-halo-color': C.base, 'text-halo-width': 1.6 },
     });
     if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
       id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl', minzoom: 4, filter: ['!', ['has', 'point_count']],
       layout: { 'icon-image': ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.3, 7, 0.6, 10, 1, 13, 1.3], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'text-field': ['get', 'tailNumber'], 'text-font': ['Open Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.4], 'text-anchor': 'top', 'text-optional': true, 'text-allow-overlap': true, 'text-ignore-placement': true },
-      paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 5, 0.7, 6, 1], 'text-color': '#00d4ff', 'text-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 5, 0.7, 6, 1], 'text-halo-color': '#05080f', 'text-halo-width': 1.5 },
+      paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 5, 0.7, 6, 1], 'text-color': C.cyan, 'text-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 5, 0.7, 6, 1], 'text-halo-color': C.base, 'text-halo-width': 1.5 },
     });
     if (!map.getLayer('aircraft-gl-labels')) map.addLayer({
       id: 'aircraft-gl-labels', type: 'symbol', source: 'aircraft-gl', minzoom: 5, filter: ['!', ['has', 'point_count']],
       layout: { 'text-field': ['get', 'tailNumber'], 'text-font': ['Open Sans Bold'], 'text-size': 10, 'text-offset': [0, 1.7], 'text-anchor': 'top', 'text-allow-overlap': true, 'text-ignore-placement': true },
-      paint: { 'text-color': '#00d4ff', 'text-halo-color': '#05080f', 'text-halo-width': 2 },
+      paint: { 'text-color': C.cyan, 'text-halo-color': C.base, 'text-halo-width': 2 },
     });
     if (!aircraftLayerClickAttached) {
       map.on('click', 'aircraft-gl-symbols', (event) => {
         const feature = event.features?.[0];
         const props = feature?.properties;
         if (!props || !event.lngLat) return;
-        new maplibregl.Popup({ offset: 14, closeButton: false }).setLngLat(event.lngLat).setHTML(`<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#e2e8f0;background:#0a0e1a;border:1px solid #2a3447;padding:9px 12px"><b style="color:#00d4ff">${props.tailNumber}</b><br>${props.type} · ${props.status}<br>FUEL ${props.fuel}% · BASE ${props.base}</div>`).addTo(map!);
+        new maplibregl.Popup({ offset: 14, closeButton: false }).setLngLat(event.lngLat).setHTML(`<div style="font:10px 'JetBrains Mono',monospace;color:${C.text};background:${C.base};border:1px solid ${C.border};padding:9px 12px"><b style="color:${C.cyan}">${props.tailNumber}</b><br>${props.type} · ${props.status}<br>FUEL ${props.fuel}% · BASE ${props.base}</div>`).addTo(map!);
       });
       map.on('mouseenter', 'aircraft-gl-symbols', () => { if (map) map.getCanvas().style.cursor = 'pointer'; });
       map.on('mouseleave', 'aircraft-gl-symbols', () => { if (map) map.getCanvas().style.cursor = ''; });
@@ -248,79 +249,29 @@
     }
   }
 
-  function updateAircraftCountMarker(aircraft: typeof system.aircraft) {
+  function ensureOperationalPointLayers() {
     if (!map) return;
-    if (aircraft.length <= 20) { aircraftCountMarker?.remove(); aircraftCountMarker = null; return; }
-    const center = aircraft.reduce((sum, item) => ({ lng: sum.lng + item.position.lng / aircraft.length, lat: sum.lat + item.position.lat / aircraft.length }), { lng: 0, lat: 0 });
-    if (!aircraftCountMarker) {
-      const badge = document.createElement('button');
-      badge.className = 'aircraft-count-cluster'; badge.type = 'button';
-      badge.setAttribute('aria-label', `${aircraft.length} aircraft in theater; zoom to force picture`);
-      badge.title = `${aircraft.length} aircraft · theater aggregation`;
-      badge.addEventListener('click', () => {
-        const current = system.aircraft;
-        if (!current.length) return;
-        const focus = current.reduce((sum, item) => ({ lng: sum.lng + item.position.lng / current.length, lat: sum.lat + item.position.lat / current.length }), { lng: 0, lat: 0 });
-        map?.flyTo({ center: [focus.lng, focus.lat], zoom: 5.2, duration: 700 });
+    const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+    for (const id of ['bases-gl', 'missions-gl', 'assets-gl']) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: empty });
+    if (!map.getLayer('bases-gl-symbols')) map.addLayer({ id: 'bases-gl-symbols', type: 'circle', source: 'bases-gl', minzoom: 3.5, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 7], 'circle-color': C.cyan, 'circle-stroke-color': C.base, 'circle-stroke-width': 1.5 } });
+    if (!map.getLayer('bases-gl-labels')) map.addLayer({ id: 'bases-gl-labels', type: 'symbol', source: 'bases-gl', minzoom: 5, layout: { 'text-field': ['get', 'code'], 'text-font': ['Open Sans Bold'], 'text-size': 9, 'text-offset': [0, 1.2], 'text-allow-overlap': true }, paint: { 'text-color': C.cyan, 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
+    if (!map.getLayer('missions-gl-symbols')) map.addLayer({ id: 'missions-gl-symbols', type: 'circle', source: 'missions-gl', minzoom: 4, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 4, 9, 8], 'circle-color': ['match', ['get', 'priority'], 1, C.red, 2, C.amber, C.muted], 'circle-stroke-color': C.base, 'circle-stroke-width': 1.5 } });
+    if (!map.getLayer('missions-gl-labels')) map.addLayer({ id: 'missions-gl-labels', type: 'symbol', source: 'missions-gl', minzoom: 5, layout: { 'text-field': ['get', 'label'], 'text-font': ['Open Sans Bold'], 'text-size': 9, 'text-offset': [0, 1.3], 'text-allow-overlap': true }, paint: { 'text-color': C.amber, 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
+    if (!map.getLayer('assets-gl-symbols')) map.addLayer({ id: 'assets-gl-symbols', type: 'circle', source: 'assets-gl', minzoom: 4, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 6], 'circle-color': ['get', 'color'], 'circle-stroke-color': C.base, 'circle-stroke-width': 1.3, 'circle-opacity': ['get', 'opacity'] } });
+    if (!map.getLayer('assets-gl-labels')) map.addLayer({ id: 'assets-gl-labels', type: 'symbol', source: 'assets-gl', minzoom: 6, layout: { 'text-field': ['get', 'label'], 'text-font': ['Open Sans Regular'], 'text-size': 8, 'text-offset': [0, 1.2], 'text-allow-overlap': true }, paint: { 'text-color': ['get', 'color'], 'text-halo-color': C.base, 'text-halo-width': 1.3 } });
+    for (const layerId of ['bases-gl-symbols', 'missions-gl-symbols', 'assets-gl-symbols']) {
+      map.on('mouseenter', layerId, () => { if (map) map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', layerId, () => { if (map) map.getCanvas().style.cursor = ''; });
+      map.on('click', layerId, (event) => {
+        const feature = event.features?.[0];
+        if (!feature || !event.lngLat || !map) return;
+        const props = feature.properties ?? {};
+        if (feature.source === 'bases-gl') onBaseSelect?.(String(props.id));
+        const heading = String(props.label ?? props.code ?? 'OPERATIONAL TRACK');
+        const details = Object.entries(props).filter(([key]) => !['label', 'code', 'color', 'opacity'].includes(key)).map(([key, value]) => `${key.toUpperCase()}: ${String(value)}`).join('<br>');
+        new maplibregl.Popup({ offset: 12, closeButton: false }).setLngLat(event.lngLat).setHTML(`<div style="font:9px 'JetBrains Mono',monospace;color:${C.text};background:${C.base};border:1px solid ${C.border};padding:9px 12px"><b style="color:${String(props.color ?? C.cyan)}">${heading}</b><br>${details}</div>`).addTo(map);
       });
-      aircraftCountMarker = new maplibregl.Marker({ element: badge, anchor: 'center' }).setLngLat([center.lng, center.lat]).addTo(map);
-    } else aircraftCountMarker.setLngLat([center.lng, center.lat]);
-    const badge = aircraftCountMarker.getElement();
-    badge.textContent = String(aircraft.length);
-    badge.setAttribute('aria-label', `${aircraft.length} aircraft in theater; zoom to force picture`);
-    const zoom = map.getZoom();
-    badge.style.display = zoom < 4 ? 'grid' : 'none';
-  }
-
-  // Upgraded Hexagonal Base Marker with rotating radar sweep
-  function createBaseMarker(baseId: string): HTMLDivElement {
-    const wrapper = el(`<div class="base-marker-wrap" data-base="${baseId}"></div>`);
-    wrapper.append(militarySymbolElement('friendlyInstallation', 28));
-    const sweep = document.createElement('div');
-    sweep.className = 'radar-sweep';
-    wrapper.append(sweep);
-    wrapper.addEventListener('click', (e) => {
-      e.stopPropagation();
-      onBaseSelect?.(baseId);
-    });
-    return wrapper;
-  }
-
-  // Upgraded Mission Marker with concentric rings and priority pulse
-  function missionMarker(priority: number): HTMLDivElement {
-    const color = priority === 1 ? C.red : priority === 2 ? C.amber : C.muted;
-    const pulseHtml = priority === 1 ? `<div class="mission-pulse" style="border-color:${color};"></div>` : '';
-    const borderStyle = priority === 3 ? 'dashed' : 'solid';
-
-    return el(`
-      <div class="mission-marker-wrap">
-        ${pulseHtml}
-        <div class="mission-outer" style="border:1.5px ${borderStyle} ${color}; box-shadow:0 0 10px ${color}, inset 0 0 5px rgba(255,45,124,0.3);">
-          <div class="mission-inner" style="border:1px solid ${color};"></div>
-          <div class="mission-dot" style="background:${color}; box-shadow:0 0 6px ${color};"></div>
-        </div>
-      </div>
-    `);
-  }
-
-  // Ground Asset Marker factory (Tank, UAV, SAM, Radar)
-  function createGroundAssetMarker(asset: GroundAsset): HTMLDivElement {
-    const wrapper = militarySymbolElement(asset.type === 'uav' ? 'friendlyAir' : 'friendlyInstallation', 28);
-    wrapper.classList.add('ground-marker-wrap');
-    wrapper.title = `${asset.designation} · ${asset.status}`;
-    const glyph = document.createElement('span');
-    glyph.className = `ground-status-glyph status-${asset.status.toLowerCase()}`;
-    glyph.textContent = asset.status === 'ACTIVE' ? '✓' : asset.status === 'STANDBY' ? '◐' : '×';
-    glyph.setAttribute('aria-label', asset.status);
-    wrapper.append(glyph);
-    return wrapper;
-  }
-
-  function createEnemyMarker(asset: EnemyAsset): HTMLDivElement {
-    const kind: MilitarySymbolKind = asset.type === 'aircraft' ? 'hostileAir' : 'hostileGround';
-    const wrapper = militarySymbolElement(kind, 32);
-    wrapper.title = asset.designation;
-    return wrapper;
+    }
   }
 
   function circlePolygon(center: [number, number], radiusKm: number, points = 64): number[][] {
@@ -340,41 +291,19 @@
     return coords;
   }
 
-  function aircraftMarker(ac: import('../../types').Aircraft): HTMLDivElement {
-    const key = `${ac.type}-${ac.status}-${ac.heading}`;
-    let markup = aircraftMarkerHtmlCache.get(key);
-    if (!markup) {
-      const wrapper = militarySymbolElement('friendlyAir', 30);
-      const glyph = document.createElement('span');
-      glyph.className = `aircraft-status-glyph aircraft-status-${ac.status.toLowerCase()}`;
-      glyph.textContent = ac.status === 'FMC' ? '✓' : ac.status === 'PMC' ? '◐' : '×';
-      glyph.setAttribute('aria-label', ac.status);
-      wrapper.append(glyph);
-      wrapper.style.transform = `rotate(${ac.heading}deg)`;
-      markup = wrapper.outerHTML;
-      aircraftMarkerHtmlCache.set(key, markup);
-    }
-    const wrapper = el(markup);
-    wrapper.dataset.aircraftId = ac.id;
-    wrapper.style.cursor = 'pointer';
-    wrapper.style.transition = 'transform 0.15s ease';
-    wrapper.title = `${ac.tailNumber} · ${ac.status}`;
-    return wrapper;
-  }
-
   function threatPolygons(threat: import('../../types').Threat) {
     const { lat, lng } = threat.position;
     const key = `${threat.id}-${threat.radius}-${lat}-${lng}`;
-    const cached = threatPolyCache.get(threat.id);
-    if (cached?.key === key) return cached;
-    const next = {
-      key,
-      outer: circlePolygon([lng, lat], threat.radius),
-      mid: circlePolygon([lng, lat], threat.radius * 0.66),
-      inner: circlePolygon([lng, lat], threat.radius * 0.33),
+    const cachedRing = (ring: string, radius: number) => {
+      const ringKey = `${key}-${ring}`;
+      const cached = threatPolyCache.get(ringKey);
+      if (cached) return cached;
+      const coordinates = circlePolygon([lng, lat], radius);
+      threatPolyCache.set(ringKey, coordinates);
+      if (threatPolyCache.size > 512) threatPolyCache.delete(threatPolyCache.keys().next().value!);
+      return coordinates;
     };
-    threatPolyCache.set(threat.id, next);
-    return next;
+    return { outer: cachedRing('outer', threat.radius), mid: cachedRing('mid', threat.radius * .66), inner: cachedRing('inner', threat.radius * .33) };
   }
 
   function polygonFeatures(items: Array<AirspaceZone | WeatherSystem>): GeoJSON.Feature[] {
@@ -511,30 +440,16 @@
       mapZoom = zoom;
       const center = map.getCenter();
       mapCenterLabel = `${Math.abs(center.lat).toFixed(1)}°${center.lat >= 0 ? 'N' : 'S'} / ${Math.abs(center.lng).toFixed(1)}°${center.lng >= 0 ? 'E' : 'W'}`;
-      const display = zoom < 4 ? 'none' : '';
-      for (const marker of dynamicMarkers) marker.getElement().style.display = display;
       const hillshadeVisibility = showTerrain && zoom >= 8 ? 'visible' : 'none';
       if (map.getLayer('hillshade-base')) map.setLayoutProperty('hillshade-base', 'visibility', hillshadeVisibility);
       if (map.getLayer('hillshade-detail')) map.setLayoutProperty('hillshade-detail', 'visibility', hillshadeVisibility);
-      for (const base of baseMarkersList) {
-        // At theater scale show the aggregate force badge only; individual
-        // installations and units become useful once the operator zooms in.
-        base.el.style.display = zoom < 4 ? 'none' : '';
-        const symbol = base.el.querySelector<HTMLElement>('.mil-symbol');
-        if (symbol) { symbol.style.transform = `scale(${Math.max(.55, Math.min(1, .55 + (zoom - 3.2) * .16))})`; symbol.style.transformOrigin = 'center'; }
-        const sweep = base.el.querySelector<HTMLElement>('.radar-sweep');
-        if (sweep) sweep.style.display = zoom < 6 ? 'none' : '';
-      }
-      if (aircraftCountMarker) {
-        const badge = aircraftCountMarker.getElement();
-        badge.style.display = zoom < 4 ? 'grid' : 'none';
-      }
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
 
     map.on('load', () => {
       const m = map!;
+      ensureOperationalPointLayers();
       m.addSource('scenario-area', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'scenario-area-fill', type: 'fill', source: 'scenario-area', paint: { 'fill-color': C.cyan, 'fill-opacity': 0.035 } });
       m.addLayer({ id: 'scenario-area-outline', type: 'line', source: 'scenario-area', paint: { 'line-color': C.cyan, 'line-width': 1.6, 'line-opacity': 0.78, 'line-dasharray': [1.2, 1.6] } });
@@ -547,23 +462,6 @@
       m.addLayer({ id: 'matrix-highlight-fuel', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'fuel'], paint: { 'line-color': C.green, 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': .85 } });
       m.addLayer({ id: 'matrix-highlight-wez', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'wez'], paint: { 'line-color': C.red, 'line-width': 1.5, 'line-dasharray': [1, 2], 'line-opacity': .95 } });
       m.addLayer({ id: 'matrix-highlight-route', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'route'], paint: { 'line-color': C.cyan, 'line-width': 2.5, 'line-opacity': .95 } });
-      baseMarkersList = [];
-      for (const base of IAF_BASES) {
-        const markerEl = createBaseMarker(base.id);
-        const mk = new maplibregl.Marker({ element: markerEl })
-          .setLngLat([base.lng, base.lat])
-          .setPopup(
-            new maplibregl.Popup({ offset: 14, closeButton: false }).setHTML(
-              `<div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#e2e8f0;background:#0a0e1a;border:1px solid #2a3447;padding:10px 14px;">
-                <div style="color:#00d4ff;letter-spacing:0.15em;">${base.code}</div>
-                <div style="color:#94a3b8;font-size:10px;margin-top:4px;">${base.name}</div>
-                <div style="color:#64748b;font-size:9px;margin-top:2px;">ELEV ${base.elevation}m · CLICK FOR DETAIL</div>
-              </div>`
-            )
-          )
-          .addTo(m);
-        baseMarkersList.push({ id: base.id, marker: mk, el: markerEl });
-      }
       m.fire('zoom');
       mapReady = true;
     });
@@ -662,26 +560,14 @@
         if (!map) return;
 
     ensureAircraftLayer();
+    ensureOperationalPointLayers();
     const aircraftSource = map.getSource('aircraft-gl') as maplibregl.GeoJSONSource | undefined;
-    updateAircraftCountMarker(aircraft);
     if (aircraftSource) {
       aircraftSource.setData({ type: 'FeatureCollection', features: aircraft.map((ac) => ({ type: 'Feature', properties: { id: ac.id, tailNumber: ac.tailNumber, status: ac.status, type: ac.type, fuel: ac.fuel, base: ac.base.toUpperCase() }, geometry: { type: 'Point', coordinates: [ac.position.lng, ac.position.lat] } })) });
-      map.setLayoutProperty('aircraft-gl-symbols', 'visibility', aircraft.length > 20 ? 'visible' : 'none');
+      map.setLayoutProperty('aircraft-gl-symbols', 'visibility', 'visible');
     }
-
-    // Update selected base styling
-    for (const b of baseMarkersList) {
-      const base = IAF_BASES.find((item) => item.id === b.id);
-      b.el.style.opacity = !area || !base || inArea([{ lng: base.lng, lat: base.lat }]) ? '1' : '.28';
-      if (b.id === selBase) {
-        b.el.classList.add('selected');
-      } else {
-        b.el.classList.remove('selected');
-      }
-    }
-
-    for (const m of dynamicMarkers) m.remove();
-    dynamicMarkers = [];
+    const baseSource = map.getSource('bases-gl') as maplibregl.GeoJSONSource;
+    baseSource.setData({ type: 'FeatureCollection', features: IAF_BASES.map((base) => ({ type: 'Feature', properties: { id: base.id, code: base.code, label: base.name, elevation: base.elevation, selected: base.id === selBase }, geometry: { type: 'Point', coordinates: [base.lng, base.lat] } })) });
 
     // Clean previous trail layers
     for (let i = 0; i < 40; i++) {
@@ -772,7 +658,7 @@
           'circle-color': color,
           'circle-opacity': 0.85,
           'circle-stroke-width': 1.5,
-          'circle-stroke-color': '#05080f',
+          'circle-stroke-color': C.base,
         },
       });
     });
@@ -881,7 +767,7 @@
       layout: { visibility: threatVis, 'text-field': '◆', 'text-size': 11, 'text-allow-overlap': true, 'text-ignore-placement': true },
       paint: {
         'text-color': C.red,
-        'text-halo-color': '#05080f',
+        'text-halo-color': C.base,
         'text-halo-width': 1,
       },
     });
@@ -924,20 +810,20 @@
     setGeoJSONSource('airspace-zones', { type: 'FeatureCollection', features: polygonFeatures(airspace) });
     map.addLayer({
       id: 'airspace-fill', type: 'fill', source: 'airspace-zones', layout: { visibility: showAirspace ? 'visible' : 'none' },
-      paint: { 'fill-color': ['match', ['get', 'type'], 'corridor', C.cyan, 'kill-box', C.amber, 'restricted', C.red, '#64748b'], 'fill-opacity': ['case', ['==', ['get', 'status'], 'CLOSED'], 0.16, 0.08] },
+      paint: { 'fill-color': ['match', ['get', 'type'], 'corridor', C.cyan, 'kill-box', C.amber, 'restricted', C.red, C.muted], 'fill-opacity': ['case', ['==', ['get', 'status'], 'CLOSED'], 0.16, 0.08] },
     });
     map.addLayer({
       id: 'airspace-line', type: 'line', source: 'airspace-zones', layout: { visibility: showAirspace ? 'visible' : 'none' },
-      paint: { 'line-color': ['match', ['get', 'type'], 'corridor', C.cyan, 'kill-box', C.amber, 'restricted', C.red, '#64748b'], 'line-width': 1.3, 'line-dasharray': [3, 2] },
+      paint: { 'line-color': ['match', ['get', 'type'], 'corridor', C.cyan, 'kill-box', C.amber, 'restricted', C.red, C.muted], 'line-width': 1.3, 'line-dasharray': [3, 2] },
     });
     setGeoJSONSource('weather-systems', { type: 'FeatureCollection', features: polygonFeatures(weather) });
     map.addLayer({
       id: 'weather-fill', type: 'fill', source: 'weather-systems', layout: { visibility: showWeather ? 'visible' : 'none' },
-      paint: { 'fill-color': ['match', ['get', 'type'], 'storm', '#2878ff', 'fog', '#94a3b8', 'front', '#00d4ff', '#39ff14'], 'fill-opacity': ['interpolate', ['linear'], ['get', 'severity'], 1, 0.025, 5, 0.18] },
+      paint: { 'fill-color': ['match', ['get', 'type'], 'storm', C.cyan, 'fog', C.secondary, 'front', C.cyan, C.green], 'fill-opacity': ['interpolate', ['linear'], ['get', 'severity'], 1, 0.025, 5, 0.18] },
     });
     map.addLayer({
       id: 'weather-line', type: 'line', source: 'weather-systems', layout: { visibility: showWeather ? 'visible' : 'none' },
-      paint: { 'line-color': ['match', ['get', 'type'], 'storm', '#2878ff', 'fog', '#94a3b8', 'front', '#00d4ff', '#39ff14'], 'line-width': 1, 'line-opacity': 0.8 },
+      paint: { 'line-color': ['match', ['get', 'type'], 'storm', C.cyan, 'fog', C.secondary, 'front', C.cyan, C.green], 'line-width': 1, 'line-opacity': 0.8 },
     });
 
     // Selected COA spatial plan: base → ingress → WEZ → release → egress → RTB.
@@ -972,112 +858,13 @@
       }
     }
 
-    // Upgraded Mission markers (Layer 7)
-    for (const mission of missions) {
-      dynamicMarkers.push(
-        new maplibregl.Marker({ element: missionMarker(mission.priority) })
-          .setLngLat([mission.target.lng, mission.target.lat])
-          .setPopup(
-            new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(
-              `<div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#e2e8f0;background:#0a0e1a;border:1px solid #2a3447;padding:10px 14px;">
-                <div style="color:#ffb800;letter-spacing:0.15em;">${mission.name}</div>
-                <div style="color:#94a3b8;font-size:10px;margin-top:4px;">PRIORITY ${mission.priority}</div>
-                <div style="color:#64748b;font-size:9px;">RISK ${mission.riskLevel}/100</div>
-              </div>`
-            )
-          )
-          .addTo(map)
-      );
-    }
-
-    // Small fleets retain keyed DOM markers and popups; large fleets use one GL symbol layer.
-    if (aircraft.length <= 20) {
-      const ids = new Set(aircraft.map((ac) => ac.id));
-      for (const [id, marker] of aircraftDomMarkers) if (!ids.has(id)) { marker.remove(); aircraftDomMarkers.delete(id); }
-      for (const ac of aircraft) {
-      const color = ac.status === 'FMC' ? C.green : ac.status === 'PMC' ? C.amber : C.red;
-      const wrapper = aircraftMarker(ac);
-      let marker = aircraftDomMarkers.get(ac.id);
-      if (marker) {
-        const element = marker.getElement();
-        element.innerHTML = wrapper.innerHTML;
-        element.style.transform = wrapper.style.transform;
-        element.dataset.aircraftId = ac.id;
-        element.title = wrapper.title;
-        marker.setLngLat([ac.position.lng, ac.position.lat]);
-      } else {
-        marker = new maplibregl.Marker({ element: wrapper }).setLngLat([ac.position.lng, ac.position.lat]).addTo(map);
-        aircraftDomMarkers.set(ac.id, marker);
-      }
-      marker.setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }).setHTML(
-              `<div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#e2e8f0;background:#0a0e1a;border:1px solid #2a3447;padding:10px 14px;min-width:210px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                  <span style="color:#00d4ff;letter-spacing:0.15em;">${ac.tailNumber}</span>
-                  <span style="color:${color};font-size:9px;letter-spacing:0.1em;">${ac.status}</span>
-                </div>
-                <div style="color:#94a3b8;font-size:10px;">${ac.type}</div>
-                <div style="color:#64748b;font-size:9px;margin-top:6px;">FUEL ${ac.fuel}% · CREW ${ac.crewRest}h · BASE ${ac.base.toUpperCase()}</div>
-                <div style="color:#64748b;font-size:9px;margin-top:2px;">HDG ${ac.heading}° · SPD ${ac.speed}</div>
-                <div style="margin-top:8px;padding-top:6px;border-top:1px dashed #2a3447;">
-                  <button
-                    style="background:transparent;border:1px solid #00d4ff;color:#00d4ff;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.12em;padding:3px 8px;cursor:pointer;width:100%;text-align:center;"
-                    onclick="window.__airCommandLoadout && window.__airCommandLoadout('${ac.type}','${ac.tailNumber}')"
-                  >
-                    ◈ OPEN LOADOUT DIAGRAM
-                  </button>
-                </div>
-              </div>`));
-      }
-    } else {
-      for (const marker of aircraftDomMarkers.values()) marker.remove();
-      aircraftDomMarkers.clear();
-    }
-
-    // Ground asset markers (Layer A3)
-    if (showGround) {
-      for (const ga of GROUND_ASSETS) {
-        const markerEl = createGroundAssetMarker(ga);
-        markerEl.style.opacity = !area || inArea([ga.position]) ? '1' : '.24';
-        dynamicMarkers.push(
-          new maplibregl.Marker({ element: markerEl })
-            .setLngLat([ga.position.lng, ga.position.lat])
-            .setPopup(
-              new maplibregl.Popup({ offset: 12, closeButton: false }).setHTML(
-                `<div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#e2e8f0;background:#0a0e1a;border:1px solid #2a3447;padding:10px 14px;min-width:200px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <span style="color:#39ff14;letter-spacing:0.14em;font-weight:700;">${ga.designation}</span>
-                    <span style="color:#00d4ff;font-size:8px;letter-spacing:0.1em;border:1px solid #00d4ff;padding:1px 4px;">${ga.type.toUpperCase()}</span>
-                  </div>
-                  <div style="color:#94a3b8;font-size:9.5px;">${ga.specs}</div>
-                  <div style="color:#64748b;font-size:8.5px;margin-top:4px;">ARMAMENT: ${ga.armament}</div>
-                  <div style="color:#ffb800;font-size:8.5px;margin-top:2px;">RANGE: ${ga.range_km} KM · BASE: ${ga.base.toUpperCase()} · STATUS: ${ga.status}</div>
-                </div>`
-              )
-            )
-            .addTo(map)
-        );
-      }
-    }
-
-    if (showEnemy) {
-      for (const asset of ENEMY_ASSETS) {
-        const markerEl = createEnemyMarker(asset);
-        markerEl.style.opacity = !area || inArea([asset.position]) ? '1' : '.24';
-        dynamicMarkers.push(new maplibregl.Marker({ element: markerEl })
-          .setLngLat([asset.position.lng, asset.position.lat])
-          .setPopup(new maplibregl.Popup({ offset: 12, closeButton: false }).setHTML(
-            `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#e2e8f0;background:#0a0e1a;border:1px solid #ff2d7c;padding:10px 12px;min-width:210px;">
-              <div style="color:#ff2d7c;letter-spacing:.12em;">${asset.designation}</div>
-              <div style="color:#94a3b8;margin-top:5px;">${asset.type.toUpperCase()} · ${asset.behaviour.toUpperCase()}</div>
-              <div style="color:#64748b;margin-top:4px;">RANGE ${asset.engagementRange_km}KM · PK ${Math.round(asset.probabilityKill * 100)}% · EMISSION ${asset.emissionState.toUpperCase()}</div>
-            </div>`)).addTo(map));
-      }
-    }
-    // Markers can be added by a store update after the last zoom event. Apply
-    // the theater-scale declutter rule here as well as in the zoom listener.
-    const hideIndividualMarkers = map.getZoom() < 4;
-    for (const marker of dynamicMarkers) marker.getElement().style.display = hideIndividualMarkers ? 'none' : '';
-    for (const marker of aircraftDomMarkers.values()) marker.getElement().style.display = hideIndividualMarkers ? 'none' : '';
+    setGeoJSONSource('missions-gl', { type: 'FeatureCollection', features: missions.map((item) => ({ type: 'Feature', properties: { id: item.id, label: item.name, priority: item.priority, risk: item.riskLevel, color: item.priority === 1 ? C.red : item.priority === 2 ? C.amber : C.muted }, geometry: { type: 'Point', coordinates: [item.target.lng, item.target.lat] } })) });
+    setGeoJSONSource('assets-gl', { type: 'FeatureCollection', features: [
+      ...(showGround ? GROUND_ASSETS.map((item) => ({ type: 'Feature' as const, properties: { id: item.id, label: item.designation, type: item.type, status: item.status, color: C.green, opacity: !area || inArea([item.position]) ? 1 : .24, armament: item.armament, rangeKm: item.range_km }, geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : []),
+      ...(showEnemy ? ENEMY_ASSETS.map((item) => ({ type: 'Feature' as const, properties: { id: item.id, label: item.designation, type: item.type, behaviour: item.behaviour, color: C.red, opacity: !area || inArea([item.position]) ? 1 : .24, rangeKm: item.engagementRange_km, probabilityKill: item.probabilityKill }, geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : []),
+    ] });
+    map.setLayoutProperty('assets-gl-symbols', 'visibility', 'visible');
+    map.setLayoutProperty('missions-gl-symbols', 'visibility', 'visible');
       });
     }, 150);
     return () => { window.clearTimeout(debounce); if (frame) window.cancelAnimationFrame(frame); };
@@ -1132,7 +919,7 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background: #05080f;
+    background: var(--bg-base);
   }
   .map-canvas {
     position: absolute;
@@ -1147,8 +934,8 @@
     inset: 0;
     background-image: repeating-linear-gradient(
       0deg,
-      rgba(0, 212, 255, 0.02) 0px,
-      rgba(0, 212, 255, 0.02) 1px,
+      color-mix(in srgb, var(--accent-cyan) 2%, transparent) 0px,
+      color-mix(in srgb, var(--accent-cyan) 2%, transparent) 1px,
       transparent 1px,
       transparent 3px
     );
@@ -1212,7 +999,7 @@
     color: var(--accent-cyan);
     opacity: 0.65;
     pointer-events: none;
-    text-shadow: 0 0 4px rgba(0, 212, 255, 0.7);
+    text-shadow: 0 0 4px color-mix(in srgb, var(--accent-cyan) 70%, transparent);
     z-index: 5;
   }
   .coord.tl { top: 8px; left: 10px; }
@@ -1224,12 +1011,12 @@
   .bearing.east { right:10px; top:50%; transform:translateY(-50%); writing-mode:vertical-rl; }.bearing.west { left:10px; top:50%; transform:translateY(-50%); writing-mode:vertical-rl; }
   .fullscreen-btn { position:absolute; top:28px; right:10px; z-index:7; padding:6px 9px; background:rgba(5,8,15,.9); border:1px solid var(--border-strong); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; transition:background .18s,border-color .18s; }
   .theater-toggle { position:absolute; top:25px; left:10px; z-index:7; padding:4px 7px; background:rgba(5,8,15,.9); border:1px solid var(--border-strong); color:var(--accent-cyan); font:10px var(--font-mono); cursor:pointer; }
-  .fullscreen-btn:hover,.fullscreen-btn:focus-visible { border-color:var(--accent-cyan); background:rgba(0,212,255,.1); outline:none; }
+  .fullscreen-btn:hover,.fullscreen-btn:focus-visible { border-color:var(--accent-cyan); background:color-mix(in srgb, var(--accent-cyan) 10%, transparent); outline:none; }
   .diagram-explanation { position:absolute; z-index:8; left:50%; bottom:34px; transform:translateX(-50%); width:min(520px,calc(100% - 32px)); padding:11px 14px; background:rgba(5,8,15,.94); border:1px solid var(--accent-cyan); border-left:3px solid var(--accent-cyan); box-shadow:0 8px 30px rgba(0,0,0,.55); pointer-events:none; }
   .diagram-explanation span { color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.16em; }
-  .diagram-explanation p { margin:5px 0 0; color:var(--text-primary); font:12px/1.45 var(--font-sans); }
-  :global(.aircraft-count-cluster) { display:grid; place-items:center; width:44px; height:44px; border:2px solid var(--accent-cyan); border-radius:50%; color:#f3fbff; background:rgba(5,24,34,.96); box-shadow:0 0 0 5px rgba(0,212,255,.12),0 0 18px rgba(0,212,255,.35); font:700 15px var(--font-mono); cursor:pointer; transition:transform .15s,box-shadow .15s; }
-  :global(.aircraft-count-cluster:hover) { transform:scale(1.08); box-shadow:0 0 0 7px rgba(0,212,255,.17),0 0 22px rgba(0,212,255,.5); }
+  .diagram-explanation p { margin:5px 0 0; color:var(--text-primary); font:12px/1.45 var(--font-mono); }
+  :global(.aircraft-count-cluster) { display:grid; place-items:center; width:44px; height:44px; border:2px solid var(--accent-cyan); border-radius:50%; color:var(--text-primary); background:rgba(5,24,34,.96); box-shadow:0 0 0 5px color-mix(in srgb, var(--accent-cyan) 12%, transparent),0 0 18px color-mix(in srgb, var(--accent-cyan) 35%, transparent); font:700 15px var(--font-mono); cursor:pointer; transition:transform .15s,box-shadow .15s; }
+  :global(.aircraft-count-cluster:hover) { transform:scale(1.08); box-shadow:0 0 0 7px color-mix(in srgb, var(--accent-cyan) 17%, transparent),0 0 22px color-mix(in srgb, var(--accent-cyan) 50%, transparent); }
 
   .degraded {
     position: absolute;
@@ -1237,7 +1024,7 @@
     left: 50%;
     transform: translateX(-50%);
     padding: 6px 16px;
-    background: rgba(255, 45, 124, 0.15);
+    background: color-mix(in srgb, var(--accent-red) 15%, transparent);
     border: 1px solid var(--accent-red);
     color: var(--accent-red);
     font-size: 10px;
@@ -1246,14 +1033,14 @@
     z-index: 6;
   }
   .mono { font-family: var(--font-mono); }
-  :global(.mil-symbol) { position: relative; display: grid; place-items: center; width: max-content; filter: drop-shadow(0 0 4px rgba(0, 212, 255, .35)); }
+  :global(.mil-symbol) { position: relative; display: grid; place-items: center; width: max-content; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent-cyan) 35%, transparent)); }
   :global(.mil-symbol svg) { display: block; max-width: 36px; max-height: 36px; }
-  :global(.mil-symbol-hostileAir), :global(.mil-symbol-hostileGround) { filter: drop-shadow(0 0 4px rgba(255, 45, 124, .45)); }
-  :global(.aircraft-status-glyph) { position: absolute; right: -4px; bottom: -4px; min-width: 12px; height: 12px; display: grid; place-items: center; border: 1px solid currentColor; background: #05080f; font: 9px/1 var(--font-mono); }
+  :global(.mil-symbol-hostileAir), :global(.mil-symbol-hostileGround) { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent-red) 45%, transparent)); }
+  :global(.aircraft-status-glyph) { position: absolute; right: -4px; bottom: -4px; min-width: 12px; height: 12px; display: grid; place-items: center; border: 1px solid currentColor; background: var(--bg-base); font: 9px/1 var(--font-mono); }
   :global(.aircraft-status-fmc) { color: var(--accent-green); }
   :global(.aircraft-status-pmc) { color: var(--accent-amber); }
   :global(.aircraft-status-nmc) { color: var(--accent-red); }
-  :global(.ground-status-glyph) { position:absolute; right:-3px; bottom:-3px; min-width:11px; height:11px; display:grid; place-items:center; border:1px solid currentColor; background:#05080f; font:8px/1 var(--font-mono); }
+  :global(.ground-status-glyph) { position:absolute; right:-3px; bottom:-3px; min-width:11px; height:11px; display:grid; place-items:center; border:1px solid currentColor; background:var(--bg-base); font:8px/1 var(--font-mono); }
   :global(.status-active) { color:var(--accent-green); }:global(.status-standby) { color:var(--accent-amber); }:global(.status-offline) { color:var(--accent-red); }
   :global(.matrix-highlight-marker) { transform:scale(1.35); filter:drop-shadow(0 0 9px var(--accent-cyan)); z-index:10; }
 
@@ -1268,19 +1055,19 @@
   }
   :global(.maplibregl-popup-tip) { display: none !important; }
   :global(.maplibregl-ctrl-group) {
-    background: #0a0e1a !important;
-    border: 1px solid #2a3447 !important;
+    background: var(--bg-panel) !important;
+    border: 1px solid var(--border-strong) !important;
     border-radius: 0 !important;
   }
   :global(.maplibregl-ctrl-group button) {
     background: transparent !important;
-    border-bottom: 1px solid #2a3447 !important;
+    border-bottom: 1px solid var(--border-strong) !important;
   }
   :global(.maplibregl-ctrl-group button span) { filter: invert(1) hue-rotate(180deg); }
   :global(.maplibregl-ctrl-scale) {
     background: rgba(5, 8, 15, 0.9) !important;
-    border-color: #2a3447 !important;
-    color: #00d4ff !important;
+    border-color: var(--border-strong) !important;
+    color: var(--accent-cyan) !important;
     font-family: 'JetBrains Mono', monospace !important;
     font-size: 9px !important;
     letter-spacing: 0.1em !important;
@@ -1306,31 +1093,31 @@
   :global(.base-marker-wrap .hex-outer) {
     width: 14px;
     height: 14px;
-    background: rgba(0, 212, 255, 0.2);
+    background: color-mix(in srgb, var(--accent-cyan) 20%, transparent);
     clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
-    border: 1px solid #00d4ff;
-    box-shadow: 0 0 8px #00d4ff;
+    border: 1px solid var(--accent-cyan);
+    box-shadow: 0 0 8px var(--accent-cyan);
     display: grid;
     place-items: center;
     transition: all 0.15s;
   }
   :global(.base-marker-wrap:hover .hex-outer) {
-    box-shadow: 0 0 14px #00d4ff;
-    background: rgba(0, 212, 255, 0.4);
+    box-shadow: 0 0 14px var(--accent-cyan);
+    background: color-mix(in srgb, var(--accent-cyan) 40%, transparent);
   }
   :global(.base-marker-wrap .hex-inner) {
     width: 8px;
     height: 8px;
     clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
-    border: 0.5px solid rgba(0, 212, 255, 0.8);
-    background: #00d4ff;
+    border: 0.5px solid color-mix(in srgb, var(--accent-cyan) 80%, transparent);
+    background: var(--accent-cyan);
   }
 
   :global(.base-marker-wrap .radar-sweep) {
     position: absolute;
     inset: -3px;
     border-radius: 50%;
-    border-top: 1px solid #00d4ff;
+    border-top: 1px solid var(--accent-cyan);
     pointer-events: none;
     animation: radarSweep 3s linear infinite;
     opacity: 0.6;
@@ -1383,3 +1170,4 @@
     100% { transform: scale(1.6); opacity: 0; }
   }
 </style>
+

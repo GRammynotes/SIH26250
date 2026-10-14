@@ -1,13 +1,15 @@
 import { chromium } from 'playwright';
 import { readdir, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
 
 const url = process.env.PROFILE_URL ?? 'http://localhost:5173/';
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 120_000 });
-  await page.waitForTimeout(1500);
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await page.waitForSelector('.maplibregl-canvas', { timeout: 60_000 });
+  await page.waitForTimeout(2000);
   const fcp = await page.evaluate(() => {
     const paint = performance.getEntriesByName('first-contentful-paint')[0];
     if (paint) return Math.round(paint.startTime);
@@ -18,13 +20,14 @@ try {
   // Start the bundled historical exercise so the map carries a live mission
   // route during the panning sample.
   let missionStarted = false;
-  await page.getByRole('button', { name: 'HELP', exact: true }).click();
-  await page.getByRole('menuitem', { name: /TRAINING SIMULATION/i }).click();
-  await page.getByRole('button', { name: /START SIMULATION/i }).click();
-  await page.waitForTimeout(2500);
-  await page.getByRole('button', { name: /CLOSE SIMULATION/i }).click();
-  await page.waitForTimeout(1200);
-  missionStarted = (await page.locator('.trajectory-dot').count()) > 0;
+  if (process.env.PROFILE_MISSION !== '0') {
+    await page.getByRole('button', { name: /Start historical training/i }).click();
+    await page.getByRole('button', { name: /START SIMULATION/i }).click();
+    await page.waitForTimeout(2200);
+    missionStarted = await page.getByRole('button', { name: /CLOSE EXERCISE/i }).count() > 0;
+    await page.getByRole('button', { name: /CLOSE EXERCISE/i }).click();
+    await page.waitForTimeout(800);
+  }
 
   const fpsPromise = page.evaluate(async () => {
     const samples = [];
@@ -61,8 +64,10 @@ try {
 
   const assets = await readdir('dist/assets');
   let bundleBytes = 0;
-  for (const file of assets.filter((name) => name.endsWith('.js'))) bundleBytes += (await stat(join('dist/assets', file))).size;
-  const result = { fcp, fps_mean: Math.round(fps.mean * 100) / 100, fps_min: Math.round(fps.min * 100) / 100, bundle_kb: Math.round(bundleBytes / 1024 * 100) / 100, mission_started: missionStarted, measurement: 'Headless Chromium requestAnimationFrame samples during scripted map panning', url };
+  let gzipBytes = 0;
+  for (const file of assets.filter((name) => name.endsWith('.js'))) { const contents = await (await import('node:fs/promises')).readFile(join('dist/assets', file)); bundleBytes += contents.byteLength; gzipBytes += gzipSync(contents).byteLength; }
+  const renderer = await page.evaluate(() => { const gl = document.querySelector('canvas')?.getContext('webgl2') ?? document.querySelector('canvas')?.getContext('webgl'); const ext = gl?.getExtension('WEBGL_debug_renderer_info'); return ext ? gl?.getParameter(ext.UNMASKED_RENDERER_WEBGL) : 'unavailable'; });
+  const result = { fcp, fps_mean: Math.round(fps.mean * 100) / 100, fps_min: Math.round(fps.min * 100) / 100, bundle_kb: Math.round(bundleBytes / 1024 * 100) / 100, bundle_gzip_kb: Math.round(gzipBytes / 1024 * 100) / 100, mission_started: missionStarted, renderer, measurement: `Headless Chromium requestAnimationFrame samples during scripted map panning${missionStarted ? ' with a live training sortie' : ''}`, url };
   console.log(JSON.stringify(result, null, 2));
   await writeFile('docs/screenshots/final/06-fps-profiling.json', JSON.stringify(result, null, 2) + '\n');
 } finally {

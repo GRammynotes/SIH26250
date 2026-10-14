@@ -1,4 +1,4 @@
-import greatCircle from '@turf/great-circle';
+import { greatCircle } from '@turf/great-circle';
 import type { Position } from '../types';
 
 export type Coordinate = [number, number];
