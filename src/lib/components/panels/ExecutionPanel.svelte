@@ -32,7 +32,7 @@
     <div class="hdr">
       <span>ACTIVE MISSIONS</span>
       <span class="count">{activeList.length} IN FLIGHT</span>
-      <button class="chevron" aria-label="Collapse right panel" title="Collapse right panel" onclick={() => onCollapse?.()}>›</button>
+      {#if onCollapse}<button class="chevron" aria-label="Collapse right panel" title="Collapse right panel" onclick={() => onCollapse?.()}>›</button>{/if}
     </div>
 
     {#each activeList as am (am.id)}

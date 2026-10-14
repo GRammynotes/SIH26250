@@ -41,6 +41,7 @@
   let leftCollapsed = $state(false);
   let rightCollapsed = $state(false);
   let logCollapsed = $state(false);
+  let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution'>('coa');
   let leftPane: { resize: (size: number) => void } | undefined;
   let rightPane: { resize: (size: number) => void } | undefined;
   let logPane: { resize: (size: number) => void } | undefined;
@@ -214,6 +215,11 @@
     }
     if (event.ctrlKey && event.key.toLowerCase() === 'b') { event.preventDefault(); toggleLogPane(); return; }
     if (event.ctrlKey && event.key.toLowerCase() === 'l') { event.preventDefault(); toggleLeftPane(); return; }
+    if (event.ctrlKey && ['1', '2', '3', '4'].includes(event.key)) {
+      event.preventDefault();
+      rightTab = ({ '1': 'coa', '2': 'red', '3': 'metrics', '4': 'execution' } as const)[event.key as '1' | '2' | '3' | '4'];
+      return;
+    }
     if (event.key === '?') { shortcutHelpOpen = true; return; }
     if (['1', '2', '3'].includes(event.key)) {
       const coa = system.coas.find((item) => item.rank === Number(event.key));
@@ -267,7 +273,23 @@
         <PaneResizer class="pane-resizer" />
         <Pane bind:this={rightPane} defaultSize={22} minSize={3} maxSize={35}>
           {#if rightCollapsed}<div class="collapsed-rail"><button title="Expand COA panel" aria-label="Expand right panel" onclick={toggleRightPane}>«</button><span>C</span></div>
-          {:else}<div class="right-wrap">{#if system.activeMissions.length > 0}<ExecutionPanel onCollapse={toggleRightPane} />{:else}<COAPanel onCollapse={toggleRightPane} />{/if}</div>{/if}
+          {:else}
+            <div class="right-wrap">
+              <div class="right-tabs" role="tablist" aria-label="Right panel">
+                <button role="tab" aria-selected={rightTab === 'coa'} class:active={rightTab === 'coa'} onclick={() => rightTab = 'coa'}>COA</button>
+                <button role="tab" aria-selected={rightTab === 'red'} class:active={rightTab === 'red'} onclick={() => rightTab = 'red'}>RED VIEW</button>
+                <button role="tab" aria-selected={rightTab === 'metrics'} class:active={rightTab === 'metrics'} onclick={() => rightTab = 'metrics'}>METRICS</button>
+                <button role="tab" aria-selected={rightTab === 'execution'} class:active={rightTab === 'execution'} onclick={() => rightTab = 'execution'}>EXECUTION</button>
+                <button class="right-collapse" aria-label="Collapse right panel" title="Collapse right panel" onclick={toggleRightPane}>›</button>
+              </div>
+              <div class="right-tab-content">
+                {#if rightTab === 'coa'}<COAPanel mode="blue" />
+                {:else if rightTab === 'red'}<COAPanel mode="red" />
+                {:else if rightTab === 'metrics'}<MetricsDashboard open={true} inline={true} />
+                {:else}<ExecutionPanel />{/if}
+              </div>
+            </div>
+          {/if}
         </Pane>
       </PaneGroup>
     </Pane>
@@ -355,7 +377,13 @@
   :global(.content-layout) { width: 100%; height: 100%; }
   :global(.content-layout [data-pane]), :global(.workspace-layout [data-pane]) { transition:flex-basis .2s ease; }
   .left { display: grid; grid-template-rows: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1px; background: #1a242e; overflow: hidden; height: 100%; }
-  .right-wrap { position:relative; height:100%; }
+  .right-wrap { position:relative; height:100%; display:flex; flex-direction:column; background:var(--bg-panel); }
+  .right-tabs { display:flex; align-items:stretch; flex:none; border-bottom:1px solid var(--border-subtle); background:var(--bg-base); }
+  .right-tabs button { flex:1; padding:9px 4px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--text-muted); font:8px var(--font-mono); letter-spacing:.1em; cursor:pointer; transition:color .18s,border-color .18s; }
+  .right-tabs button:hover,.right-tabs button.active { color:var(--accent-cyan); }
+  .right-tabs button.active { border-bottom-color:var(--accent-cyan); }
+  .right-tabs button.right-collapse { flex:none; padding:0 8px; font-size:14px; }
+  .right-tab-content { flex:1; min-height:0; overflow:hidden; position:relative; }
   :global(.collapsed-rail) { display:flex; flex-direction:column; align-items:center; gap:12px; height:100%; padding:8px 0; background:var(--bg-panel); color:var(--accent-cyan); font:9px var(--font-mono); box-sizing:border-box; }
   :global(.collapsed-rail button), :global(.collapse-btn) { background:transparent; border:0; color:var(--accent-cyan); font:14px var(--font-mono); cursor:pointer; padding:4px; }
   :global(.collapsed-rail button:focus-visible), :global(.collapse-btn:focus-visible) { outline:1px solid var(--accent-cyan); }

@@ -2,7 +2,7 @@
   import { system } from '../../stores/systemStore.svelte';
   import { weaponsForAircraft } from '../../data/weapons';
 
-  let { open = false, onClose }: { open?: boolean; onClose?: () => void } = $props();
+  let { open = false, onClose, inline = false }: { open?: boolean; onClose?: () => void; inline?: boolean } = $props();
 
   // 1. OVERVIEW
   const totalSorties = $derived(
@@ -79,13 +79,14 @@
 {#if open}
   <div
     class="overlay"
+    class:inline
     onclick={(e) => e.target === e.currentTarget && onClose?.()}
     onkeydown={(e) => e.key === 'Escape' && onClose?.()}
     role="dialog"
     aria-modal="true"
     tabindex="-1"
   >
-    <div class="frame corners">
+    <div class="frame corners" class:inline>
       <!-- HEADER -->
       <header>
         <div class="hdr-left">
@@ -253,6 +254,7 @@
     animation: fadein 0.15s ease-out;
     padding: 20px; box-sizing: border-box;
   }
+  .overlay.inline { position:absolute; inset:0; padding:0; background:transparent; backdrop-filter:none; z-index:1; }
   @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 
   .frame {
@@ -265,6 +267,7 @@
     overflow: hidden; position: relative;
     font-family: var(--font-mono);
   }
+  .frame.inline { width:100%; height:100%; max-height:none; border:0; box-shadow:none; }
 
   .corners::before {
     content: ''; position: absolute; top: -1px; left: -1px;

@@ -4,7 +4,7 @@
   import { ENEMY_ASSETS } from '../../data/enemyAssets';
   import { bestResponseToCOA, expectedPayoff } from '../../engine/gameTheory';
   import { degradeConfidence } from '../../engine/threatAssessment';
-  let { onCollapse }: { onCollapse?: () => void } = $props();
+  let { onCollapse, mode }: { onCollapse?: () => void; mode?: 'blue' | 'red' } = $props();
 
   function rankColor(r: number) {
     return r === 1 ? 'var(--accent-green)' : r === 2 ? 'var(--accent-amber)' : 'var(--accent-red)';
@@ -12,6 +12,7 @@
 
   let coas = $derived(system.coas);
   let view = $state<'blue' | 'red'>('blue');
+  let activeView = $derived(mode ?? view);
   let btnLabel = $derived(
     system.computing ? '◢ COMPUTING...' : coas.length === 0 ? '▸ GENERATE COA' : '▸ RE-GENERATE COA',
   );
@@ -25,14 +26,14 @@
         <span class="recomputing">◢ RECOMPUTING</span>
       {/if}
       <span class="count">{coas.length > 0 ? `${coas.length} OPTIONS` : 'STANDBY'}</span>
-      <button class="chevron" aria-label="Collapse right panel" title="Collapse right panel" onclick={() => onCollapse?.()}>›</button>
+      {#if onCollapse}<button class="chevron" aria-label="Collapse right panel" title="Collapse right panel" onclick={() => onCollapse?.()}>›</button>{/if}
     </div>
   </div>
 
-  {#if coas.length > 0}
+  {#if coas.length > 0 && mode === undefined}
     <div class="view-tabs">
-      <button class:active={view === 'blue'} onclick={() => view = 'blue'}>BLUE VIEW</button>
-      <button class:red-active={view === 'red'} onclick={() => view = 'red'}>RED VIEW</button>
+      <button class:active={activeView === 'blue'} onclick={() => view = 'blue'}>BLUE VIEW</button>
+      <button class:red-active={activeView === 'red'} onclick={() => view = 'red'}>RED VIEW</button>
     </div>
   {/if}
 
@@ -56,7 +57,7 @@
         <div class="sec-label">OPTIMISATION</div>
         <div class="sec-value muted">NSGA-II MULTI-OBJECTIVE · 4 OBJECTIVES</div>
       </div>
-    {:else if view === 'blue'}
+    {:else if activeView === 'blue'}
       {#each coas as coa (coa.id)}
         <div
           class="coa-card"
