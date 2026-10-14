@@ -1,0 +1,350 @@
+{
+  "title": "AIR COMMAND — Tactical Console",
+  "problemStatement": "SIH 2026 · PS ID 26250",
+  "team": "AIR COMMAND team",
+  "description": "A dynamic air operations decision-support prototype that fuses aircraft readiness, crew status, weapon compatibility, threats, airspace, and weather into a unified operational picture, then presents ranked courses of action with trade-offs for commander review.",
+  "screenshots": [
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/base/01-console-global-view.png",
+      "caption": "Global operational picture"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/base/02-console-scenario-active.png",
+      "caption": "Scenario-filtered console"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/base/03-scenario-bar-closeup.png",
+      "caption": "Scenario controls"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/final/01-zoom-2-cluster.png",
+      "caption": "Aircraft aggregation at theater zoom"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/final/02-zoom-6-symbols.png",
+      "caption": "Map symbols at regional zoom"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/final/03-demo-step-active.png",
+      "caption": "Guided demonstration step"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/final/04-diagram-click-zoom.png",
+      "caption": "Reference diagram map focus"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/final/05-voice-dedupe-before-after.png",
+      "caption": "Voice notification deduplication"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/final/07-main-four-zones.png",
+      "caption": "Main console with four primary work zones"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/final/08-demo-training-sim-dock.png",
+      "caption": "Persistent demo, training, and simulation dock"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/fixes/01-console-current.png",
+      "caption": "Current console layout"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/fixes/01-fullscreen-only-map.png",
+      "caption": "Map focus view"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/fixes/02-force-roster-hidden.png",
+      "caption": "Force roster visibility control"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/fixes/03-world-cluster-count.png",
+      "caption": "World-scale aircraft count"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/fixes/04-kashmir-symbols.png",
+      "caption": "Regional tactical symbols"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/fixes/05-compact-metrics-layout.png",
+      "caption": "Compact metrics panel"
+    },
+    {
+      "section": "Console Views",
+      "path": "/report-screenshots/fixes/06-diagram-focus-tactical-map.png",
+      "caption": "Diagram-linked tactical map"
+    },
+    {
+      "section": "Modals",
+      "path": "/report-screenshots/modals/04-mission-briefing.png",
+      "caption": "Mission briefing"
+    },
+    {
+      "section": "Modals",
+      "path": "/report-screenshots/modals/05-decision-prompt.png",
+      "caption": "Commander decision point"
+    },
+    {
+      "section": "Modals",
+      "path": "/report-screenshots/modals/06-after-action-review.png",
+      "caption": "After-action review"
+    },
+    {
+      "section": "Modals",
+      "path": "/report-screenshots/modals/07-metrics-dashboard.png",
+      "caption": "Metrics dashboard"
+    },
+    {
+      "section": "Modals",
+      "path": "/report-screenshots/modals/08-command-palette.png",
+      "caption": "Command palette"
+    },
+    {
+      "section": "Modals",
+      "path": "/report-screenshots/modals/09-glossary.png",
+      "caption": "Operational glossary"
+    },
+    {
+      "section": "Modals",
+      "path": "/report-screenshots/modals/10-shortcut-help.png",
+      "caption": "Keyboard shortcut guide"
+    },
+    {
+      "section": "Feature Demonstrations",
+      "path": "/report-screenshots/features/11-trajectory-mid-flight.png",
+      "caption": "Mission trajectory in flight"
+    },
+    {
+      "section": "Feature Demonstrations",
+      "path": "/report-screenshots/features/12-trajectory-impact.png",
+      "caption": "Trajectory impact state"
+    },
+    {
+      "section": "Feature Demonstrations",
+      "path": "/report-screenshots/features/13-voice-caption-active.png",
+      "caption": "Voice narration caption"
+    },
+    {
+      "section": "Feature Demonstrations",
+      "path": "/report-screenshots/features/14-focus-pointer.png",
+      "caption": "Guided focus pointer"
+    },
+    {
+      "section": "Feature Demonstrations",
+      "path": "/report-screenshots/features/15-weapon-matrix.png",
+      "caption": "Weapon compatibility matrix"
+    },
+    {
+      "section": "Feature Demonstrations",
+      "path": "/report-screenshots/features/16-cyber-panel.png",
+      "caption": "Cyber and data integrity panel"
+    },
+    {
+      "section": "Feature Demonstrations",
+      "path": "/report-screenshots/features/17-red-view.png",
+      "caption": "Adversary perspective"
+    },
+    {
+      "section": "Feature Demonstrations",
+      "path": "/report-screenshots/features/18-3d-terrain.png",
+      "caption": "3D terrain display"
+    },
+    {
+      "section": "Feature Demonstrations",
+      "path": "/report-screenshots/final/09-mission-input-output-flow.png",
+      "caption": "Mission input sources, processing, outputs, and timeline"
+    },
+    {
+      "section": "Historical Scenarios",
+      "path": "/report-screenshots/states/19-track-loss-decision.png",
+      "caption": "Track-loss decision exercise"
+    },
+    {
+      "section": "Historical Scenarios",
+      "path": "/report-screenshots/states/20-data-poisoning-detected.png",
+      "caption": "Data-poisoning detection state"
+    },
+    {
+      "section": "Historical Scenarios",
+      "path": "/report-screenshots/states/21-degraded-mode.png",
+      "caption": "Degraded sensor mode"
+    },
+    {
+      "section": "Historical Scenarios",
+      "path": "/report-screenshots/states/22-loadout-su30.png",
+      "caption": "Su-30MKI loadout"
+    },
+    {
+      "section": "Historical Scenarios",
+      "path": "/report-screenshots/states/23-loadout-rafale.png",
+      "caption": "Rafale loadout"
+    },
+    {
+      "section": "Historical Scenarios",
+      "path": "/report-screenshots/final/10-historical-outcome-probabilities.png",
+      "caption": "Historical outcome probabilities and selected simulation branch"
+    },
+    {
+      "caption": "Historical outcome probabilities and selected simulation branch",
+      "path": "/report-screenshots/final/10-historical-outcome-probabilities.png",
+      "section": "Feature Demonstrations"
+    },
+    {
+      "caption": "Static full project report",
+      "path": "/report-screenshots/report/01-full-project-report.png",
+      "section": "Report"
+    }
+  ],
+  "technologies": [
+    {
+      "tool": "Svelte",
+      "purpose": "Reactive user interface",
+      "version": "5.57.2"
+    },
+    {
+      "tool": "TypeScript",
+      "purpose": "Application logic and type safety",
+      "version": "6.0.2"
+    },
+    {
+      "tool": "MapLibre GL JS",
+      "purpose": "Interactive vector and raster map rendering",
+      "version": "5.4.0"
+    },
+    {
+      "tool": "Vite",
+      "purpose": "Development server and production bundling",
+      "version": "8.3.0"
+    },
+    {
+      "tool": "Express",
+      "purpose": "Backend health endpoint scaffold",
+      "version": "5.3.0"
+    },
+    {
+      "tool": "OpenStreetMap",
+      "purpose": "Base map raster tiles",
+      "version": "Live tile service"
+    },
+    {
+      "tool": "Custom NSGA-II-inspired allocator",
+      "purpose": "Multi-objective aircraft-to-mission assignment",
+      "version": "Project implementation"
+    },
+    {
+      "tool": "@turf/great-circle",
+      "purpose": "Great-circle route generation",
+      "version": "7.4.0"
+    }
+  ],
+  "alignment": [
+    {
+      "category": "Aircraft availability and serviceability",
+      "implementation": "FMC/PMC/NMC readiness, fuel, crew-rest and position feed aircraft-to-mission scoring.",
+      "location": "src/lib/data/aircraft.ts; src/lib/engine/weaponeering.ts; src/lib/components/panels/AircraftPanel.svelte",
+      "evidence": "/report-screenshots/features/15-weapon-matrix.png"
+    },
+    {
+      "category": "Crew status and qualification",
+      "implementation": "Crew rest and readiness are represented in aircraft records and mission feasibility scoring.",
+      "location": "src/lib/data/aircraft.ts; src/lib/engine/weaponeering.ts",
+      "evidence": "/report-screenshots/modals/04-mission-briefing.png"
+    },
+    {
+      "category": "Weapon loads and compatibility",
+      "implementation": "Platform/weapon compatibility and mission range are evaluated in the weapon matrix and loadout views.",
+      "location": "src/lib/data/weapons.ts; src/lib/engine/weaponeering.ts; src/lib/components/panels/WeaponMatrix.svelte",
+      "evidence": "/report-screenshots/features/15-weapon-matrix.png"
+    },
+    {
+      "category": "Threat intelligence and radar tracks",
+      "implementation": "Threat rings, spoofed-track handling, Bayesian track-loss hypotheses, and red-view analysis.",
+      "location": "src/lib/data/enemyAssets.ts; src/lib/engine/threatAssessment.ts; src/lib/engine/trackLossEngine.ts",
+      "evidence": "/report-screenshots/states/19-track-loss-decision.png"
+    },
+    {
+      "category": "Airspace and corridors",
+      "implementation": "Corridor, restricted zone, and kill-box polygons constrain map context and mission planning.",
+      "location": "src/lib/data/airspace.ts; src/lib/engine/deconfliction.ts",
+      "evidence": "/report-screenshots/base/02-console-scenario-active.png"
+    },
+    {
+      "category": "Weather and METOC",
+      "implementation": "Weather polygons and severity are displayed and included in the operational picture.",
+      "location": "src/lib/data/weather.ts; src/lib/components/map/TacticalMap.svelte",
+      "evidence": "/report-screenshots/base/01-console-global-view.png"
+    },
+    {
+      "category": "Multi-source fusion and command decisions",
+      "implementation": "Reactive store combines scenario changes and mission state; ranked COAs include trade-off explanations and commander decision prompts.",
+      "location": "src/lib/stores/systemStore.svelte.ts; src/lib/engine/optimisation.ts; src/lib/components/panels/COAPanel.svelte",
+      "evidence": "/report-screenshots/modals/05-decision-prompt.png"
+    }
+  ],
+  "scopes": [
+    {
+      "feature": "Unified tactical map and scenario filters",
+      "ps": "Threats, airspace, weather, bases, aircraft"
+    },
+    {
+      "feature": "Aircraft readiness roster and loadout views",
+      "ps": "Aircraft status, crew, weapons"
+    },
+    {
+      "feature": "Ranked COAs with risk and feasibility scoring",
+      "ps": "Decision support and optimisation"
+    },
+    {
+      "feature": "Weapon compatibility matrix",
+      "ps": "Weapon/platform matching"
+    },
+    {
+      "feature": "Mission briefing, execution phases, and decision prompts",
+      "ps": "Mission planning and command workflow"
+    },
+    {
+      "feature": "Historical training cases and after-action review",
+      "ps": "Training and learning loop"
+    },
+    {
+      "feature": "Degraded sensor mode, track-loss analysis, and data-integrity panel",
+      "ps": "Contested and uncertain inputs"
+    },
+    {
+      "feature": "Voice captions, guided demo, reference library, metrics, and keyboard help",
+      "ps": "Operator usability and demonstration"
+    }
+  ],
+  "performance": {
+    "baseline": {
+      "fcpMs": 3172,
+      "fps": 6.94,
+      "bundleKb": 2098.41,
+      "bundleGzipKb": null,
+      "source": "FCP from user-provided brief; FPS and raw JavaScript bundle from the checked-in profiling capture before these changes."
+    },
+    "current": {
+      "fcpMs": 1120,
+      "fps": 6.4,
+      "fpsIdle": 14.46,
+      "bundleKb": 1286.33,
+      "bundleGzipKb": 364.81,
+      "source": "Headless Chromium on SwiftShader; active-sortie scripted map pan 6.4 FPS (5 FPS minimum). Idle capture: 14.46 FPS. Profiling capture: docs/screenshots/final/06-fps-profiling.json."
+    }
+  }
+}

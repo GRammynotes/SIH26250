@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="AIR COMMAND SIH 2026 PS 26250 project report">
+  <title>AIR COMMAND · Project Report</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080d14;--panel:#101923;--edge:#263644;--text:#d9e6ed;--muted:#93a7b4;--cyan:#00d4ff;--green:#39ff14;--amber:#ffb800;--red:#ff2d7c}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -20%,#123040 0,transparent 55%),var(--bg);color:var(--text);font:14px/1.6 'JetBrains Mono','Cascadia Mono',Consolas,monospace}main{width:min(1200px,94vw);margin:0 auto;padding:42px 0 80px}header{padding:32px;border:1px solid var(--edge);background:#0d151e}header .eyebrow,small,.muted{color:var(--muted)}h1{color:var(--cyan);font-size:clamp(26px,5vw,44px);line-height:1.15;margin:12px 0}h2{font-size:16px;color:var(--cyan);letter-spacing:.1em;margin:38px 0 14px;border-bottom:1px solid var(--edge);padding-bottom:9px}p{max-width:850px}.facts,.metric-grid{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}.fact,.metric{border:1px solid var(--edge);background:var(--panel);padding:12px 16px}.metric strong{display:block;font-size:22px;color:var(--amber)}table{width:100%;border-collapse:collapse;background:var(--panel);font-size:12px}th,td{text-align:left;vertical-align:top;padding:11px;border:1px solid var(--edge)}th{color:var(--cyan);font-weight:600}a{color:var(--cyan)}.gallery-section h3{font-size:12px;color:var(--amber);letter-spacing:.1em;margin:22px 0 10px}.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}.shot{margin:0;border:1px solid var(--edge);background:var(--panel)}.shot a{display:block;line-height:0}.shot img{width:100%;aspect-ratio:16/10;object-fit:cover;background:#05080f}.shot figcaption{padding:9px 10px;color:var(--muted);font-size:11px}.list{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;padding:0;list-style:none}.list li{padding:12px;background:var(--panel);border:1px solid var(--edge)}.list b{color:var(--green)}.pill{display:inline-block;border:1px solid var(--edge);padding:3px 8px;color:var(--green);font-size:11px}footer{border-top:1px solid var(--edge);padding-top:18px;margin-top:38px;color:var(--muted);font-size:11px}
+  </style>
+</head>
+<body><main id="report"><header><span class="eyebrow">PROJECT SUBMISSION · SIH 2026</span><h1>AIR COMMAND — Tactical Console</h1><div id="facts"></div><p id="description"></p></header>
+  <section><h2>PROJECT OVERVIEW</h2><p id="overview"></p></section>
+  <section><h2>FLOW SCREENSHOTS</h2><div id="gallery"></div></section>
+  <section><h2>TOOLS &amp; TECHNOLOGIES</h2><table><thead><tr><th>Tool</th><th>Purpose</th><th>Version</th></tr></thead><tbody id="technologies"></tbody></table></section>
+  <section><h2>PROBLEM STATEMENT ALIGNMENT</h2><table><thead><tr><th>PS data category</th><th>What the prototype does</th><th>Code locations</th><th>Evidence</th></tr></thead><tbody id="alignment"></tbody></table></section>
+  <section><h2>SCOPES ACHIEVED</h2><ul id="scopes" class="list"></ul></section>
+  <section><h2>PERFORMANCE METRICS</h2><p class="muted">Existing captured measurements and the user-provided baseline are shown with their sources. Re-measurement is required before claiming a final improvement.</p><div id="metrics" class="metric-grid"></div></section>
+  <footer>Prepared from project files and screenshots currently in the repository. Performance figures are explicitly sourced below.</footer>
+</main><script>
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  fetch('/report-data.json').then(r=>{if(!r.ok)throw Error('Report data could not be loaded');return r.json()}).then(d=>{
+    document.title=`${d.title} · Project Report`;
+    document.querySelector('#facts').innerHTML=`<div class="facts"><span class="fact">${esc(d.problemStatement)}</span><span class="fact">${esc(d.team)}</span></div>`;
+    document.querySelector('#description').textContent=d.description;document.querySelector('#overview').textContent=d.description;
+    const groups={};for(const s of d.screenshots)(groups[s.section]??=[]).push(s);
+    document.querySelector('#gallery').innerHTML=Object.entries(groups).map(([section,shots])=>`<div class="gallery-section"><h3>${esc(section.toUpperCase())} · ${shots.length}</h3><div class="gallery">${shots.map(s=>`<figure class="shot"><a href="${esc(s.path)}" target="_blank" rel="noreferrer"><img loading="lazy" src="${esc(s.path)}" alt="${esc(s.caption)}"></a><figcaption>${esc(s.caption)}</figcaption></figure>`).join('')}</div></div>`).join('');
+    document.querySelector('#technologies').innerHTML=d.technologies.map(x=>`<tr><td>${esc(x.tool)}</td><td>${esc(x.purpose)}</td><td>${esc(x.version)}</td></tr>`).join('');
+    document.querySelector('#alignment').innerHTML=d.alignment.map(x=>`<tr><td>${esc(x.category)}</td><td>${esc(x.implementation)}</td><td><code>${esc(x.location)}</code></td><td><a href="${esc(x.evidence)}" target="_blank" rel="noreferrer">Screenshot</a></td></tr>`).join('');
+    document.querySelector('#scopes').innerHTML=d.scopes.map(x=>`<li><b>${esc(x.feature)}</b><br><span class="muted">PS: ${esc(x.ps)}</span></li>`).join('');
+    document.querySelector('#metrics').innerHTML=Object.entries(d.performance).map(([key,v])=>`<div class="metric"><span>${esc(key.toUpperCase())}</span><strong>${esc(v.fps)} FPS</strong><div>FCP ${esc(v.fcpMs)} ms · JS ${esc(v.bundleKb)} KB${v.bundleGzipKb ? ` (${esc(v.bundleGzipKb)} KB gzip)` : ''}${v.fpsIdle ? ` · idle pan ${esc(v.fpsIdle)} FPS` : ''}</div><small>${esc(v.source)}</small></div>`).join('');
+  }).catch(e=>{document.querySelector('#report').insertAdjacentHTML('beforeend',`<p role="alert">${esc(e.message)}. Open this page through the app server at /report.html.</p>`)})
+</script></body></html>
