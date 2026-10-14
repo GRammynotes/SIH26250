@@ -10,6 +10,8 @@
   }
 </script>
 
+<details class="scenario-menu">
+  <summary aria-label="Choose scenario"><strong>SCENARIO</strong><span>{system.activeScenarioFilter ? SCENARIO_LABELS[system.activeScenarioFilter] : 'GLOBAL VIEW'}</span><b>▼</b></summary>
 <nav class="scenario-bar" aria-label="Console scenarios">
   <strong>SCENARIO FILTER</strong>
   <button class:active={!system.activeScenarioFilter} aria-pressed={!system.activeScenarioFilter} onclick={() => select(null)}><span aria-hidden="true">◉</span> GLOBAL VIEW</button>
@@ -18,13 +20,20 @@
   {/each}
   <button class="visibility-toggle" aria-label="Hide scenario bar" title="Hide scenario bar" onclick={() => onToggleVisibility?.()}>◉</button>
 </nav>
+</details>
 
 <style>
-  .scenario-bar { display:flex; align-items:center; gap:5px; width:100%; height:40px; min-height:0; box-sizing:border-box; overflow-x:auto; padding:4px 10px; background:var(--bg-panel); border-bottom:1px solid var(--border-subtle); scrollbar-width:thin; }
+  .scenario-menu { position:relative; z-index:30; height:28px; flex:none; background:var(--bg-panel); border-bottom:1px solid var(--border-subtle); font:8px var(--font-mono); }
+  .scenario-menu>summary { height:27px; display:flex; align-items:center; gap:8px; padding:0 12px; list-style:none; cursor:pointer; color:var(--text-secondary); letter-spacing:.1em; }
+  .scenario-menu>summary::-webkit-details-marker { display:none; }
+  .scenario-menu>summary strong { color:var(--accent-cyan); font-size:8px; }
+  .scenario-menu>summary b { color:var(--text-muted); font-size:7px; }
+  .scenario-menu[open] .scenario-bar { position:absolute; top:27px; left:0; right:0; box-shadow:0 8px 20px #0009; }
+  .scenario-bar { display:flex; align-items:center; gap:5px; width:100%; min-height:40px; box-sizing:border-box; overflow-x:auto; padding:4px 10px; background:var(--bg-panel); border:1px solid var(--border-subtle); scrollbar-width:thin; }
   strong { flex:none; white-space:nowrap; color:var(--text-muted); font:8px var(--font-mono); letter-spacing:.12em; padding:0 6px; }.visibility-toggle { margin-left:auto; color:var(--accent-cyan); }
   button { flex:0 0 auto; min-height:27px; padding:4px 9px; border:1px solid var(--border-subtle); color:var(--text-muted); background:transparent; font:9px var(--font-mono); letter-spacing:.08em; cursor:pointer; transition:color .18s,border-color .18s,box-shadow .18s; }
   button:hover,button:focus-visible { color:var(--accent-cyan); border-color:var(--accent-cyan); outline:none; }
-  button.active { color:var(--accent-cyan); border-color:var(--accent-cyan); box-shadow:0 0 10px rgba(0,212,255,.2); animation:scenario-pulse 1.7s ease-in-out infinite; }
+  button.active { color:var(--accent-cyan); border-color:var(--accent-cyan); box-shadow:0 0 10px color-mix(in srgb, var(--accent-cyan) 20%, transparent); animation:scenario-pulse 1.7s ease-in-out infinite; }
   button span { margin-right:4px; }
-  @keyframes scenario-pulse { 50% { box-shadow:0 0 2px rgba(0,212,255,.15); } }
+  @keyframes scenario-pulse { 50% { box-shadow:0 0 2px color-mix(in srgb, var(--accent-cyan) 15%, transparent); } }
 </style>

@@ -5,14 +5,14 @@
 
   let {
     aircraftCount = 0, missionCount = 0, threatCount = 0,
-    onFlowClick, onReferenceClick, onMetricsClick, onDemoClick, onSimulationClick,
+    onFlowClick, onReferenceClick, onMetricsClick, onDemoClick, onSimulationClick, onMapLegendClick,
     onGlossaryClick, onShortcutHelpClick, onGuideClick, onGenerate, onReset, onDegradedToggle,
     onLayerToggle, demoActive = false, modalCount = 0,
     onPanelToggle, onShowAllPanels, onHideAllPanels,
   }: {
     aircraftCount?: number; missionCount?: number; threatCount?: number;
     onFlowClick?: () => void; onReferenceClick?: () => void; onMetricsClick?: () => void;
-    onDemoClick?: () => void; onSimulationClick?: () => void; onGlossaryClick?: () => void; onShortcutHelpClick?: () => void; onGuideClick?: () => void;
+    onDemoClick?: () => void; onSimulationClick?: () => void; onMapLegendClick?: () => void; onGlossaryClick?: () => void; onShortcutHelpClick?: () => void; onGuideClick?: () => void;
     onGenerate?: () => void; onReset?: () => void; onDegradedToggle?: () => void;
     onLayerToggle?: (layer: string) => void; demoActive?: boolean; modalCount?: number;
     onPanelToggle?: (key: string, visible: boolean) => void; onShowAllPanels?: () => void; onHideAllPanels?: () => void;
@@ -74,6 +74,7 @@
             {:else if menu === 'HELP'}
               <button role="menuitem" onclick={() => action(onGlossaryClick)}>◈ GLOSSARY</button>
               <button role="menuitem" onclick={() => action(onShortcutHelpClick)}>⌨ SHORTCUTS</button>
+              <button role="menuitem" onclick={() => action(onMapLegendClick)}>◈ MAP LEGEND <kbd>L</kbd></button>
               <button role="menuitem" onclick={() => action(onDemoClick)}>◈ COMPREHENSIVE DEMO <kbd>D</kbd></button>
               <button role="menuitem" onclick={() => action(onSimulationClick)}>◈ TRAINING SIMULATION <kbd>S</kbd></button>
               <button role="menuitem" onclick={() => action(onGuideClick)}>◈ SYSTEM GUIDE</button>
@@ -101,7 +102,7 @@
 </header>
 
 <style>
-  .topbar { height:32px; flex:none; background:#05080f; border-bottom:1px solid var(--border-subtle); display:flex; align-items:center; padding:0 12px; gap:10px; font-family:var(--font-mono); font-size:9px; letter-spacing:.13em; position:relative; z-index:30; }
+  .topbar { height:32px; flex:none; background:var(--bg-base); border-bottom:1px solid var(--border-subtle); display:flex; align-items:center; padding:0 12px; gap:10px; font-family:var(--font-mono); font-size:9px; letter-spacing:.13em; position:relative; z-index:30; }
   .topbar::after { content:''; position:absolute; bottom:-1px; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--accent-cyan),transparent); opacity:.15; pointer-events:none; }
   .title { color:var(--accent-cyan); font-weight:700; letter-spacing:.2em; white-space:nowrap; } .classification { color:var(--accent-amber); white-space:nowrap; }
   .sep { color:var(--border-strong); } .spacer { flex:1; } .metric,.date { color:var(--text-muted); white-space:nowrap; } .metric b { color:var(--text-secondary); font-weight:500; margin-left:3px; } .time { color:var(--accent-cyan); white-space:nowrap; }

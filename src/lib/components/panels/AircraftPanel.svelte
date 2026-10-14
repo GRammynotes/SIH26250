@@ -8,6 +8,7 @@
   let sortBy = $state<'STATUS' | 'BASE' | 'TYPE' | 'FUEL'>('STATUS');
   let assigningId = $state<string | null>(null);
   let expandedId = $state<string | null>(null);
+  let filtersOpen = $state(false);
   const sorted = $derived([...system.scenarioAircraft]
     .filter((aircraft) => filter === 'ALL' || aircraft.status === filter)
     .sort((a, b) => {
@@ -62,10 +63,11 @@
     <span style="color:var(--accent-red);">× NMC {counts.nmc}</span>
   </div>
   <div class="asset-tools">
-    <div class="chips" role="group" aria-label="Aircraft status filters">
+    <button class="sort-toggle" aria-expanded={filtersOpen} onclick={() => filtersOpen = !filtersOpen}>FILTER {filtersOpen ? '▲' : '▼'}</button>
+    {#if filtersOpen}<div class="chips" role="group" aria-label="Aircraft status filters">
       {#each ['ALL', 'FMC', 'PMC', 'NMC'] as chip}<button class:active={filter === chip} onclick={() => filter = chip}>{chip}</button>{/each}
     </div>
-    <button class="sort-toggle" aria-label="Change aircraft sort order" title="Change sort order: {sortBy}" onclick={() => sortBy = sortBy === 'STATUS' ? 'BASE' : sortBy === 'BASE' ? 'TYPE' : sortBy === 'TYPE' ? 'FUEL' : 'STATUS'}>SORT: {sortBy} ↻</button>
+    <button class="sort-toggle" aria-label="Change aircraft sort order" title="Change sort order: {sortBy}" onclick={() => sortBy = sortBy === 'STATUS' ? 'BASE' : sortBy === 'BASE' ? 'TYPE' : sortBy === 'TYPE' ? 'FUEL' : 'STATUS'}>SORT: {sortBy} ↻</button>{/if}
   </div>
   <div class="list">
     {#if sorted.length > 30}
