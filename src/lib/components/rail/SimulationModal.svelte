@@ -17,12 +17,14 @@
   let simMissionId = $state('');
   let decisionTimer: ReturnType<typeof setTimeout> | undefined;
   let runner: ReturnType<typeof setTimeout> | undefined;
+  let exitTimer: ReturnType<typeof setTimeout> | undefined;
   let autoDecision = $state(true);
   const history = HISTORICAL_MISSIONS.sindoor_deep;
   let active = $derived(system.activeMissions.find((mission) => mission.missionId === simMissionId) ?? null);
   let pending = $derived(active?.pendingDecision ?? null);
 
   function say(speaker: Dialogue['speaker'], text: string) {
+    window.dispatchEvent(new CustomEvent('aircommand:arc-viewer-clear'));
     const narrative = parseMapNarrative(text);
     turns = [...turns, { speaker, text: narrative.text }].slice(-30);
     narrateUtterance(narrative.text, { source: speaker, speaker: speaker === 'COMMANDER' ? 'commander' : 'agent', priority: speaker === 'SYSTEM' ? 'critical' : 'info' });
@@ -47,6 +49,7 @@
         return;
       }
       simMissionId = mission.id;
+      system.enterFocusMode(mission.id);
       focusMapElements([{ type: 'aircraft', id: aircraft[0].tailNumber, label: `${aircraft[0].tailNumber} · ${distanceKm(aircraft[0].position, mission.target)} km` }, { type: 'target', id: mission.name, label: mission.name }]);
       say('OPS AGENT', `Review ${aircraft[0].tailNumber} and target ${mission.name} on the map before choosing a branch.`);
       say('COMMANDER', `Review the ${mission.name} package. What is the system recommendation?`);
@@ -61,6 +64,7 @@
     if (paused || busy || !active || active.phase === 'COMPLETE' || active.phase === 'ABORTED') return;
     busy = true;
     say('OPS AGENT', `${active.phase}: advancing the exercise timeline and monitoring fuel, threat geometry, and mission status.`);
+    window.setTimeout(() => system.revealElement('route'), 800);
     runner = setTimeout(() => {
       system.advanceSimulationClock(0.5);
       busy = false;
@@ -68,7 +72,11 @@
       if (now?.pendingDecision) {
         say('OPS AGENT', `Decision required: ${now.pendingDecision.title}. I recommend ${now.pendingDecision.branches.find((branch) => /optimal|recommended/i.test(branch.tag))?.label ?? 'the lowest-risk successful option'} based on the displayed course of action.`);
       } else if (now && now.phase !== 'COMPLETE' && now.phase !== 'ABORTED') advanceToDecision();
-      else if (now?.phase === 'COMPLETE') say('OPS AGENT', 'Exercise complete. Review the mission log and after-action report for outcomes and decision consequences.');
+      else if (now?.phase === 'COMPLETE') {
+        say('OPS AGENT', 'Exercise complete. Review the mission log and after-action report for outcomes and decision consequences. The focus view will close in five seconds.');
+        if (exitTimer) clearTimeout(exitTimer);
+        exitTimer = setTimeout(() => onClose?.(), 5000);
+      }
     }, scaledDelay(6000));
   }
   function weightedBranch(branches: DecisionBranch[]) {
@@ -113,7 +121,7 @@
     }
     return () => { if (decisionTimer) clearTimeout(decisionTimer); };
   });
-  onDestroy(() => { if (decisionTimer) clearTimeout(decisionTimer); if (runner) clearTimeout(runner); });
+  onDestroy(() => { if (decisionTimer) clearTimeout(decisionTimer); if (runner) clearTimeout(runner); if (exitTimer) clearTimeout(exitTimer); });
   $effect(() => { if (open && !started) startExercise(); });
 </script>
 

@@ -29,6 +29,16 @@
     pastDecisions = [...pastDecisions, { at: Date.now(), title: `RUN ${runCount + 1}`, choice: result.name }];
     const mission = system.missions.find((item) => item.targetType === activeCase.targetType);
     const aircraft = system.aircraft.find((item) => item.status === 'FMC');
+    if (mission) {
+      if (!system.focusMode?.active) system.enterFocusMode(mission.id);
+      window.setTimeout(() => {
+        if (aircraft) system.revealElement('aircraft', aircraft.tailNumber);
+        system.revealElement('target', mission.id);
+        system.revealElement('route');
+        window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: 'aircraft', entityId: aircraft?.tailNumber ?? '', missionId: mission.id } }));
+        (system.focusMode?.routeThreatIds ?? []).forEach((id, index) => window.setTimeout(() => system.revealElement('threat', id), (index + 1) * 300));
+      }, 800);
+    }
     runCount++;
     system.pushEvent('SIMULATION', `${result.name} · ${result.chance}% MODELED PROBABILITY`, result.name.includes('DESTROYED') || result.name.includes('SUPPRESSED') ? 'ok' : 'info');
     narrateUtterance(`Simulation branch selected: ${result.name}. ${result.consequence}`, { source: 'SIMULATION', speaker: 'agent' });
