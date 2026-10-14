@@ -327,6 +327,8 @@
       'threat-fill-inner',
       'threat-outline-outer',
       'threat-center-dot',
+      'threat-spoofed-outline',
+      'threat-spoofed-x',
     ];
     for (const lid of threatLayers) {
       if (map.getLayer(lid)) map.setLayoutProperty(lid, 'visibility', vis);
@@ -467,9 +469,10 @@
 
     for (const t of threats) {
       // Center point
+      const isSpoofed = system.spoofedTrackId === t.id;
       threatCenterFeatures.push({
         type: 'Feature',
-        properties: { id: t.id, type: t.type },
+        properties: { id: t.id, type: t.type, spoofed: isSpoofed },
         geometry: { type: 'Point', coordinates: [t.position.lng, t.position.lat] },
       });
 
@@ -566,11 +569,46 @@
       id: 'threat-center-dot',
       type: 'circle',
       source: 'threat-centers',
+      filter: ['!', ['get', 'spoofed']],
       layout: { visibility: threatVis },
       paint: {
         'circle-radius': 3,
         'circle-color': C.red,
         'circle-opacity': 0.95,
+      },
+    });
+
+    // Spoofed track marker: hollow red outline with X
+    map.addLayer({
+      id: 'threat-spoofed-outline',
+      type: 'circle',
+      source: 'threat-centers',
+      filter: ['==', ['get', 'spoofed'], true],
+      layout: { visibility: threatVis },
+      paint: {
+        'circle-radius': 6,
+        'circle-color': 'transparent',
+        'circle-stroke-width': 2,
+        'circle-stroke-color': C.red,
+        'circle-stroke-opacity': 0.9,
+      },
+    });
+
+    // X cross for spoofed tracks
+    map.addLayer({
+      id: 'threat-spoofed-x',
+      type: 'symbol',
+      source: 'threat-centers',
+      filter: ['==', ['get', 'spoofed'], true],
+      layout: { 
+        visibility: threatVis,
+        'text-field': '✕',
+        'text-size': 14,
+        'text-anchor': 'center',
+      },
+      paint: {
+        'text-color': C.red,
+        'text-opacity': 0.9,
       },
     });
 

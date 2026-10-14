@@ -6,6 +6,7 @@
     { key: 'multi_crisis', label: 'MULTI-CRISIS' },
     { key: 'radar_loss', label: 'RADAR LOSS' },
     { key: 'track_loss', label: 'TRACK LOSS' },
+    { key: 'data_poisoning', label: 'DATA POISONING' },
   ];
 </script>
 

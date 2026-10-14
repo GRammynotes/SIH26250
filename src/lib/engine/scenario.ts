@@ -1,6 +1,6 @@
 ﻿import type { Threat, AircraftStatus } from '../types';
 
-export type ScenarioAction = 'log' | 'set_status' | 'add_threat' | 'close_airspace' | 'add_weather' | 'recompute' | 'set_mode' | 'track_loss';
+export type ScenarioAction = 'log' | 'set_status' | 'add_threat' | 'close_airspace' | 'add_weather' | 'recompute' | 'set_mode' | 'track_loss' | 'data_poisoning';
 
 export interface ScenarioStep {
   delay: number;
@@ -13,6 +13,7 @@ export const SCENARIO_LABELS: Record<string, string> = {
   multi_crisis: 'MULTI-CRISIS',
   radar_loss: 'RADAR LOSS',
   track_loss: 'TRACK LOSS',
+  data_poisoning: 'DATA POISONING',
 };
 
 export const SCENARIOS: Record<string, ScenarioStep[]> = {
@@ -46,5 +47,10 @@ export const SCENARIOS: Record<string, ScenarioStep[]> = {
   track_loss: [
     { delay: 0,    action: 'log',        payload: { source: 'RADAR',   msg: 'TRACK LOST · TH-003 SUDDEN DISAPPEARANCE',              level: 'alert' } },
     { delay: 200,  action: 'track_loss', payload: { trackId: 'th-003', lastPosition: { lat: 34.2, lng: 77.8 }, nearbyEnemyAssets: [{ type: 'EW', position: { lat: 34.25, lng: 77.85 } }], terrainElevation: 2500, recentCombat: true } },
+  ],
+
+  data_poisoning: [
+    { delay: 0,    action: 'log',        payload: { source: 'SENSOR',  msg: 'NEW TRACK DETECTED · TRACK ID 4421',                level: 'info'  } },
+    { delay: 200,  action: 'data_poisoning', payload: { trackId: 'th-4421', position: { lat: 34.18, lng: 77.92 } } },
   ],
 };

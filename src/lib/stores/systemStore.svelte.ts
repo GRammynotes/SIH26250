@@ -36,6 +36,7 @@ class SystemStore {
   aarQueue = $state<string[]>([]);
   tickHandle: number | null = null;
   trackLossAnalysis = $state<TrackLossAnalysis | null>(null);
+  spoofedTrackId = $state<string | null>(null);
 
   constructor() {
     const s = generateSystemState();
@@ -304,6 +305,34 @@ class SystemStore {
           step.payload.recentCombat
         );
         this.pushEvent('ANALYSIS', `TRACK LOSS HYPOTHESIS · ${this.trackLossAnalysis.topHypothesis} (${Math.round(this.trackLossAnalysis.confidence * 100)}%)`, 'alert');
+        break;
+      case 'data_poisoning':
+        // Add spoofed track
+        this.spoofedTrackId = step.payload.trackId;
+        this.addThreat({
+          id: step.payload.trackId,
+          type: 'AIR',
+          position: step.payload.position,
+          radius: 50,
+          probability: 85,
+          confidence: 75,
+        });
+        this.pushEvent('SENSOR', `SPOOFED TRACK APPEARED · ${step.payload.trackId}`, 'warn');
+        
+        // After 2 seconds, run cross-sensor validation
+        setTimeout(() => {
+          this.pushEvent('FUSION', 'CROSS-SENSOR VALIDATION IN PROGRESS · 3 SENSORS', 'info');
+          setTimeout(() => {
+            // Flag as spoofed
+            this.pushEvent('FUSION', `CROSS-SENSOR VALIDATION FAILED · TRACK ID ${step.payload.trackId} FLAGGED SPOOFED · CONFIDENCE 92%`, 'alert');
+            // Remove after 3 more seconds
+            setTimeout(() => {
+              this.threats = this.threats.filter(t => t.id !== step.payload.trackId);
+              this.spoofedTrackId = null;
+              this.pushEvent('FUSION', `SPOOFED TRACK REMOVED · ${step.payload.trackId}`, 'ok');
+            }, 3000);
+          }, 2000);
+        }, 2000);
         break;
     }
   }
