@@ -171,7 +171,7 @@
 
   function handleGlobalKeydown(event: KeyboardEvent) {
     const target = event.target as HTMLElement | null;
-    if (target?.matches('input, textarea, [contenteditable="true"]')) return;
+    if (target?.matches('input, textarea, [contenteditable]')) return;
     if (event.key === 'Escape') {
       if (glossaryOpen) glossaryOpen = false;
       else if (shortcutHelpOpen) shortcutHelpOpen = false;
@@ -179,6 +179,8 @@
       else if (referenceOpen) referenceOpen = false;
       else if (flowOpen) flowOpen = false;
       else if (loadoutOpen) loadoutOpen = false;
+      else if (trackLossOpen) { system.trackLossAnalysis = null; trackLossOpen = false; }
+      else if (demoCompleteOpen) demoCompleteOpen = false;
       else if (pending) system.dismissDecision(pending.id);
       return;
     }
