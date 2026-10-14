@@ -20,8 +20,8 @@
   --accent-purple: #a855f7;
 
   /* Fonts */
-  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', monospace;
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, 'IBM Plex Mono', monospace;
+  --font-sans: 'Inter', 'Segoe UI Variable', 'Segoe UI', Aptos, system-ui, sans-serif;
 }
 
 body {
@@ -61,3 +61,9 @@ body {
 
 .pulse { animation: pulse 1.8s ease-in-out infinite; }
 .glow { animation: glow 2s ease-in-out infinite; }
+/* Keep modal overlays composited and limit expensive blur while animating. */
+.layer .overlay,
+.layer .backdrop {
+  will-change: opacity, transform;
+  backdrop-filter: blur(6px);
+}

@@ -39,7 +39,7 @@
       </header>
       <div class="body">
         {#if diagram}
-          <img src={diagram} alt={`${aircraftType} loadout`} />
+          <img src={diagram} alt={`${aircraftType} loadout`} loading="lazy" decoding="async" />
           <button class="station" class:selected={selectedStation} onclick={() => selectedStation = !selectedStation} aria-expanded={selectedStation}>
             <span>ST05 · {stationWeapon.name.toUpperCase()}</span><span>VIEW SPEC ↗</span>
           </button>

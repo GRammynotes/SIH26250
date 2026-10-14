@@ -131,7 +131,7 @@
         <main class="viewer">
           <div class="img-wrap">
             <button class="diagram-image" aria-label={`Focus ${selected.title} on tactical map`} onclick={() => focusDiagram(focusItems[selected.id]?.[0] ?? { text: selected.description })}>
-              <img src={selected.src} alt={selected.title} />
+              <img src={selected.src} alt={selected.title} loading="lazy" decoding="async" />
               <span>SELECT DIAGRAM TO FOCUS MAP ↗</span>
             </button>
           </div>
