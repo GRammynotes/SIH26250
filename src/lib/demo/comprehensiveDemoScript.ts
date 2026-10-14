@@ -4,6 +4,8 @@ import { GLOSSARY } from '../data/glossary';
 export interface DemoStep {
   id: string;
   element?: string; // CSS selector for focus pointer
+  focusIds?: { aircraft?: string[]; threats?: string[]; target?: string; layers?: Array<'base' | 'route' | 'wez' | 'impact' | 'egress' | 'grid' | 'terrain'> };
+  narrationDelay?: number;
   title: string;
   narration: string; // Voice over text
   caption: string; // Displayed caption
@@ -197,6 +199,7 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
     title: 'TARGET PACKAGE DETAILS',
     narration: 'The briefing shows the target grid coordinates with intelligence accuracy estimates, collateral damage classification, and route risk score. Threats within 100 kilometers are listed with their intercept probabilities. This ensures full situational awareness before committing forces.',
     caption: 'TARGET PACKAGE - Coordinates, threats, and risk assessment',
+    focusIds: { target: '$mission' },
     duration: 12000,
   },
   {
@@ -206,6 +209,7 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
     title: 'ASSIGNED FORCES',
     narration: 'Each assigned aircraft is shown with its tail number, type, base, and status. The weaponeering assessment indicates whether the pairing is optimal, feasible, or marginal based on weapon range, target type, and threat exposure. Reason codes explain the assessment.',
     caption: 'ASSIGNED FORCES - Aircraft-weapon pairings with assessment',
+    focusIds: { aircraft: ['$assigned'], layers: ['base'] },
     duration: 11000,
   },
   {
@@ -224,15 +228,17 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
   {
     id: 'exec-1',
     title: 'MISSION EXECUTION PHASE',
-    narration: 'Once approved, the mission enters execution. The system tracks the package through phases: ingress, weapon employment zone entry, weapons release, and egress. The tactical map shows the package trajectory in real-time.',
+    narration: 'Once approved, the mission enters execution. The system tracks the package through ingress toward the target. The tactical map draws the assigned package trajectory in real-time.',
     caption: 'MISSION EXECUTION - Tracking package through phases',
+    focusIds: { layers: ['route'] },
     duration: 9000,
   },
   {
     id: 'exec-2',
     title: 'IN-FLIGHT DECISIONS',
-    narration: 'Missions pause at phase boundaries when a decision is required. The commander chooses between branches - each branch has different consequences. Some add threats, some delay the mission, some abort it. This is the human-in-the-loop control.',
+    narration: 'Missions pause at phase boundaries when a decision is required. The package reaches its WEZ, or weapon employment zone, before release. The commander chooses between branches - each branch has different consequences.',
     caption: 'IN-FLIGHT DECISIONS - Commander retains authority',
+    focusIds: { layers: ['wez'] },
     duration: 10000,
   },
   {
@@ -240,6 +246,7 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
     title: 'REAL-TIME THREAT UPDATES',
     narration: 'During execution, the threat picture can change. New SAM sites may appear, aircraft may go NMC due to mechanical issues, or intelligence may update target status. The system automatically re-optimizes when conditions change.',
     caption: 'DYNAMIC RE-OPTIMIZATION - Responds to changing conditions',
+    focusIds: { threats: ['$route'] },
     duration: 9000,
   },
 
@@ -259,6 +266,7 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
     title: 'BATTLE DAMAGE ASSESSMENT',
     narration: 'The AAR includes Battle Damage Assessment - evaluation of the strike results. It shows target destruction probability, collateral effects, and whether the mission achieved its objectives. This is exported for operational records.',
     caption: 'BATTLE DAMAGE ASSESSMENT - Strike outcome evaluation',
+    focusIds: { layers: ['impact'] },
     duration: 9000,
   },
 
@@ -410,6 +418,7 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
     title: 'READY TO OPERATE',
     narration: 'The demo is now ending. You can interact with the system freely. Generate COAs, review missions, open the reference library, or start a training simulation. The system is live and ready for operational planning.',
     caption: 'SYSTEM UNLOCKED - Ready for use',
+    focusIds: { layers: ['egress'] },
     duration: 8000,
   },
 ];
