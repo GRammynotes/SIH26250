@@ -4,7 +4,7 @@
   import { ENEMY_ASSETS } from '../../data/enemyAssets';
   import { bestResponseToCOA, expectedPayoff } from '../../engine/gameTheory';
   import { degradeConfidence } from '../../engine/threatAssessment';
-  let { onCollapse, mode }: { onCollapse?: () => void; mode?: 'blue' | 'red' } = $props();
+  let { onCollapse, onToggleVisibility, mode }: { onCollapse?: () => void; onToggleVisibility?: () => void; mode?: 'blue' | 'red' } = $props();
 
   function rankColor(r: number) {
     return r === 1 ? 'var(--accent-green)' : r === 2 ? 'var(--accent-amber)' : 'var(--accent-red)';
@@ -27,6 +27,7 @@
         <span class="recomputing">◢ RECOMPUTING</span>
       {/if}
       <span class="count">{coas.length > 0 ? `${coas.length} OPTIONS` : 'STANDBY'}</span>
+      {#if mode === 'blue'}<button class="chevron" aria-label="Hide COA panel" title="Hide COA panel" onclick={() => onToggleVisibility?.()}>◉</button>{/if}
       {#if onCollapse}<button class="chevron" aria-label="Collapse right panel" title="Collapse right panel" onclick={() => onCollapse?.()}>›</button>{/if}
     </div>
   </div>

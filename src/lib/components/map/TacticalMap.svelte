@@ -18,11 +18,15 @@
     onBaseSelect,
     onLoadoutClick,
     onFullscreenClick,
+    onToggleTheaterVisibility,
+    theaterMapVisible = true,
     fullscreen = false,
   }: {
     onBaseSelect?: (baseId: string) => void;
     onLoadoutClick?: (type: string, tail: string) => void;
     onFullscreenClick?: () => void;
+    onToggleTheaterVisibility?: () => void;
+    theaterMapVisible?: boolean;
     fullscreen?: boolean;
   } = $props();
 
@@ -925,7 +929,7 @@
 <div class="map-wrap">
   <div class="map-canvas" bind:this={container}></div>
   {#if mapReady && map}<TrajectoryLayer {map} />{/if}
-  <TacticalReadout />
+  {#if theaterMapVisible}<TacticalReadout />{/if}
 
   <!-- LAYER 3: Scanline & Vignette Overlay -->
   <div class="scanlines" aria-hidden="true"></div>
@@ -942,6 +946,7 @@
   </div>
 
   <div class="coord tl mono">THEATER MAP / GRID 78 · 34°N / 78°E</div>
+  <button class="theater-toggle" aria-label={theaterMapVisible ? 'Hide theater data panel' : 'Show theater data panel'} title="Toggle theater data panel; map remains visible" onclick={() => onToggleTheaterVisibility?.()}>◉</button>
   <div class="coord tr mono">ZOOM 4.2 · MERCATOR</div>
   <button class="fullscreen-btn" aria-label={fullscreen ? 'Exit map fullscreen' : 'Enter map fullscreen'} title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen map'} onclick={() => onFullscreenClick?.()}>{fullscreen ? '⛶ EXIT FULLSCREEN' : '⛶ FULLSCREEN'}</button>
   <TerrainToggle />
@@ -1053,6 +1058,7 @@
   .bearing.north { top:34px; left:50%; transform:translateX(-50%); }.bearing.south { bottom:34px; left:50%; transform:translateX(-50%); }
   .bearing.east { right:10px; top:50%; transform:translateY(-50%); writing-mode:vertical-rl; }.bearing.west { left:10px; top:50%; transform:translateY(-50%); writing-mode:vertical-rl; }
   .fullscreen-btn { position:absolute; top:28px; right:10px; z-index:7; padding:6px 9px; background:rgba(5,8,15,.9); border:1px solid var(--border-strong); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; transition:background .18s,border-color .18s; }
+  .theater-toggle { position:absolute; top:25px; left:10px; z-index:7; padding:4px 7px; background:rgba(5,8,15,.9); border:1px solid var(--border-strong); color:var(--accent-cyan); font:10px var(--font-mono); cursor:pointer; }
   .fullscreen-btn:hover,.fullscreen-btn:focus-visible { border-color:var(--accent-cyan); background:rgba(0,212,255,.1); outline:none; }
 
   .degraded {

@@ -58,6 +58,7 @@
   let rightCollapsed = $state(false);
   let logCollapsed = $state(false);
   let mapFullscreen = $state(false);
+  let panelVisibility = $state({ forceRoster: true, missions: true, theaterMap: true, coa: true, missionLog: true, commandStatus: true, scenarioBar: true });
   let savedLeftSize = 18;
   let savedRightSize = 22;
   let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution' | 'weapons' | 'cyber'>('coa');
@@ -122,12 +123,26 @@
   }
 
   function readCollapsedState() {
-    try { return JSON.parse(localStorage.getItem('aircommand.panels.v1') ?? '{}') as { left?: boolean; right?: boolean; log?: boolean }; }
+    try { return JSON.parse(localStorage.getItem('aircommand.panels.v1') ?? '{}') as { left?: boolean; right?: boolean; log?: boolean; visibility?: Partial<typeof panelVisibility> }; }
     catch { return {}; }
   }
 
   function persistCollapsedState() {
-    localStorage.setItem('aircommand.panels.v1', JSON.stringify({ left: leftCollapsed, right: rightCollapsed, log: logCollapsed }));
+    localStorage.setItem('aircommand.panels.v1', JSON.stringify({ left: leftCollapsed, right: rightCollapsed, log: logCollapsed, visibility: panelVisibility }));
+  }
+
+  function setPanelVisibility(key: keyof typeof panelVisibility, visible: boolean) {
+    panelVisibility = { ...panelVisibility, [key]: visible };
+    if (key === 'coa' && !visible && rightTab === 'coa') rightTab = 'red';
+    if (key === 'forceRoster' && !visible && leftPanelTab === 'roster' && panelVisibility.missions) leftPanelTab = 'missions';
+    if (key === 'missions' && !visible && leftPanelTab === 'missions' && panelVisibility.forceRoster) leftPanelTab = 'roster';
+    persistCollapsedState();
+  }
+
+  function setAllPanels(visible: boolean) {
+    panelVisibility = { forceRoster: visible, missions: visible, theaterMap: visible, coa: visible, missionLog: visible, commandStatus: visible, scenarioBar: visible };
+    if (visible) { leftPanelTab = 'roster'; rightTab = 'coa'; }
+    persistCollapsedState();
   }
 
   $effect(() => {
@@ -144,6 +159,7 @@
     window.addEventListener('aircommand:mission-brief', handleMissionBrief);
     const saved = readCollapsedState();
     leftCollapsed = saved.left ?? false; rightCollapsed = saved.right ?? false; logCollapsed = saved.log ?? false;
+    panelVisibility = { ...panelVisibility, ...(saved.visibility ?? {}) };
     requestAnimationFrame(() => {
       if (leftCollapsed) leftPane?.resize(3);
       if (rightCollapsed) rightPane?.resize(3);
@@ -373,40 +389,43 @@
     onReset={() => system.reset()}
     onDegradedToggle={() => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED')}
     onLayerToggle={toggleMapLayer}
+    onPanelToggle={(key, visible) => setPanelVisibility(key as keyof typeof panelVisibility, visible)}
+    onShowAllPanels={() => setAllPanels(true)}
+    onHideAllPanels={() => setAllPanels(false)}
     demoActive={demoActive}
     modalCount={activeModalIds.length}
   />
-  <ScenarioBar />
+  {#if !mapFullscreen && panelVisibility.scenarioBar}<ScenarioBar onToggleVisibility={() => setPanelVisibility('scenarioBar', false)} />{/if}
   {/if}
 
   <PaneGroup direction="vertical" autoSaveId="aircommand.layout.v1" class="workspace-layout">
     <Pane defaultSize={66} minSize={55}>
       <PaneGroup direction="horizontal" autoSaveId="aircommand.layout.v1.panels" class="content-layout">
-        {#if !mapFullscreen}<Pane bind:this={leftPane} defaultSize={15} minSize={3} maxSize={30}>
+        {#if !mapFullscreen && (panelVisibility.forceRoster || panelVisibility.missions)}<Pane bind:this={leftPane} defaultSize={15} minSize={3} maxSize={30}>
           {#if leftCollapsed}<div class="collapsed-rail"><button title="Expand aircraft and mission panels" aria-label="Expand left panels" onclick={toggleLeftPane}>»</button><span>A</span><span>M</span></div>
           {:else if system.selectedBaseId}<BaseDetailPanel onLoadoutClick={openLoadout} />
           {:else}<aside class="left">
             <div class="left-tabs" role="tablist" aria-label="Left panel">
-              <button role="tab" aria-selected={leftPanelTab === 'roster'} class:active={leftPanelTab === 'roster'} onclick={() => leftPanelTab = 'roster'}>FORCE ROSTER</button>
-              <button role="tab" aria-selected={leftPanelTab === 'missions'} class:active={leftPanelTab === 'missions'} onclick={() => leftPanelTab = 'missions'}>MISSIONS</button>
+              {#if panelVisibility.forceRoster}<button role="tab" aria-selected={leftPanelTab === 'roster'} class:active={leftPanelTab === 'roster'} onclick={() => leftPanelTab = 'roster'}>FORCE ROSTER</button>{/if}
+              {#if panelVisibility.missions}<button role="tab" aria-selected={leftPanelTab === 'missions'} class:active={leftPanelTab === 'missions'} onclick={() => leftPanelTab = 'missions'}>MISSIONS</button>{/if}
             </div>
-            {#if leftPanelTab === 'roster'}<AircraftPanel onCollapse={toggleLeftPane} onLoadout={openLoadout} onAssign={(aircraftId, missionId) => { assignedAircraftId = aircraftId; briefingMissionId = missionId; }} />
-            {:else}<MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} onCollapse={toggleLeftPane} />{/if}
+            {#if leftPanelTab === 'roster' && panelVisibility.forceRoster}<AircraftPanel onCollapse={toggleLeftPane} onToggleVisibility={() => setPanelVisibility('forceRoster', false)} onLoadout={openLoadout} onAssign={(aircraftId, missionId) => { assignedAircraftId = aircraftId; briefingMissionId = missionId; }} />
+            {:else if panelVisibility.missions}<MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} onCollapse={toggleLeftPane} onToggleVisibility={() => setPanelVisibility('missions', false)} />{:else if panelVisibility.forceRoster}<AircraftPanel onCollapse={toggleLeftPane} onToggleVisibility={() => setPanelVisibility('forceRoster', false)} onLoadout={openLoadout} onAssign={(aircraftId, missionId) => { assignedAircraftId = aircraftId; briefingMissionId = missionId; }} />{/if}
           </aside>{/if}
         </Pane><PaneResizer class="pane-resizer" />{/if}
         <Pane defaultSize={mapFullscreen ? 100 : 57} minSize={40}>
           <section class="center">
-            {#if TacticalMap}<TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} onFullscreenClick={toggleMapFullscreen} fullscreen={mapFullscreen} />{:else}<div class="map-loading mono">INITIALISING TACTICAL MAP · SECURE DATA LINK</div>{/if}
+            {#if TacticalMap}<TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} onFullscreenClick={toggleMapFullscreen} onToggleTheaterVisibility={() => setPanelVisibility('theaterMap', !panelVisibility.theaterMap)} theaterMapVisible={panelVisibility.theaterMap} fullscreen={mapFullscreen} />{:else}<div class="map-loading mono">INITIALISING TACTICAL MAP · SECURE DATA LINK</div>{/if}
             {#if system.computing}<div class="computing mono">◢ COMPUTING COA · NSGA-II · 4 OBJECTIVES</div>{/if}
           </section>
         </Pane>
         {#if !mapFullscreen}<PaneResizer class="pane-resizer" />
-        <Pane bind:this={rightPane} defaultSize={28} minSize={3} maxSize={35}>
+        {#if panelVisibility.coa || rightTab !== 'coa'}<Pane bind:this={rightPane} defaultSize={28} minSize={3} maxSize={35}>
           {#if rightCollapsed}<div class="collapsed-rail"><button title="Expand COA panel" aria-label="Expand right panel" onclick={toggleRightPane}>«</button><span>C</span></div>
           {:else}
             <div class="right-wrap">
               <div class="right-tabs" role="tablist" aria-label="Right panel">
-                <button role="tab" aria-selected={rightTab === 'coa'} class:active={rightTab === 'coa'} onclick={() => rightTab = 'coa'}>COA</button>
+                {#if panelVisibility.coa}<button role="tab" aria-selected={rightTab === 'coa'} class:active={rightTab === 'coa'} onclick={() => rightTab = 'coa'}>COA</button>{/if}
                 <button role="tab" aria-selected={rightTab === 'red'} class:active={rightTab === 'red'} onclick={() => rightTab = 'red'}>RED VIEW</button>
                 <button role="tab" aria-selected={rightTab === 'weapons'} class:active={rightTab === 'weapons'} onclick={() => rightTab = 'weapons'}>WEAPONS <kbd>Ctrl+5</kbd></button>
                 <button role="tab" aria-selected={rightTab === 'cyber'} class:active={rightTab === 'cyber'} onclick={() => rightTab = 'cyber'}>CYBER <kbd>Ctrl+6</kbd></button>
@@ -415,7 +434,7 @@
                 <button class="right-collapse" aria-label="Collapse right panel" title="Collapse right panel" onclick={toggleRightPane}>›</button>
               </div>
               <div class="right-tab-content">
-                {#if rightTab === 'coa'}<COAPanel mode="blue" />
+                {#if rightTab === 'coa' && panelVisibility.coa}<COAPanel mode="blue" onToggleVisibility={() => setPanelVisibility('coa', false)} />
                 {:else if rightTab === 'red'}<COAPanel mode="red" />
                 {:else if rightTab === 'metrics'}{#if MetricsDashboard}<MetricsDashboard open={true} inline={true} />{:else}<div class="map-loading mono">LOADING ANALYTICS</div>{/if}
                 {:else if rightTab === 'execution'}<ExecutionPanel />
@@ -424,15 +443,15 @@
               </div>
             </div>
           {/if}
-        </Pane>{/if}
+        </Pane>{/if}{/if}
       </PaneGroup>
     </Pane>
-    {#if !mapFullscreen}<PaneResizer class="pane-resizer vertical-resizer" />
+    {#if !mapFullscreen && (panelVisibility.missionLog || panelVisibility.commandStatus)}<PaneResizer class="pane-resizer vertical-resizer" />
     <Pane bind:this={logPane} defaultSize={34} minSize={3} maxSize={45}>
       <PaneGroup direction="horizontal" autoSaveId="aircommand.command-row" class="command-row">
-        <Pane defaultSize={70} minSize={48}><EventLog collapsed={logCollapsed} onToggle={toggleLogPane} /></Pane>
-        <PaneResizer class="pane-resizer" />
-        <Pane defaultSize={30} minSize={22}><CommandStatus /></Pane>
+        {#if panelVisibility.missionLog}<Pane defaultSize={panelVisibility.commandStatus ? 70 : 100} minSize={48}><EventLog collapsed={logCollapsed} onToggle={toggleLogPane} onToggleVisibility={() => setPanelVisibility('missionLog', false)} /></Pane>{/if}
+        {#if panelVisibility.missionLog && panelVisibility.commandStatus}<PaneResizer class="pane-resizer" />{/if}
+        {#if panelVisibility.commandStatus}<Pane defaultSize={panelVisibility.missionLog ? 30 : 100} minSize={22}><CommandStatus onToggleVisibility={() => setPanelVisibility('commandStatus', false)} /></Pane>{/if}
       </PaneGroup>
     </Pane>{/if}
   </PaneGroup>

@@ -1,7 +1,7 @@
 ﻿<script lang="ts">
   import SvelteVirtualList from '@humanspeak/svelte-virtual-list';
   import { system, type EventLevel } from '../../stores/systemStore.svelte';
-  let { collapsed = false, onToggle }: { collapsed?: boolean; onToggle?: () => void } = $props();
+  let { collapsed = false, onToggle, onToggleVisibility }: { collapsed?: boolean; onToggle?: () => void; onToggleVisibility?: () => void } = $props();
 
   function levelColor(l: EventLevel) {
     return l === 'ok' ? 'var(--accent-green)'
@@ -17,7 +17,7 @@
 <div class="log">
   <div class="hdr">
     <span>MISSION LOG</span>
-    <span class="log-actions"><span class="count">{visibleEvents.length} ENTRIES</span><button aria-label={collapsed ? 'Expand event log' : 'Collapse event log'} title={collapsed ? 'Expand event log' : 'Collapse event log'} onclick={() => onToggle?.()}>{collapsed ? '⌃' : '⌄'}</button></span>
+    <span class="log-actions"><span class="count">{visibleEvents.length} ENTRIES</span><button aria-label="Hide mission log" title="Hide mission log" onclick={() => onToggleVisibility?.()}>◉</button><button aria-label={collapsed ? 'Expand event log' : 'Collapse event log'} title={collapsed ? 'Expand event log' : 'Collapse event log'} onclick={() => onToggle?.()}>{collapsed ? '⌃' : '⌄'}</button></span>
   </div>
   {#if !collapsed}<div class="entries">
     {#if visibleEvents.length > 30}

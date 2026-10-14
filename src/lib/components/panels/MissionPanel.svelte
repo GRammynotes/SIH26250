@@ -3,7 +3,7 @@
   import { system } from '../../stores/systemStore.svelte';
   import type { Mission } from '../../types';
 
-  let { onMissionSelect, onCollapse }: { onMissionSelect?: (missionId: string) => void; onCollapse?: () => void } = $props();
+  let { onMissionSelect, onCollapse, onToggleVisibility }: { onMissionSelect?: (missionId: string) => void; onCollapse?: () => void; onToggleVisibility?: () => void } = $props();
 
   let search = $state('');
   let filter = $state('ALL');
@@ -84,7 +84,7 @@
 <div class="mission-block corners">
   <div class="hdr">
     <span>MISSIONS</span>
-    <span class="hdr-actions"><span class="count">{system.scenarioMissions.length} QUEUED</span><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
+    <span class="hdr-actions"><span class="count">{system.scenarioMissions.length} QUEUED</span><button class="chevron" aria-label="Hide missions panel" title="Hide missions panel" onclick={() => onToggleVisibility?.()}>◉</button><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
   </div>
   <div class="mission-tools">
     <input bind:value={search} placeholder="SEARCH MISSIONS" aria-label="Search missions" />

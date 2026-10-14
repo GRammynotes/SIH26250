@@ -2,7 +2,7 @@
   import SvelteVirtualList from '@humanspeak/svelte-virtual-list';
   import { system } from '../../stores/systemStore.svelte';
   import type { Aircraft } from '../../types';
-  let { onCollapse, onLoadout, onAssign }: { onCollapse?: () => void; onLoadout?: (type: string, tail: string) => void; onAssign?: (aircraftId: string, missionId: string) => void } = $props();
+  let { onCollapse, onToggleVisibility, onLoadout, onAssign }: { onCollapse?: () => void; onToggleVisibility?: () => void; onLoadout?: (type: string, tail: string) => void; onAssign?: (aircraftId: string, missionId: string) => void } = $props();
 
   let filter = $state('ALL');
   let sortBy = $state<'STATUS' | 'BASE' | 'TYPE' | 'FUEL'>('STATUS');
@@ -54,7 +54,7 @@
 <aside class="panel corners">
   <div class="hdr">
     <span>FORCE ROSTER</span>
-    <span class="hdr-actions"><span class="count">{system.scenarioAircraft.length} TRACKED</span><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
+    <span class="hdr-actions"><span class="count">{system.scenarioAircraft.length} TRACKED</span><button class="chevron" aria-label="Hide force roster" title="Hide force roster" onclick={() => onToggleVisibility?.()}>◉</button><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
   </div>
   <div class="sub">
     <span style="color:var(--accent-green);">✓ FMC {counts.fmc}</span>

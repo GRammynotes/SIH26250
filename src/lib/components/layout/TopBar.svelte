@@ -8,12 +8,14 @@
     onFlowClick, onReferenceClick, onMetricsClick, onDemoClick,
     onGlossaryClick, onShortcutHelpClick, onGenerate, onReset, onDegradedToggle,
     onLayerToggle, demoActive = false, modalCount = 0,
+    onPanelToggle, onShowAllPanels, onHideAllPanels,
   }: {
     aircraftCount?: number; missionCount?: number; threatCount?: number;
     onFlowClick?: () => void; onReferenceClick?: () => void; onMetricsClick?: () => void;
     onDemoClick?: () => void; onGlossaryClick?: () => void; onShortcutHelpClick?: () => void;
     onGenerate?: () => void; onReset?: () => void; onDegradedToggle?: () => void;
     onLayerToggle?: (layer: string) => void; demoActive?: boolean; modalCount?: number;
+    onPanelToggle?: (key: string, visible: boolean) => void; onShowAllPanels?: () => void; onHideAllPanels?: () => void;
   } = $props();
 
   let zulu = $state('00:00:00');
@@ -25,6 +27,7 @@
     ['Terrain', 'terrain'], ['Airspace', 'airspace'], ['Weather', 'weather'], ['Enemy', 'enemy'], ['Ground', 'ground'],
     ['Trails', 'trails'], ['Grid', 'grid'], ['Threat', 'threats'],
   ];
+  const panels = [['FORCE ROSTER','forceRoster'],['MISSIONS','missions'],['THEATER MAP','theaterMap'],['COA','coa'],['MISSION LOG','missionLog'],['COMMAND STATUS','commandStatus'],['SCENARIO BAR','scenarioBar']];
   const securityStatus = $derived(system.spoofedTrackId ? 'LINK COMPROMISED' : system.mode === 'DEGRADED' ? 'KEY ROTATION DUE' : 'LINK SECURE');
 
   onMount(() => {
@@ -58,6 +61,10 @@
               {#each layers as [label, key]}
                 <button role="menuitemcheckbox" aria-checked="false" onclick={() => action(() => onLayerToggle?.(key))}><span>◈ {label}</span><span class="menu-arrow">›</span></button>
               {/each}
+              <div class="menu-divider"></div><div class="panel-visibility" aria-label="Panel visibility controls">
+                {#each panels as [label, key]}<button role="menuitem" onclick={() => action(() => onPanelToggle?.(key, true))}>SHOW {label}</button>{/each}
+                <button role="menuitem" onclick={() => action(onShowAllPanels)}>SHOW ALL</button><button role="menuitem" onclick={() => action(onHideAllPanels)}>HIDE ALL</button>
+              </div>
             {:else if menu === 'TOOLS'}
               <button role="menuitem" onclick={() => action(onGenerate)}>▸ GENERATE COA <kbd>G</kbd></button>
               <button role="menuitem" class:enabled={system.continuousReoptimization} onclick={() => action(() => system.toggleContinuousReoptimization())}>◈ AUTO-OPT {system.continuousReoptimization ? 'ON' : 'OFF'}</button>
@@ -105,6 +112,7 @@
   .menu-panel { position:absolute; top:31px; left:0; min-width:190px; padding:5px; background:var(--bg-panel); border:1px solid var(--accent-cyan); box-shadow:0 8px 24px rgba(0,0,0,.55); display:flex; flex-direction:column; gap:2px; z-index:50; }
   .menu-panel button { display:flex; justify-content:space-between; align-items:center; padding:9px 10px; border:1px solid transparent; background:transparent; color:var(--text-secondary); text-align:left; font:9px var(--font-mono); letter-spacing:.1em; cursor:pointer; }
   .menu-panel button:hover,.menu-panel button:focus-visible { border-color:var(--border-strong); color:var(--accent-cyan); outline:none; } .menu-panel button.enabled { color:var(--accent-green); } .menu-arrow { color:var(--text-muted); }
+  .menu-divider { height:1px; background:var(--border-subtle); margin:4px 0; }.panel-visibility { max-height:260px; overflow:auto; }
   .indicators { display:flex; align-items:center; gap:6px; margin:0 4px; } .indicator { font-size:8px; font-weight:700; animation:indicator-pulse 1.5s infinite; } .indicator.link { color:var(--accent-green); } .indicator.recompute { color:var(--accent-amber); } .indicator.degraded { color:var(--accent-red); } .indicator.demo { color:var(--accent-cyan); } kbd { margin-left:7px; padding:1px 3px; border:1px solid var(--border-strong); color:var(--accent-cyan); font:8px var(--font-mono); }
   .security-status { display:flex; align-items:center; gap:4px; color:var(--accent-green); white-space:nowrap; font-size:8px; }.security-status i { display:grid; place-items:center; width:12px; height:12px; border:1px solid currentColor; font-style:normal; font-weight:700; }.security-status.warn { color:var(--accent-amber); }.security-status.bad { color:var(--accent-red); }.operator { white-space:nowrap; color:var(--accent-cyan); font-size:8px; }
   .modal-count { color:var(--accent-cyan); font-size:8px; border:1px solid var(--accent-cyan); padding:1px 3px; } @keyframes indicator-pulse { 50% { opacity:.45; } }
