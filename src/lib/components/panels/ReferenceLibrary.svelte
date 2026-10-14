@@ -1,6 +1,8 @@
 ﻿<script lang="ts">
   let { open = false, onClose }: { open?: boolean; onClose?: () => void } = $props();
 
+  import { IAF_BASES } from '../../data/bases';
+
   interface Reference {
     id: string;
     title: string;
@@ -61,6 +63,38 @@
       return acc;
     }, {})
   );
+
+  const focusItems: Record<string, { label: string; text: string; bounds?: [[number, number], [number, number]] }[]> = {
+    sindoor: [
+      { label: 'INGRESS CORRIDOR', text: 'Ingress corridor selected. Review the approach from the Indian side, threat rings, and stand-off geometry before release.', bounds: [[72.7, 29.5], [77.2, 34.3]] },
+      { label: 'RELEASE / WEZ', text: 'Release point selected. This is the stand-off weapon engagement area; the package can release while remaining outside the modeled outer threat ring.', bounds: [[73.1, 30.2], [76.7, 33.3]] },
+      { label: 'TARGET AREA', text: 'Target area selected. The scenario target is in the Bahawalpur region; map symbols and threat rings provide operational context, not live intelligence.', bounds: [[71.8, 28.8], [76.8, 34.2]] },
+    ],
+    flow: [
+      { label: 'INTELLIGENCE GATE', text: 'Intelligence gate: confirm target identity, confidence, and recency before weapons selection.' },
+      { label: 'WEAPONEERING', text: 'Weaponeering compares platform, weapon range, target type, and collateral constraints.' },
+      { label: 'COMMANDER DECISION', text: 'Commander decision: compare generated courses of action, inspect risk, and approve or revise tasking.' },
+    ],
+    commandpost: [
+      { label: 'SENSOR FEEDS', text: 'Sensor feeds supply tracks and surveillance context to the command picture.' },
+      { label: 'FUSION CELL', text: 'The fusion cell correlates tracks and flags uncertainty for commander review.' },
+      { label: 'DECISION NODE', text: 'The decision node presents courses of action and records commander selections.' },
+    ],
+  };
+
+  for (const [id, platform] of [['su30', 'Su-30MKI'], ['rafale', 'Rafale']] as const) {
+    const base = IAF_BASES.find((item) => item.primaryAircraft.includes(platform));
+    if (base) focusItems[id] = [{
+      label: `${platform.toUpperCase()} BASE AREA`,
+      text: `${platform} loadout diagram selected. The map centers on a modeled operating base; use the force roster to inspect readiness and aircraft loadout controls to compare stores.`,
+      bounds: [[base.lng - 1.2, base.lat - .8], [base.lng + 1.2, base.lat + .8]],
+    }];
+  }
+
+  function focusDiagram(item: { text: string; bounds?: [[number, number], [number, number]] }) {
+    window.dispatchEvent(new CustomEvent('aircommand:diagram-focus', { detail: item }));
+    onClose?.();
+  }
 </script>
 
 {#if open}
@@ -96,11 +130,16 @@
 
         <main class="viewer">
           <div class="img-wrap">
-            <img src={selected.src} alt={selected.title} />
+            <button class="diagram-image" aria-label={`Focus ${selected.title} on tactical map`} onclick={() => focusDiagram(focusItems[selected.id]?.[0] ?? { text: selected.description })}>
+              <img src={selected.src} alt={selected.title} />
+              <span>SELECT DIAGRAM TO FOCUS MAP ↗</span>
+            </button>
           </div>
+          {#if focusItems[selected.id]}<div class="diagram-actions" aria-label="Diagram areas">{#each focusItems[selected.id] as item}<button onclick={() => focusDiagram(item)}>{item.label}<span>↗</span></button>{/each}</div>{/if}
           <div class="desc">
             <span class="desc-label">CONTEXT</span>
             <p>{selected.description}</p>
+            <small>Diagram focus is educational scenario context. It does not represent live operational tasking.</small>
           </div>
         </main>
       </div>
@@ -159,7 +198,7 @@
   }
   .close:hover { color: var(--accent-red); }
 
-  .content { flex: 1; display: grid; grid-template-columns: 240px 1fr; overflow: hidden; }
+  .content { flex: 1; min-height:0; display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); overflow: hidden; }
 
   .sidebar {
     background: #05080f;
@@ -223,6 +262,15 @@
     filter: saturate(1.05);
     background: #05080f;
   }
+  .diagram-image { position:relative; max-width:100%; max-height:100%; height:100%; display:grid; place-items:center; padding:0; border:0; background:transparent; cursor:zoom-in; }
+  .diagram-image img { max-width:100%; max-height:100%; object-fit:contain; }
+  .diagram-image span { position:absolute; right:8px; bottom:8px; padding:5px 7px; color:var(--accent-cyan); background:rgba(5,8,15,.9); border:1px solid var(--border-strong); font:8px var(--font-mono); letter-spacing:.1em; opacity:0; transition:opacity .15s; }
+  .diagram-image:hover span,.diagram-image:focus-visible span { opacity:1; }
+  .diagram-image:focus-visible { outline:1px solid var(--accent-cyan); }
+  .diagram-actions { display:flex; flex-wrap:wrap; gap:6px; padding:8px 16px; background:#05080f; border-top:1px solid var(--border-subtle); }
+  .diagram-actions button { display:flex; gap:10px; align-items:center; padding:6px 8px; color:var(--text-secondary); border:1px solid var(--border-subtle); background:transparent; font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; }
+  .diagram-actions button:hover,.diagram-actions button:focus-visible { color:var(--accent-cyan); border-color:var(--accent-cyan); outline:none; }
+  .diagram-actions span { color:var(--accent-cyan); }
   .desc {
     border-top: 1px solid var(--border-subtle);
     padding: 12px 20px;
@@ -239,4 +287,7 @@
     line-height: 1.6; color: var(--text-secondary);
     margin: 0;
   }
+  .desc small { display:block; margin-top:6px; color:var(--text-muted); font:9px/1.4 var(--font-mono); }
+  @media (max-width: 850px) { .content { grid-template-columns:150px minmax(0,1fr); } header { padding:10px 12px; } .desc { padding:8px 12px; } }
+  @media (max-height: 700px) { .frame { height:96vh; } header { padding:8px 14px; } .desc { padding:6px 12px; } .desc p { font-size:11px; } }
 </style>
