@@ -43,6 +43,7 @@
   let shortcutHelpOpen = $state(false);
   let glossaryOpen = $state(false);
   let demoCompleteOpen = $state(false);
+  let demoActive = $state(false);
   let commandPaletteOpen = $state(false);
   let modalStack = $state<string[]>([]);
   let minimizedModals = $state<string[]>([]);
@@ -220,6 +221,7 @@
   }
 
   function startDemo() {
+    demoActive = true;
     const steps = DEMO_STEPS.map((s) => ({
       element: s.element,
       popover: {
@@ -245,6 +247,7 @@
         } else driver.moveNext();
       },
       onDestroyStarted: () => {
+        demoActive = false;
         driverObj.destroy();
       },
     });
@@ -344,7 +347,7 @@
     onReset={() => system.reset()}
     onDegradedToggle={() => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED')}
     onLayerToggle={toggleMapLayer}
-    demoActive={false}
+    demoActive={demoActive}
     modalCount={activeModalIds.length}
   />
 
