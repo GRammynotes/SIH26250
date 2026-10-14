@@ -14,7 +14,7 @@
     : system.events);
 </script>
 
-<div class="log">
+<div class="log" data-tour="log">
   <div class="hdr">
     <span>MISSION LOG</span>
     <span class="log-actions"><span class="count">{visibleEvents.length} ENTRIES</span><button aria-label="Hide mission log" title="Hide mission log" onclick={() => onToggleVisibility?.()}>◉</button><button aria-label={collapsed ? 'Expand event log' : 'Collapse event log'} title={collapsed ? 'Expand event log' : 'Collapse event log'} onclick={() => onToggle?.()}>{collapsed ? '⌃' : '⌄'}</button></span>

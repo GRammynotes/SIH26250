@@ -10,9 +10,9 @@
   }
 </script>
 
-<details class="scenario-menu">
+<details class="scenario-menu" data-tour="scenario-controls">
   <summary aria-label="Choose scenario"><strong>SCENARIO</strong><span>{system.activeScenarioFilter ? SCENARIO_LABELS[system.activeScenarioFilter] : 'GLOBAL VIEW'}</span><b>▼</b></summary>
-<nav class="scenario-bar" aria-label="Console scenarios">
+<nav class="scenario-bar" aria-label="Console scenarios" data-tour="scenario-bar">
   <strong>SCENARIO FILTER</strong>
   <button class:active={!system.activeScenarioFilter} aria-pressed={!system.activeScenarioFilter} onclick={() => select(null)}><span aria-hidden="true">◉</span> GLOBAL VIEW</button>
   {#each scenarios as [key, label] (key)}

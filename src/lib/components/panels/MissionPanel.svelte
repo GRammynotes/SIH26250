@@ -81,7 +81,7 @@
   </div>
 {/snippet}
 
-<div class="mission-block corners">
+<div class="mission-block corners" data-tour="missions">
   <div class="hdr">
     <span>MISSIONS</span>
     <span class="hdr-actions"><span class="count">{system.scenarioMissions.length} QUEUED</span><button class="chevron" aria-label="Hide missions panel" title="Hide missions panel" onclick={() => onToggleVisibility?.()}>◉</button><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>

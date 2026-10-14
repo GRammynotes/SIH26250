@@ -938,7 +938,7 @@
   function toggleEnemy() { showEnemy = !showEnemy; }
 </script>
 
-<div class="map-wrap">
+<div class="map-wrap" data-tour="map">
   <div class="map-canvas" class:impact-shake={getSimulationFrame().impacts.some((impact) => impact.flash)} bind:this={container}></div>
   {#if mapReady && map}<TrajectoryLayer {map} />{/if}
   {#if mapReady && map}<MapNarrativePointer {map} />{/if}

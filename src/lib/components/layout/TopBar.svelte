@@ -54,7 +54,7 @@
   <nav class="menus" aria-label="Main menu">
     {#each menus as menu (menu)}
       <div class="menu-group">
-        <button class="menu-trigger" class:open={openMenu === menu} aria-haspopup="true" aria-expanded={openMenu === menu} onclick={(event) => toggleMenu(menu, event)}>{menu}</button>
+        <button class="menu-trigger" data-tour={menu === 'TOOLS' ? 'reference-library' : menu === 'HELP' ? 'help-menu' : undefined} class:open={openMenu === menu} aria-haspopup="true" aria-expanded={openMenu === menu} onclick={(event) => toggleMenu(menu, event)}>{menu}</button>
         {#if openMenu === menu}
           <div class="menu-panel" role="menu" onclick={(event) => event.stopPropagation()}>
             {#if menu === 'VIEW'}
@@ -88,7 +88,7 @@
     {/each}
   </nav>
   <span class="spacer"></span>
-  <button class="voice-toggle" aria-pressed={voiceOn} title="Toggle voice narration" onclick={toggleVoice}>◈ VOICE {voiceOn ? 'ON' : 'OFF'}</button>
+  <button class="voice-toggle" data-tour="voice-toggle" aria-pressed={voiceOn} title="Toggle voice narration" onclick={toggleVoice}>◈ VOICE {voiceOn ? 'ON' : 'OFF'}</button>
   <span class="metric">AC <b>{aircraftCount}</b></span><span class="metric">MSN <b>{missionCount}</b></span><span class="metric">THR <b>{threatCount}</b></span>
   <span class="indicators" aria-label="System status">
     <span class="indicator link" title="Link OK" aria-label="Link OK">●✓</span>

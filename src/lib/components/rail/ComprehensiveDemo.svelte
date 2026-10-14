@@ -37,6 +37,7 @@
   // Execute current step
   function executeStep() {
     if (!currentStep || isPaused || !isPlaying) return;
+    window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
     const narration = parseMapNarrative(currentStep.narration);
     const caption = parseMapNarrative(currentStep.caption).text;
 

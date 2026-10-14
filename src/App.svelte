@@ -548,9 +548,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       <div class="rail-expanded" class:rail-hidden={railCollapsed}>
         <button class="rail-resize" aria-label="Resize experience rail" title="Drag to resize rail" onpointerdown={(event) => { railResizing = true; event.preventDefault(); }}></button>
         <div class="rail-toolbar">
-          <div class="rail-mode-tabs" role="tablist" aria-label="Experience mode">
-            <button class:active={railMode === 'demo'} role="tab" aria-selected={railMode === 'demo'} onclick={() => selectRailMode('demo')}>DEMO</button>
-            <button class:active={railMode === 'training'} role="tab" aria-selected={railMode === 'training'} onclick={() => selectRailMode('training')}>TRAINING</button>
+          <div class="rail-mode-tabs" role="tablist" aria-label="Experience mode" data-tour="scenario-controls">
+            <button data-tour="demo" class:active={railMode === 'demo'} role="tab" aria-selected={railMode === 'demo'} onclick={() => selectRailMode('demo')}>DEMO</button>
+            <button data-tour="simulation" class:active={railMode === 'training'} role="tab" aria-selected={railMode === 'training'} onclick={() => selectRailMode('training')}>TRAINING</button>
             <button class:active={railMode === 'sim'} role="tab" aria-selected={railMode === 'sim'} onclick={() => selectRailMode('sim')}>SIM</button>
           </div>
           <button class="rail-collapse" title="Collapse rail" aria-label="Collapse experience rail" onclick={() => railCollapsed = true}>›</button>

@@ -52,7 +52,7 @@
   </div>
 {/snippet}
 
-<aside class="panel corners">
+<aside class="panel corners" data-tour="roster">
   <div class="hdr">
     <span>FORCE ROSTER</span>
     <span class="hdr-actions"><span class="count">{system.scenarioAircraft.length} TRACKED</span><button class="chevron" aria-label="Hide force roster" title="Hide force roster" onclick={() => onToggleVisibility?.()}>◉</button><button class="chevron" aria-label="Collapse left panels" title="Collapse left panels" onclick={() => onCollapse?.()}>‹</button></span>
