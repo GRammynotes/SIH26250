@@ -12,6 +12,7 @@
 
   let coas = $derived(system.coas);
   let view = $state<'blue' | 'red'>('blue');
+  let expandedCoaId = $state<string | null>(null);
   let activeView = $derived(mode ?? view);
   let btnLabel = $derived(
     system.computing ? '◢ COMPUTING...' : coas.length === 0 ? '▸ GENERATE COA' : '▸ RE-GENERATE COA',
@@ -62,16 +63,17 @@
         <div
           class="coa-card"
           class:selected={coa.id === system.selectedCoaId}
-          onclick={() => system.selectCOA(coa.id)}
+          class:expanded={expandedCoaId === coa.id}
+          onclick={() => { system.selectCOA(coa.id); expandedCoaId = expandedCoaId === coa.id ? null : coa.id; }}
           role="button"
           tabindex="0"
-          onkeydown={(e) => e.key === 'Enter' && system.selectCOA(coa.id)}
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); system.selectCOA(coa.id); expandedCoaId = expandedCoaId === coa.id ? null : coa.id; } }}
         >
           <div class="coa-hdr">
             <span class="rank" style="color:{rankColor(coa.rank)};">OPTION {coa.rank}</span>
             <span class="id mono">{getModeLabel(coa)}</span>
           </div>
-          <div class="coa-metrics">
+          <div class="coa-metrics" class:full={expandedCoaId === coa.id}>
             <div class="metric">
               <span class="mlabel">SUCCESS</span>
               <span class="mvalue" style="color:var(--accent-green);">{coa.successProbability}%</span>
@@ -80,11 +82,12 @@
               <span class="mlabel">RISK</span>
               <span class="mvalue" style="color:var(--accent-red);">{coa.riskScore}</span>
             </div>
-            <div class="metric">
+            {#if expandedCoaId === coa.id}<div class="metric">
               <span class="mlabel">TIME</span>
               <span class="mvalue" style="color:var(--accent-cyan);">{coa.timeToEffect}m</span>
-            </div>
+            </div>{/if}
           </div>
+          {#if expandedCoaId === coa.id}
           <div class="coa-missions">
             {#each Object.entries(coa.assignments) as [mid, ids]}
               {#if (ids as string[]).length > 0}
@@ -96,6 +99,7 @@
             {/each}
           </div>
           <div class="coa-expl">{coa.explanation}</div>
+          {:else}<div class="detail-hint">ENTER / SELECT FOR BREAKDOWN</div>{/if}
         </div>
       {/each}
     {:else}
@@ -148,7 +152,8 @@
   .coa-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
   .rank { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em; font-weight: 700; }
   .id { color: var(--text-muted); font-size: 9px; }
-  .coa-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding: 6px 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); margin-bottom: 8px; }
+  .coa-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 6px 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); margin-bottom: 8px; }
+  .coa-metrics.full { grid-template-columns: 1fr 1fr 1fr; }
   .metric { display: flex; flex-direction: column; gap: 2px; }
   .mlabel { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.15em; color: var(--text-muted); text-transform: uppercase; }
   .mvalue { font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
@@ -157,6 +162,7 @@
   .mid { color: var(--accent-amber); letter-spacing: 0.1em; }
   .ids { color: var(--text-muted); }
   .coa-expl { font-family: var(--font-mono); font-size: 9px; line-height: 1.6; color: var(--text-secondary); }
+  .detail-hint { color:var(--text-muted); font:7px var(--font-mono); letter-spacing:.1em; }
   .mono { font-family: var(--font-mono); }
   .red-summary { color: var(--text-muted); font: 8px var(--font-mono); letter-spacing: .1em; line-height: 1.6; margin-bottom: 10px; }
   .red-card { border: 1px solid rgba(255,45,124,.55); background: rgba(255,45,124,.035); padding: 10px; margin-bottom: 8px; font-family: var(--font-mono); }

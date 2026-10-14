@@ -86,7 +86,7 @@
     {#each groups as [groupName, missions] (groupName)}
       <div class="group-label">{groupName} · {missions.length}</div>
       {#each missions as m (m.id)}
-      <div class="row" class:expanded={expandedMission === m.id} tabindex="0" role="group" aria-label="Mission {m.name}, priority {m.priority}" onkeydown={(event) => handleMissionRowKeydown(event, m.id)}>
+      <div class="row" class:expanded={expandedMission === m.id} style="border-left:3px solid {priColor(m.priority)}" tabindex="0" role="group" aria-label="Mission {m.name}, priority {m.priority}" onkeydown={(event) => handleMissionRowKeydown(event, m.id)} onclick={(event) => { if (!(event.target as HTMLElement).closest('button')) onMissionSelect?.(m.id); }}>
         <div class="line1">
           <span class="name">{m.name}</span>
           <div class="line1-right">
@@ -96,6 +96,7 @@
             <span class="pri" style="color:{priColor(m.priority)};border-color:{priColor(m.priority)};">P{m.priority}</span>
           </div>
         </div>
+        {#if expandedMission === m.id}
         <div class="line2">
           <span class="coords">{m.target.lat.toFixed(3)}N · {m.target.lng.toFixed(3)}E</span>
           <span class="risk">RISK {m.riskLevel}</span>
@@ -111,6 +112,7 @@
             <span class="state-complete">✓ COMPLETE</span>
           {/if}
         </div>
+        {/if}
         <div class="quick-actions">
           <button onclick={() => onMissionSelect?.(m.id)}>BRIEF</button>
           {#if m.status === 'PLANNED'}<button class="execute-action" disabled={!system.coas.length || !m.feasible} onclick={() => handleExecute(m.id)}>EXECUTE</button>{/if}

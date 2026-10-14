@@ -65,11 +65,11 @@
             {ac.status}
           </span>
         </div>
-        <div class="line2">
-          <span class="type">{ac.type}</span>
+        <div class="line2" aria-label="Fuel remaining {ac.fuel} percent">
+          {#if expandedId === ac.id}<span class="type">{ac.type}</span>{/if}
           <span class="fuel">
             <span class="track"><span class="bar" style="width:{ac.fuel}%;background:{statusColor(ac.status)};"></span></span>
-            <span class="txt">{ac.fuel}%</span>
+            {#if expandedId === ac.id}<span class="txt">{ac.fuel}%</span>{/if}
           </span>
         </div>
         <div class="quick-actions">
@@ -84,7 +84,7 @@
             {:else}<span>NO PLANNED MISSIONS</span>{/each}
           </div>
         {/if}
-        {#if expandedId === ac.id}<div class="details">TAIL {ac.tailNumber} · BASE {ac.base.toUpperCase()} · CREW REST {ac.crewRest}H · HEADING {ac.heading}°</div>{/if}
+        {#if expandedId === ac.id}<div class="details">{ac.type} · BASE {ac.base.toUpperCase()} · FUEL {ac.fuel}% · CREW REST {ac.crewRest}H · HEADING {ac.heading}° · LOAD {ac.weapons.join(', ')}</div>{/if}
       </div>
     {/each}
   </div>
