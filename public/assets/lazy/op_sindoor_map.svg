@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-labelledby="ttl dsc">
+  <title id="ttl">Operation Sindoor deep strike: tactical decision-support map</title>
+  <desc id="dsc">Schematic top-down map of northern India and Pakistan showing three Rafale routes from Ambala to standoff release points, SCALP tracks to a hardened target near Bahawalpur, two SAM threat rings, and an air-refuelling track.</desc>
+
+  <defs>
+    <clipPath id="frame"><rect x="20" y="20" width="1160" height="760"/></clipPath>
+    <path id="ac" d="M5 0L-4 -2.8L-4 2.8Z"/>
+    <style>
+      text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+      .st{font-size:9px;letter-spacing:1px;fill:#3a4d69}
+      .cn{font-size:12px;letter-spacing:5px;fill:#2c4160}
+      .an{font-size:11px;fill:#e2e8f0}
+      .sm{font-size:9px;fill:#c0555a}
+      .lg{font-size:11px;fill:#cbd5e1}
+    </style>
+  </defs>
+
+  <!-- background -->
+  <rect width="1200" height="800" fill="#05080f"/>
+
+  <!-- ===== BASE MAP ===== -->
+  <g clip-path="url(#frame)" stroke-width="1" stroke-linejoin="round">
+    <!-- Pakistan -->
+    <polygon fill="#0b1422" stroke="#4a6285"
+      points="360,0 340,102 291,174 260,217 223,282 204,354 161,390 111,426 37,498 -13,570 -60,900 266,900 266,772 272,664 322,620 409,577 464,541 502,502 520,462 551,430 548,383 576,347 551,304 526,268 495,210 545,160 613,116 669,73 690,0"/>
+    <!-- India (north) -->
+    <polygon fill="#09101b" stroke="#4a6285"
+      points="266,900 266,772 272,664 322,620 409,577 464,541 502,502 520,462 551,430 548,383 576,347 551,304 526,268 495,210 545,160 613,116 669,73 690,0 860,0 898,95 854,210 811,318 805,368 898,484 917,541 892,590 948,628 1010,664 1072,685 1134,692 1196,750 1300,820 1300,900"/>
+
+    <!-- Indian state boundaries -->
+    <g fill="none" stroke="#1f2f46">
+      <polyline points="700,437 663,476 626,505 570,512 522,505 502,502"/>
+      <polyline points="570,512 576,599 630,640 672,662 724,649"/>
+      <polyline points="734,462 724,534 722,577"/>
+      <polyline points="722,613 724,649"/>
+      <polyline points="700,437 734,462"/>
+      <polyline points="700,437 669,412 644,376 631,347 625,318"/>
+      <polyline points="625,318 588,308 551,304"/>
+      <polyline points="625,318 662,304 700,311 738,311 770,338 805,368"/>
+      <polyline points="734,462 775,425 820,387"/>
+      <polyline points="734,462 774,505 824,541 892,590"/>
+      <polyline points="724,649 745,700 760,770"/>
+      <polygon points="691,577 722,577 722,613 691,613"/>
+    </g>
+    <!-- Pakistani provincial boundaries -->
+    <g fill="none" stroke="#1f2f46">
+      <polyline points="272,664 240,645 222,620"/>
+      <polyline points="222,620 240,570 262,500 270,440 272,412"/>
+      <polyline points="272,412 322,354 359,294 402,237 428,210"/>
+    </g>
+
+    <!-- map labels -->
+    <text class="cn" x="80" y="520">PAKISTAN</text>
+    <text class="cn" x="810" y="730">INDIA</text>
+    <text class="cn" x="960" y="150">CHINA</text>
+    <text class="st" x="90" y="250">AFGHANISTAN</text>
+    <text class="st" x="990" y="600">NEPAL</text>
+    <text class="st" x="250" y="268">KHYBER PAKHTUNKHWA</text>
+    <text class="st" x="320" y="440">PUNJAB (PK)</text>
+    <text class="st" x="70" y="610">BALOCHISTAN</text>
+    <text class="st" x="130" y="700">SINDH</text>
+    <text class="st" x="640" y="190">JAMMU &amp; KASHMIR</text>
+    <text class="st" x="700" y="375">HIMACHAL</text>
+    <text class="st" x="562" y="372">PUNJAB (IN)</text>
+    <text class="st" x="594" y="590">HARYANA</text>
+    <text class="st" x="728" y="604" style="font-size:8px">DELHI</text>
+    <text class="st" x="790" y="470">UTTARAKHAND</text>
+    <text class="st" x="790" y="640">UTTAR PRADESH</text>
+    <text class="st" x="420" y="690">RAJASTHAN</text>
+  </g>
+
+  <!-- frame -->
+  <rect x="20" y="20" width="1160" height="760" fill="none" stroke="#1c2a40" stroke-width="1"/>
+
+  <!-- title block -->
+  <text x="40" y="48" style="font-size:13px;fill:#7dd3fc">OPERATION SINDOOR</text>
+  <text x="40" y="64" style="font-size:9px;letter-spacing:1px;fill:#5b6b82">DEEP STRIKE · DECISION SUPPORT</text>
+  <text x="40" y="764" class="st">SCHEMATIC · NOT TO SCALE</text>
+
+  <!-- north indicator -->
+  <g stroke="#5b6b82" stroke-width="1" fill="none">
+    <line x1="1140" y1="84" x2="1140" y2="60"/>
+    <path d="M1140 54 L1136 62 H1144 Z" fill="#5b6b82"/>
+  </g>
+  <text x="1140" y="48" text-anchor="middle" style="font-size:10px;fill:#5b6b82">N</text>
+
+  <!-- ===== THREAT RINGS (SAM) ===== -->
+  <g fill="none" stroke="#ef4444" stroke-width="1" stroke-dasharray="5 4">
+    <circle cx="480" cy="497" r="44"/>
+    <circle cx="402" cy="512" r="36"/>
+  </g>
+  <text class="sm" x="480" y="447" text-anchor="middle">SAM-A</text>
+  <text class="sm" x="402" y="470" text-anchor="middle">SAM-B</text>
+
+  <!-- ===== TANKER / REFUELLING TRACK ===== -->
+  <line x1="600" y1="400" x2="690" y2="560" stroke="#f59e0b" stroke-width="1" stroke-dasharray="8 4"/>
+  <use href="#ac" transform="translate(618,432) rotate(60.6) scale(1.3)" fill="#f59e0b"/>
+
+  <!-- ===== RAFALE ROUTES (dashed cyan) ===== -->
+  <g stroke="#22d3ee" stroke-width="1" stroke-dasharray="6 4" fill="none">
+    <line x1="686" y1="471" x2="534" y2="478"/>
+    <line x1="686" y1="471" x2="540" y2="503"/>
+    <line x1="686" y1="471" x2="546" y2="528"/>
+  </g>
+
+  <!-- ===== SCALP TRACKS (solid) ===== -->
+  <g stroke="#e2e8f0" stroke-width="1" fill="none">
+    <line x1="534" y1="478" x2="370" y2="541"/>
+    <line x1="540" y1="503" x2="370" y2="541"/>
+    <line x1="546" y1="528" x2="370" y2="541"/>
+  </g>
+
+  <!-- release markers -->
+  <g fill="#05080f" stroke="#e2e8f0" stroke-width="1">
+    <path d="M534 475 l3 3 -3 3 -3 -3z"/>
+    <path d="M540 500 l3 3 -3 3 -3 -3z"/>
+    <path d="M546 525 l3 3 -3 3 -3 -3z"/>
+  </g>
+
+  <!-- Rafale aircraft icons -->
+  <g fill="#22d3ee">
+    <use href="#ac" transform="translate(625.2,473.8) rotate(177.4)"/>
+    <use href="#ac" transform="translate(627.6,483.8) rotate(167.6)"/>
+    <use href="#ac" transform="translate(630,493.8) rotate(157.8)"/>
+    <use href="#ac" transform="translate(556.8,477) rotate(177.4)"/>
+    <use href="#ac" transform="translate(561.9,498.2) rotate(167.6)"/>
+    <use href="#ac" transform="translate(567,519.5) rotate(157.8)"/>
+  </g>
+
+  <!-- ===== AIRBASE: AMBALA ===== -->
+  <rect x="681.5" y="466.5" width="9" height="9" fill="#05080f" stroke="#22d3ee" stroke-width="1"/>
+  <circle cx="686" cy="471" r="1.5" fill="#22d3ee"/>
+  <line x1="690" y1="475" x2="704" y2="488" stroke="#5b6b82" stroke-width="1"/>
+  <rect x="700" y="488" width="174" height="22" fill="#05080f" stroke="#26384f" stroke-width="1"/>
+  <text class="an" x="708" y="503">AMBALA AFS · 07 MAY 2025</text>
+
+  <!-- ===== TARGET: BAHAWALPUR ===== -->
+  <g stroke="#e2e8f0" stroke-width="1" fill="none">
+    <line x1="356" y1="541" x2="363" y2="541"/>
+    <line x1="377" y1="541" x2="384" y2="541"/>
+    <line x1="370" y1="527" x2="370" y2="534"/>
+    <line x1="370" y1="548" x2="370" y2="555"/>
+  </g>
+  <circle cx="370" cy="541" r="7" fill="#05080f" stroke="#e2e8f0" stroke-width="1"/>
+  <circle cx="370" cy="541" r="1.5" fill="#e2e8f0"/>
+  <rect x="170" y="544" width="181" height="22" fill="#05080f" stroke="#26384f" stroke-width="1"/>
+  <text class="an" x="178" y="559">TGT BAHAWALPUR · HARDENED</text>
+
+  <!-- ===== LAUNCH CALLOUT ===== -->
+  <line x1="534" y1="426" x2="534" y2="474" stroke="#5b6b82" stroke-width="1"/>
+  <rect x="414" y="404" width="128" height="22" fill="#05080f" stroke="#26384f" stroke-width="1"/>
+  <text class="an" x="422" y="419">LAUNCH 24 × SCALP</text>
+
+  <!-- ===== STANDOFF DIMENSION ===== -->
+  <g stroke="#5b6b82" stroke-width="1" stroke-dasharray="2 3" fill="none">
+    <line x1="547" y1="533" x2="558.5" y2="585"/>
+    <line x1="372" y1="556" x2="388.6" y2="624"/>
+  </g>
+  <g stroke="#94a3b8" stroke-width="1" fill="none">
+    <line x1="559" y1="590" x2="389" y2="628"/>
+    <line x1="557.9" y1="585.1" x2="560.1" y2="594.9"/>
+    <line x1="387.9" y1="623.1" x2="390.1" y2="632.9"/>
+  </g>
+  <text class="lg" transform="translate(474,609) rotate(-12.6)" text-anchor="middle" dy="15">STANDOFF RELEASE · 280 KM</text>
+
+  <!-- ===== LEGEND ===== -->
+  <rect x="924" y="632" width="240" height="136" fill="#070c16" stroke="#2a3b55" stroke-width="1"/>
+  <text x="940" y="652" style="font-size:10px;letter-spacing:2px;fill:#5b6b82">LEGEND</text>
+
+  <line x1="940" y1="676" x2="982" y2="676" stroke="#22d3ee" stroke-width="1" stroke-dasharray="6 4"/>
+  <use href="#ac" transform="translate(961,676)" fill="#22d3ee"/>
+  <text class="lg" x="996" y="680">RAFALE</text>
+
+  <line x1="940" y1="700" x2="982" y2="700" stroke="#e2e8f0" stroke-width="1"/>
+  <path d="M944 697 l3 3 -3 3 -3 -3z" fill="#05080f" stroke="#e2e8f0" stroke-width="1"/>
+  <text class="lg" x="996" y="704">SCALP</text>
+
+  <line x1="940" y1="724" x2="982" y2="724" stroke="#f59e0b" stroke-width="1" stroke-dasharray="8 4"/>
+  <use href="#ac" transform="translate(961,724)" fill="#f59e0b"/>
+  <text class="lg" x="996" y="728">TANKER</text>
+
+  <circle cx="961" cy="748" r="9" fill="none" stroke="#ef4444" stroke-width="1" stroke-dasharray="5 4"/>
+  <text class="lg" x="996" y="752">SAM THREAT</text>
+</svg>

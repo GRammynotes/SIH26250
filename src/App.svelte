@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import type { Component } from 'svelte';
   import { system } from './lib/stores/systemStore.svelte';
   import TopBar from './lib/components/layout/TopBar.svelte';
-  import TacticalMap from './lib/components/map/TacticalMap.svelte';
   import ScenarioBar from './lib/components/layout/ScenarioBar.svelte';
   import AircraftPanel from './lib/components/panels/AircraftPanel.svelte';
   import MissionPanel from './lib/components/panels/MissionPanel.svelte';
@@ -10,13 +10,8 @@
   import COAPanel from './lib/components/panels/COAPanel.svelte';
   import ExecutionPanel from './lib/components/panels/ExecutionPanel.svelte';
   import DecisionPrompt from './lib/components/panels/DecisionPrompt.svelte';
-  import MissionFlowModal from './lib/components/panels/MissionFlowModal.svelte';
-  import LoadoutModal from './lib/components/panels/LoadoutModal.svelte';
-  import ReferenceLibrary from './lib/components/panels/ReferenceLibrary.svelte';
   import EventLog from './lib/components/panels/EventLog.svelte';
   import CommanderBriefing from './lib/components/panels/CommanderBriefing.svelte';
-  import AfterActionReview from './lib/components/panels/AfterActionReview.svelte';
-  import MetricsDashboard from './lib/components/panels/MetricsDashboard.svelte';
   import { driver } from 'driver.js';
   import 'driver.js/dist/driver.css';
   import { DEMO_STEPS } from './lib/demo/demoScript';
@@ -36,6 +31,12 @@
   import FocusPointer from './lib/components/overlay/FocusPointer.svelte';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
+  let TacticalMap = $state<Component<any> | null>(null);
+  let MissionFlowModal = $state<Component<any> | null>(null);
+  let LoadoutModal = $state<Component<any> | null>(null);
+  let ReferenceLibrary = $state<Component<any> | null>(null);
+  let AfterActionReview = $state<Component<any> | null>(null);
+  let MetricsDashboard = $state<Component<any> | null>(null);
   let flowOpen = $state(false);
   let referenceOpen = $state(false);
   let metricsOpen = $state(false);
@@ -128,7 +129,16 @@
     localStorage.setItem('aircommand.panels.v1', JSON.stringify({ left: leftCollapsed, right: rightCollapsed, log: logCollapsed }));
   }
 
+  $effect(() => {
+    if (flowOpen && !MissionFlowModal) void import('./lib/components/panels/MissionFlowModal.svelte').then((module) => MissionFlowModal = module.default);
+    if (loadoutOpen && !LoadoutModal) void import('./lib/components/panels/LoadoutModal.svelte').then((module) => LoadoutModal = module.default);
+    if (referenceOpen && !ReferenceLibrary) void import('./lib/components/panels/ReferenceLibrary.svelte').then((module) => ReferenceLibrary = module.default);
+    if (aarMissionId && !AfterActionReview) void import('./lib/components/panels/AfterActionReview.svelte').then((module) => AfterActionReview = module.default);
+    if ((metricsOpen || rightTab === 'metrics') && !MetricsDashboard) void import('./lib/components/panels/MetricsDashboard.svelte').then((module) => MetricsDashboard = module.default);
+  });
+
   onMount(() => {
+    void import('./lib/components/map/TacticalMap.svelte').then((module) => TacticalMap = module.default);
     const handleMissionBrief = (event: Event) => briefingMissionId = (event as CustomEvent<string>).detail;
     window.addEventListener('aircommand:mission-brief', handleMissionBrief);
     const saved = readCollapsedState();
@@ -383,7 +393,7 @@
         </Pane><PaneResizer class="pane-resizer" />{/if}
         <Pane defaultSize={mapFullscreen ? 100 : 57} minSize={40}>
           <section class="center">
-            <TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} onFullscreenClick={toggleMapFullscreen} fullscreen={mapFullscreen} />
+            {#if TacticalMap}<TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} onFullscreenClick={toggleMapFullscreen} fullscreen={mapFullscreen} />{:else}<div class="map-loading mono">INITIALISING TACTICAL MAP · SECURE DATA LINK</div>{/if}
             {#if system.computing}<div class="computing mono">◢ COMPUTING COA · NSGA-II · 4 OBJECTIVES</div>{/if}
           </section>
         </Pane>
@@ -404,7 +414,7 @@
               <div class="right-tab-content">
                 {#if rightTab === 'coa'}<COAPanel mode="blue" />
                 {:else if rightTab === 'red'}<COAPanel mode="red" />
-                {:else if rightTab === 'metrics'}<MetricsDashboard open={true} inline={true} />
+                {:else if rightTab === 'metrics'}{#if MetricsDashboard}<MetricsDashboard open={true} inline={true} />{:else}<div class="map-loading mono">LOADING ANALYTICS</div>{/if}
                 {:else if rightTab === 'execution'}<ExecutionPanel />
                 {:else if rightTab === 'weapons'}<div class="weapon-workspace"><WeaponMatrix /><PrioritizationSlider /></div>
                 {:else}<CyberPanel />{/if}
@@ -459,24 +469,24 @@
   /></ModalLayer>
 {/if}
 
-{#if flowOpen}<ModalLayer label={modalLabels['mission-flow']} zIndex={modalZ('mission-flow')} visible={isModalVisible('mission-flow')} onMinimize={() => minimizeModal('mission-flow')}><MissionFlowModal open={flowOpen} onClose={() => (flowOpen = false)} /></ModalLayer>{/if}
-{#if loadoutOpen}<ModalLayer label={modalLabels.loadout} zIndex={modalZ('loadout')} visible={isModalVisible('loadout')} onMinimize={() => minimizeModal('loadout')}><LoadoutModal open={loadoutOpen} aircraftType={loadoutType} tailNumber={loadoutTail} onClose={() => (loadoutOpen = false)} /></ModalLayer>{/if}
-{#if referenceOpen}<ModalLayer label={modalLabels.reference} zIndex={modalZ('reference')} visible={isModalVisible('reference')} onMinimize={() => minimizeModal('reference')}><ReferenceLibrary open={referenceOpen} onClose={() => (referenceOpen = false)} /></ModalLayer>{/if}
+{#if flowOpen}<ModalLayer label={modalLabels['mission-flow']} zIndex={modalZ('mission-flow')} visible={isModalVisible('mission-flow')} onMinimize={() => minimizeModal('mission-flow')}>{#if MissionFlowModal}<MissionFlowModal open={flowOpen} onClose={() => (flowOpen = false)} />{:else}<div class="map-loading mono">LOADING MISSION FLOW</div>{/if}</ModalLayer>{/if}
+{#if loadoutOpen}<ModalLayer label={modalLabels.loadout} zIndex={modalZ('loadout')} visible={isModalVisible('loadout')} onMinimize={() => minimizeModal('loadout')}>{#if LoadoutModal}<LoadoutModal open={loadoutOpen} aircraftType={loadoutType} tailNumber={loadoutTail} onClose={() => (loadoutOpen = false)} />{:else}<div class="map-loading mono">LOADING LOADOUT</div>{/if}</ModalLayer>{/if}
+{#if referenceOpen}<ModalLayer label={modalLabels.reference} zIndex={modalZ('reference')} visible={isModalVisible('reference')} onMinimize={() => minimizeModal('reference')}>{#if ReferenceLibrary}<ReferenceLibrary open={referenceOpen} onClose={() => (referenceOpen = false)} />{:else}<div class="map-loading mono">LOADING REFERENCE DATA</div>{/if}</ModalLayer>{/if}
 {#if briefingMissionId}<ModalLayer label={modalLabels.briefing} zIndex={modalZ('briefing')} visible={isModalVisible('briefing')} onMinimize={() => minimizeModal('briefing')}><CommanderBriefing
   open={briefingMissionId !== null}
   missionId={briefingMissionId}
   onApprove={handleApprove}
   onClose={() => (briefingMissionId = null)}
 /></ModalLayer>{/if}
-{#if aarMissionId}<ModalLayer label={modalLabels.aar} zIndex={modalZ('aar')} visible={isModalVisible('aar')} onMinimize={() => minimizeModal('aar')}><AfterActionReview
+{#if aarMissionId}<ModalLayer label={modalLabels.aar} zIndex={modalZ('aar')} visible={isModalVisible('aar')} onMinimize={() => minimizeModal('aar')}>{#if AfterActionReview}<AfterActionReview
   missionId={aarMissionId}
   onClose={() => (aarMissionId = null)}
   onReplay={(id) => {
     system.replayMission(id);
     aarMissionId = null;
   }}
-/></ModalLayer>{/if}
-{#if metricsOpen}<ModalLayer label={modalLabels.metrics} zIndex={modalZ('metrics')} visible={isModalVisible('metrics')} onMinimize={() => minimizeModal('metrics')}><MetricsDashboard open={metricsOpen} onClose={() => (metricsOpen = false)} /></ModalLayer>{/if}
+/>{:else}<div class="map-loading mono">LOADING AFTER ACTION REVIEW</div>{/if}</ModalLayer>{/if}
+{#if metricsOpen}<ModalLayer label={modalLabels.metrics} zIndex={modalZ('metrics')} visible={isModalVisible('metrics')} onMinimize={() => minimizeModal('metrics')}>{#if MetricsDashboard}<MetricsDashboard open={metricsOpen} onClose={() => (metricsOpen = false)} />{:else}<div class="map-loading mono">LOADING METRICS</div>{/if}</ModalLayer>{/if}
 {#if shortcutHelpOpen}<ModalLayer label={modalLabels.shortcuts} zIndex={modalZ('shortcuts')} visible={isModalVisible('shortcuts')} onMinimize={() => minimizeModal('shortcuts')}><ShortcutHelp open={shortcutHelpOpen} onClose={() => shortcutHelpOpen = false} /></ModalLayer>{/if}
 {#if glossaryOpen}<ModalLayer label={modalLabels.glossary} zIndex={modalZ('glossary')} visible={isModalVisible('glossary')} onMinimize={() => minimizeModal('glossary')}><GlossaryModal open={glossaryOpen} onClose={() => glossaryOpen = false} /></ModalLayer>{/if}
 {#if commandPaletteOpen}<ModalLayer label={modalLabels['command-palette']} zIndex={modalZ('command-palette')} visible={isModalVisible('command-palette')} onMinimize={() => minimizeModal('command-palette')}><CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={() => commandPaletteOpen = false} onSelect={selectPaletteCommand} /></ModalLayer>{/if}
@@ -527,6 +537,7 @@
   :global(.collapsed-rail button), :global(.collapse-btn) { background:transparent; border:0; color:var(--accent-cyan); font:14px var(--font-mono); cursor:pointer; padding:4px; }
   :global(.collapsed-rail button:focus-visible), :global(.collapse-btn:focus-visible) { outline:1px solid var(--accent-cyan); }
   .center { position: relative; overflow: hidden; background: #05080f; height: 100%; }
+  .map-loading { display:grid; place-items:center; width:100%; height:100%; color:var(--accent-cyan); background:var(--bg-base); font:9px var(--font-mono); letter-spacing:.15em; }
   :global(.pane-resizer) { width: 2px; height: 2px; background: var(--border-subtle); flex-shrink: 0; transition: background .15s; }
   :global(.pane-resizer:hover), :global(.pane-resizer[data-resize-handle-active]) { background: var(--accent-cyan); }
   :global(.vertical-resizer) { width: 100%; }

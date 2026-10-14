@@ -1,0 +1,199 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500" font-family="'Courier New', Courier, monospace">
+  <defs>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M60 0H0V60" fill="none" stroke="#0a1420" stroke-width="1"/>
+    </pattern>
+
+    <!-- Store icons, top-down, centred on origin, nose up (diagrammatic, not to scale) -->
+    <g id="mica" fill="#ffb000" fill-opacity="0.25" stroke="#ffb000" stroke-width="1">
+      <path d="M0 -11L1.8 -6V8L5 11H-5L-1.8 8V-6Z"/>
+      <path d="M-1.8 -4L-4.5 -2M1.8 -4L4.5 -2" fill="none"/>
+    </g>
+    <g id="meteor" fill="#ffb000" fill-opacity="0.25" stroke="#ffb000" stroke-width="1">
+      <path d="M0 -14L1.7 -9V10L5.5 14H-5.5L-1.7 10V-9Z"/>
+      <path d="M-1.7 -1L-4.5 3M1.7 -1L4.5 3" fill="none"/>
+    </g>
+    <g id="hammer" fill="#ffb000" fill-opacity="0.25" stroke="#ffb000" stroke-width="1">
+      <path d="M0 -12L3.5 -7V6L7 12H-7L-3.5 6V-7Z"/>
+      <path d="M-3.5 -2H3.5" fill="none"/>
+    </g>
+    <g id="scalp" fill="#ffb000" fill-opacity="0.25" stroke="#ffb000" stroke-width="1">
+      <path d="M0 -23L2.8 -15V10L8 23H-8L-2.8 10V-15Z"/>
+      <path d="M-2.8 -2L-14 8M2.8 -2L14 8" fill="none"/>
+    </g>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="500" fill="#05080f"/>
+  <rect width="800" height="500" fill="url(#grid)"/>
+
+  <!-- Corner brackets -->
+  <g fill="none" stroke="#00d4ff" stroke-opacity="0.5" stroke-width="1">
+    <path d="M10 24V10H24"/>
+    <path d="M776 10H790V24"/>
+    <path d="M10 476V490H24"/>
+    <path d="M790 476V490H776"/>
+  </g>
+
+  <!-- Title -->
+  <text x="20" y="32" font-size="14" letter-spacing="2" fill="#00d4ff">RAFALE · LOADOUT BRAVO</text>
+  <text x="20" y="46" font-size="8" fill="#00d4ff" fill-opacity="0.6">DASSAULT RAFALE · 9 / 14 STATIONS LOADED</text>
+
+  <!-- Aircraft + hardpoints (shifted up 4) -->
+  <g transform="translate(0,-4)">
+
+    <!-- Silhouette -->
+    <path d="M400 46L404 53L409 71L413 94L416 114L458 144L458 149L424 150L430 158L435 168L590 280L593 286L590 306L466 316L454 322L446 330L418 330L418 322L405 322L405 338L400 342L395 338L395 322L382 322L382 330L354 330L346 322L334 316L210 306L207 286L210 280L365 168L370 158L376 150L342 149L342 144L384 114L387 94L391 71L396 53Z"
+          fill="#00d4ff" fill-opacity="0.08" stroke="#00d4ff" stroke-width="1"/>
+
+    <!-- Canopy and engine tunnel detail -->
+    <path d="M400 70C404 76 405 90 403 102H397C395 90 396 76 400 70Z" fill="#00d4ff" fill-opacity="0.15" stroke="#00d4ff" stroke-width="1"/>
+    <path d="M383 190V322M417 190V322" fill="none" stroke="#00d4ff" stroke-opacity="0.35" stroke-width="1"/>
+
+    <!-- Store icons (drawn under hardpoint rings) -->
+    <use href="#mica" x="214" y="292"/>
+    <use href="#hammer" x="248" y="281"/>
+    <use href="#mica" x="284" y="269"/>
+    <use href="#meteor" x="348" y="250"/>
+    <use href="#scalp" x="400" y="232"/>
+    <use href="#meteor" x="452" y="250"/>
+    <use href="#mica" x="516" y="269"/>
+    <use href="#hammer" x="552" y="281"/>
+    <use href="#mica" x="586" y="292"/>
+
+    <!-- Leaders -->
+    <g fill="none" stroke="#ffb000" stroke-opacity="0.6" stroke-width="1">
+      <path d="M348 236L192 212"/>
+      <path d="M284 258L192 238"/>
+      <path d="M248 269L192 264"/>
+      <path d="M209 292H192"/>
+      <path d="M452 236L608 212"/>
+      <path d="M516 258L608 238"/>
+      <path d="M552 269L608 264"/>
+      <path d="M591 292H608"/>
+      <path d="M400 209V174H608"/>
+    </g>
+
+    <!-- Empty hardpoints -->
+    <g fill="#05080f" stroke="#64748b" stroke-width="1">
+      <circle cx="318" cy="258" r="4"/>
+      <circle cx="372" cy="204" r="4"/>
+      <circle cx="400" cy="292" r="4"/>
+      <circle cx="428" cy="204" r="4"/>
+      <circle cx="482" cy="258" r="4"/>
+    </g>
+
+    <!-- Loaded hardpoints -->
+    <g fill="none" stroke="#ffb000" stroke-width="1">
+      <circle cx="214" cy="292" r="5"/>
+      <circle cx="248" cy="281" r="5"/>
+      <circle cx="284" cy="269" r="5"/>
+      <circle cx="348" cy="250" r="5"/>
+      <circle cx="400" cy="232" r="5"/>
+      <circle cx="452" cy="250" r="5"/>
+      <circle cx="516" cy="269" r="5"/>
+      <circle cx="552" cy="281" r="5"/>
+      <circle cx="586" cy="292" r="5"/>
+    </g>
+
+    <!-- Empty station numbers -->
+    <g font-size="7" text-anchor="middle" fill="#64748b">
+      <text x="318" y="271">ST04</text>
+      <text x="372" y="217">ST06</text>
+      <text x="400" y="305">ST08</text>
+      <text x="428" y="217">ST09</text>
+      <text x="482" y="271">ST11</text>
+    </g>
+
+    <!-- Weapon labels: left column -->
+    <g font-size="9" fill="#ffb000" text-anchor="end">
+      <text x="186" y="215">METEOR</text>
+      <text x="186" y="241">MICA RF</text>
+      <text x="186" y="267">HAMMER</text>
+      <text x="186" y="295">MICA IR</text>
+    </g>
+    <g font-size="7" fill="#64748b" text-anchor="end">
+      <text x="186" y="224">ST05</text>
+      <text x="186" y="250">ST03</text>
+      <text x="186" y="276">ST02</text>
+      <text x="186" y="304">ST01</text>
+    </g>
+
+    <!-- Weapon labels: right column -->
+    <g font-size="9" fill="#ffb000">
+      <text x="614" y="177">SCALP</text>
+      <text x="614" y="215">METEOR</text>
+      <text x="614" y="241">MICA RF</text>
+      <text x="614" y="267">HAMMER</text>
+      <text x="614" y="295">MICA IR</text>
+    </g>
+    <g font-size="7" fill="#64748b">
+      <text x="614" y="186">ST07</text>
+      <text x="614" y="224">ST10</text>
+      <text x="614" y="250">ST12</text>
+      <text x="614" y="276">ST13</text>
+      <text x="614" y="304">ST14</text>
+    </g>
+  </g>
+
+  <!-- Legend -->
+  <rect x="20" y="348" width="760" height="144" fill="#00d4ff" fill-opacity="0.04" stroke="#00d4ff" stroke-width="1"/>
+
+  <g font-size="8" fill="#00d4ff" fill-opacity="0.6">
+    <text x="46" y="364">STORE</text>
+    <text x="270" y="364" text-anchor="end">QTY</text>
+    <text x="310" y="364">STATIONS</text>
+    <text x="600" y="364" text-anchor="end">UNIT KG</text>
+    <text x="764" y="364" text-anchor="end">SUBTOTAL KG</text>
+  </g>
+  <path d="M36 369H764M36 441H764" stroke="#00d4ff" stroke-opacity="0.3" stroke-width="1"/>
+
+  <g fill="#ffb000">
+    <rect x="36" y="376" width="4" height="4"/>
+    <rect x="36" y="389" width="4" height="4"/>
+    <rect x="36" y="402" width="4" height="4"/>
+    <rect x="36" y="415" width="4" height="4"/>
+    <rect x="36" y="428" width="4" height="4"/>
+  </g>
+  <g font-size="9" fill="#00d4ff">
+    <text x="46" y="382">METEOR</text>
+    <text x="270" y="382" text-anchor="end">2</text>
+    <text x="310" y="382">05 · 10</text>
+    <text x="600" y="382" text-anchor="end">190</text>
+    <text x="764" y="382" text-anchor="end">380</text>
+
+    <text x="46" y="395">MICA RF</text>
+    <text x="270" y="395" text-anchor="end">2</text>
+    <text x="310" y="395">03 · 12</text>
+    <text x="600" y="395" text-anchor="end">112</text>
+    <text x="764" y="395" text-anchor="end">224</text>
+
+    <text x="46" y="408">MICA IR</text>
+    <text x="270" y="408" text-anchor="end">2</text>
+    <text x="310" y="408">01 · 14</text>
+    <text x="600" y="408" text-anchor="end">112</text>
+    <text x="764" y="408" text-anchor="end">224</text>
+
+    <text x="46" y="421">SCALP</text>
+    <text x="270" y="421" text-anchor="end">1</text>
+    <text x="310" y="421">07</text>
+    <text x="600" y="421" text-anchor="end">1,300</text>
+    <text x="764" y="421" text-anchor="end">1,300</text>
+
+    <text x="46" y="434">HAMMER</text>
+    <text x="270" y="434" text-anchor="end">2</text>
+    <text x="310" y="434">02 · 13</text>
+    <text x="600" y="434" text-anchor="end">340</text>
+    <text x="764" y="434" text-anchor="end">680</text>
+
+    <text x="46" y="455">TOTAL EXTERNAL PAYLOAD</text>
+  </g>
+  <text x="310" y="455" font-size="9" fill="#00d4ff" fill-opacity="0.6">29.6% OF 9,500 KG MAX</text>
+  <text x="764" y="456" font-size="11" text-anchor="end" fill="#ffb000">2,808 KG</text>
+
+  <!-- Payload bar -->
+  <rect x="36" y="463" width="728" height="5" fill="none" stroke="#00d4ff" stroke-opacity="0.6" stroke-width="1"/>
+  <rect x="36" y="463" width="215" height="5" fill="#ffb000"/>
+  <text x="36" y="479" font-size="7" fill="#00d4ff" fill-opacity="0.6">ILLUSTRATIVE LOADOUT · APPROX. WEIGHTS</text>
+  <text x="764" y="479" font-size="7" text-anchor="end" fill="#00d4ff" fill-opacity="0.6">MAX 9,500 KG</text>
+</svg>

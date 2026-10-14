@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import maplibregl from 'maplibre-gl';
+  import maplibregl, { setMaxParallelImageRequests } from 'maplibre-gl';
   import 'maplibre-gl/dist/maplibre-gl.css';
   import { IAF_BASES } from '../../data/bases';
   import { GROUND_ASSETS, type GroundAsset } from '../../data/groundAssets';
@@ -33,6 +33,10 @@
   let baseMarkersList: { id: string; marker: maplibregl.Marker; el: HTMLElement }[] = [];
   let aircraftLayerClickAttached = false;
   let lastScenarioView: string | null | undefined;
+  let terrain3dEnabled = false;
+  let terrainPaused = false;
+  const circlePolygonCache = new Map<string, number[][]>();
+  const aircraftMarkerHtmlCache = new Map<string, string>();
 
   // Map layer toggle states
   let showTerrain = $state(true);
@@ -53,7 +57,35 @@
     border: '#2a3447',
   };
 
-  const trails: Record<string, [number, number][]> = {};
+  let trailHistory = $state.raw<Record<string, [number, number][]>>({});
+  let lastAircraftPositionKey = '';
+  let lastTrailDerivedKey = '';
+  let trailDerivedCache: Record<string, [number, number][]> = {};
+
+  $effect(() => {
+    const aircraft = system.aircraft;
+    const key = JSON.stringify(aircraft.map((ac) => [ac.id, ac.position.lng, ac.position.lat]));
+    if (key === lastAircraftPositionKey) return;
+    lastAircraftPositionKey = key;
+    const next = { ...trailHistory };
+    for (const ac of aircraft) {
+      const points = [...(next[ac.id] ?? [])];
+      const position: [number, number] = [ac.position.lng, ac.position.lat];
+      const last = points[points.length - 1];
+      if (!last || last[0] !== position[0] || last[1] !== position[1]) points.push(position);
+      if (points.length > 14) points.splice(0, points.length - 14);
+      next[ac.id] = points;
+    }
+    trailHistory = next;
+  });
+
+  const trails = $derived.by(() => {
+    const key = JSON.stringify(trailHistory);
+    if (key === lastTrailDerivedKey) return trailDerivedCache;
+    lastTrailDerivedKey = key;
+    trailDerivedCache = Object.fromEntries(Object.entries(trailHistory).map(([id, points]) => [id, points.map(([lng, lat]) => [lng, lat] as [number, number])]));
+    return trailDerivedCache;
+  });
 
   // Build grid GeoJSON (1 degree lines lat 25-40, lng 65-95)
   function createGridGeoJson(): GeoJSON.FeatureCollection {
@@ -103,7 +135,7 @@
         tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
         tileSize: 256,
         encoding: 'terrarium',
-        maxzoom: 15,
+        maxzoom: 12,
         attribution: 'Terrain: Mapzen/AWS',
       },
       'tactical-grid': {
@@ -239,6 +271,9 @@
   }
 
   function circlePolygon(center: [number, number], radiusKm: number, points = 64): number[][] {
+    const cacheKey = `${center[0].toFixed(5)}:${center[1].toFixed(5)}:${radiusKm.toFixed(2)}:${points}`;
+    const cached = circlePolygonCache.get(cacheKey);
+    if (cached) return cached;
     const [lng, lat] = center;
     const dx = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
     const dy = radiusKm / 110.574;
@@ -247,7 +282,30 @@
       const theta = (i / points) * 2 * Math.PI;
       coords.push([lng + dx * Math.cos(theta), lat + dy * Math.sin(theta)]);
     }
+    circlePolygonCache.set(cacheKey, coords);
+    if (circlePolygonCache.size > 256) circlePolygonCache.delete(circlePolygonCache.keys().next().value!);
     return coords;
+  }
+
+  function aircraftMarker(ac: import('../../types').Aircraft): HTMLDivElement {
+    const key = `${ac.tailNumber}:${ac.status}`;
+    let markup = aircraftMarkerHtmlCache.get(key);
+    if (!markup) {
+      const wrapper = militarySymbolElement('friendlyAir', 30);
+      const glyph = document.createElement('span');
+      glyph.className = `aircraft-status-glyph aircraft-status-${ac.status.toLowerCase()}`;
+      glyph.textContent = ac.status === 'FMC' ? '✓' : ac.status === 'PMC' ? '◐' : '×';
+      glyph.setAttribute('aria-label', ac.status);
+      wrapper.append(glyph);
+      markup = wrapper.outerHTML;
+      aircraftMarkerHtmlCache.set(key, markup);
+    }
+    const wrapper = el(markup);
+    wrapper.dataset.aircraftId = ac.id;
+    wrapper.style.cursor = 'pointer';
+    wrapper.style.transition = 'transform 0.15s ease';
+    wrapper.title = `${ac.tailNumber} · ${ac.status}`;
+    return wrapper;
   }
 
   function polygonFeatures(items: Array<AirspaceZone | WeatherSystem>): GeoJSON.Feature[] {
@@ -271,6 +329,8 @@
     const handleTerrain3d = (event: Event) => {
       const enabled = (event as CustomEvent<boolean>).detail;
       if (!map) return;
+      terrain3dEnabled = enabled;
+      terrainPaused = false;
       if (enabled) {
         map.setTerrain({ source: 'terrain-dem', exaggeration: 1.5 });
         map.setPitch(45);
@@ -310,6 +370,7 @@
       onLoadoutClick?.(type, tail);
     };
 
+    setMaxParallelImageRequests(6);
     map = new maplibregl.Map({
       container,
       style: MAP_STYLE,
@@ -317,6 +378,13 @@
       zoom: 4.2,
       attributionControl: false,
       dragRotate: false,
+    });
+    map.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    map.on('movestart', () => {
+      if (map && terrain3dEnabled && terrainPaused) { map.setTerrain({ source: 'terrain-dem', exaggeration: 1.5 }); terrainPaused = false; }
+    });
+    map.on('moveend', () => {
+      if (map && terrain3dEnabled && !terrainPaused) { map.setTerrain(null); terrainPaused = true; }
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
@@ -415,6 +483,8 @@
     const inArea = (points: { lng: number; lat: number }[]) => !area || points.some((p) => p.lng >= area[0][0] && p.lng <= area[1][0] && p.lat >= area[0][1] && p.lat <= area[1][1]);
     const airspace = scenarioKey ? system.airspaceZones.filter((zone) => inArea(zone.polygon)) : system.airspaceZones;
     const weather = scenarioKey ? system.weatherSystems.filter((item) => inArea(item.polygon)) : system.weatherSystems;
+    const trailSnapshot = trails;
+    const spoofedTrackId = system.spoofedTrackId;
     if (scenarioKey !== lastScenarioView) {
       lastScenarioView = scenarioKey;
       if (area) map.fitBounds(area, { padding: 70, duration: 850, maxZoom: 7.4 });
@@ -430,6 +500,13 @@
     }
     const selectedCoa = system.coas.find((coa) => coa.id === system.selectedCoaId) ?? null;
     const selBase = system.selectedBaseId;
+    // Capture layer toggles as dependencies so their latest values drive the batched render.
+    const layerState = [showTerrain, showGrid, showTrails, showThreats, showGround, showAirspace, showWeather, showEnemy];
+    void layerState;
+    let frame = 0;
+    const debounce = window.setTimeout(() => {
+      frame = window.requestAnimationFrame(() => {
+        if (!map) return;
 
     ensureAircraftLayer();
     const aircraftSource = map.getSource('aircraft-gl') as maplibregl.GeoJSONSource | undefined;
@@ -451,17 +528,6 @@
 
     for (const m of dynamicMarkers) m.remove();
     dynamicMarkers = [];
-
-    // Track coordinates for trails
-    for (const ac of aircraft) {
-      if (!trails[ac.id]) trails[ac.id] = [];
-      const last = trails[ac.id][trails[ac.id].length - 1];
-      const pos: [number, number] = [ac.position.lng, ac.position.lat];
-      if (!last || last[0] !== pos[0] || last[1] !== pos[1]) {
-        trails[ac.id].push(pos);
-        if (trails[ac.id].length > 14) trails[ac.id].shift();
-      }
-    }
 
     // Clean previous trail layers
     for (let i = 0; i < 40; i++) {
@@ -501,7 +567,7 @@
     // Add upgraded aircraft trails (Layer 5)
     aircraft.forEach((ac, i) => {
       if (ac.status === 'NMC') return; // Hidden for NMC
-      const pts = trails[ac.id];
+      const pts = trailSnapshot[ac.id] ?? [];
       if (pts.length < 2) return;
 
       const isFmc = ac.status === 'FMC';
@@ -563,7 +629,7 @@
 
     for (const t of threats) {
       // Center point
-      const isSpoofed = system.spoofedTrackId === t.id;
+      const isSpoofed = spoofedTrackId === t.id;
       threatCenterFeatures.push({
         type: 'Feature',
         properties: { id: t.id, type: t.type, spoofed: isSpoofed },
@@ -779,16 +845,7 @@
     // Small fleets retain full DOM markers and popups; large fleets use one GL symbol layer.
     if (aircraft.length <= 20) for (const ac of aircraft) {
       const color = ac.status === 'FMC' ? C.green : ac.status === 'PMC' ? C.amber : C.red;
-      const wrapper = militarySymbolElement('friendlyAir', 30);
-      wrapper.dataset.aircraftId = ac.id;
-      wrapper.style.cursor = 'pointer';
-      wrapper.style.transition = 'transform 0.15s ease';
-      wrapper.title = `${ac.tailNumber} · ${ac.status}`;
-      const statusGlyph = document.createElement('span');
-      statusGlyph.className = `aircraft-status-glyph aircraft-status-${ac.status.toLowerCase()}`;
-      statusGlyph.textContent = ac.status === 'FMC' ? '✓' : ac.status === 'PMC' ? '◐' : '×';
-      statusGlyph.setAttribute('aria-label', ac.status);
-      wrapper.append(statusGlyph);
+      const wrapper = aircraftMarker(ac);
       dynamicMarkers.push(
         new maplibregl.Marker({ element: wrapper })
           .setLngLat([ac.position.lng, ac.position.lat])
@@ -857,6 +914,9 @@
             </div>`)).addTo(map));
       }
     }
+      });
+    }, 100);
+    return () => { window.clearTimeout(debounce); if (frame) window.cancelAnimationFrame(frame); };
   });
 
   function toggleGround() {
