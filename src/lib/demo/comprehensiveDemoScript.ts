@@ -26,7 +26,7 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
   {
     id: 'intro-1',
     title: 'WELCOME TO AIR COMMAND',
-    narration: 'Welcome to AIR COMMAND, a dynamic decision-support system for air operations planning. This demo will guide you through the complete operational workflow, from mission planning to execution.',
+    narration: 'GUIDED DEMO. This walks through the entire system, one feature at a time. No decisions required. Watch only. Purpose: understand system capability.',
     caption: 'AIR COMMAND SYSTEM - Tactical Console for Air Operations',
     duration: 8000,
   },

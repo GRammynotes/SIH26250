@@ -6,13 +6,13 @@
   let {
     aircraftCount = 0, missionCount = 0, threatCount = 0,
     onFlowClick, onReferenceClick, onMetricsClick, onDemoClick, onSimulationClick, onMapLegendClick,
-    onGlossaryClick, onShortcutHelpClick, onGuideClick, onGenerate, onReset, onDegradedToggle,
+    onGlossaryClick, onShortcutHelpClick, onGuideClick, onReplayWelcome, onGenerate, onReset, onDegradedToggle,
     onLayerToggle, demoActive = false, modalCount = 0,
     onPanelToggle, onShowAllPanels, onHideAllPanels,
   }: {
     aircraftCount?: number; missionCount?: number; threatCount?: number;
     onFlowClick?: () => void; onReferenceClick?: () => void; onMetricsClick?: () => void;
-    onDemoClick?: () => void; onSimulationClick?: () => void; onMapLegendClick?: () => void; onGlossaryClick?: () => void; onShortcutHelpClick?: () => void; onGuideClick?: () => void;
+    onDemoClick?: () => void; onSimulationClick?: () => void; onMapLegendClick?: () => void; onGlossaryClick?: () => void; onShortcutHelpClick?: () => void; onGuideClick?: () => void; onReplayWelcome?: () => void;
     onGenerate?: () => void; onReset?: () => void; onDegradedToggle?: () => void;
     onLayerToggle?: (layer: string) => void; demoActive?: boolean; modalCount?: number;
     onPanelToggle?: (key: string, visible: boolean) => void; onShowAllPanels?: () => void; onHideAllPanels?: () => void;
@@ -78,6 +78,7 @@
               <button role="menuitem" onclick={() => action(onDemoClick)}>◈ COMPREHENSIVE DEMO <kbd>D</kbd></button>
               <button role="menuitem" onclick={() => action(onSimulationClick)}>◈ TRAINING SIMULATION <kbd>S</kbd></button>
               <button role="menuitem" onclick={() => action(onGuideClick)}>◈ SYSTEM GUIDE</button>
+              <button role="menuitem" onclick={() => action(onReplayWelcome)}>↻ SHOW WELCOME CARD AGAIN</button>
             {:else}
               <button role="menuitem" onclick={() => action(onReset)}>↻ RESET SYSTEM</button>
               <button role="menuitem" class:enabled={system.mode === 'DEGRADED'} onclick={() => action(onDegradedToggle)}>◈ DEGRADED MODE {system.mode === 'DEGRADED' ? 'ON' : 'OFF'}</button>
