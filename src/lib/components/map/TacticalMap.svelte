@@ -227,7 +227,7 @@
     });
     if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
       id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl', minzoom: 4, filter: ['!', ['has', 'point_count']],
-      layout: { 'icon-image': ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.3, 7, 0.6, 10, 1, 13, 1.3], 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+      layout: { 'icon-image': ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.3, 7, 0.6, 10, 1, 13, 1.3], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'text-field': ['get', 'tailNumber'], 'text-font': ['Open Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.15], 'text-anchor': 'top', 'text-optional': true },
       paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 5, 0.7, 6, 1] },
     });
     if (!aircraftLayerClickAttached) {
@@ -940,9 +940,9 @@
         const mission = missions.find((item) => item.id === missionId);
         if (!mission) continue;
         for (const aircraftId of ids) {
-          const aircraft = aircraft.find((item) => item.id === aircraftId);
-          if (!aircraft) continue;
-          const start: [number, number] = [aircraft.position.lng, aircraft.position.lat];
+          const assignedAircraft = aircraft.find((item) => item.id === aircraftId);
+          if (!assignedAircraft) continue;
+          const start: [number, number] = [assignedAircraft.position.lng, assignedAircraft.position.lat];
           const target: [number, number] = [mission.target.lng, mission.target.lat];
           const ingress: [number, number] = [start[0] + (target[0] - start[0]) * .55, start[1] + (target[1] - start[1]) * .55];
           const wez: [number, number] = [start[0] + (target[0] - start[0]) * .82, start[1] + (target[1] - start[1]) * .82];
@@ -956,7 +956,7 @@
             map.addSource(id, { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: leg.points } } });
             map.addLayer({ id, type: 'line', source: id, paint: { 'line-color': leg.color, 'line-width': 2.2, 'line-opacity': .82, 'line-dasharray': leg.key === 'rtb' ? [2, 2] : [1, 0] } });
           }
-          const range = Math.max(50, aircraft.fuel / 100 * 700);
+          const range = Math.max(50, assignedAircraft.fuel / 100 * 700);
           const fuelId = `fuel-range-${routeIndex}`;
           map.addSource(fuelId, { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [circlePolygon(start, range)] } } });
           map.addLayer({ id: fuelId, type: 'line', source: fuelId, paint: { 'line-color': C.green, 'line-width': 1, 'line-opacity': .26, 'line-dasharray': [2, 2] } });
