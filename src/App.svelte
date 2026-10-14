@@ -194,6 +194,10 @@
     }
     runShortcut(event.key.toLowerCase());
   }
+
+  function toggleMapLayer(layer: string) {
+    window.dispatchEvent(new CustomEvent('aircommand:map-layer', { detail: layer }));
+  }
 </script>
 
 <svelte:window onkeydown={handleGlobalKeydown} />
@@ -208,6 +212,12 @@
     onDemoClick={startDemo}
     onGlossaryClick={() => glossaryOpen = true}
     onShortcutHelpClick={() => shortcutHelpOpen = true}
+    onGenerate={() => system.generateCOAs()}
+    onReset={() => system.reset()}
+    onDegradedToggle={() => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED')}
+    onLayerToggle={toggleMapLayer}
+    demoActive={false}
+    modalCount={[flowOpen, referenceOpen, metricsOpen, loadoutOpen, briefingMissionId !== null, aarMissionId !== null, trackLossOpen, glossaryOpen, shortcutHelpOpen].filter(Boolean).length}
   />
 
   <PaneGroup direction="vertical" autoSaveId="aircommand.layout.v1" class="workspace-layout">

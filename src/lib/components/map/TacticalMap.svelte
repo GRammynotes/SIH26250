@@ -246,6 +246,16 @@
   }
 
   onMount(() => {
+    const handleLayerToggle = (event: Event) => {
+      const layer = (event as CustomEvent<string>).detail;
+      const toggles: Record<string, () => void> = {
+        terrain: toggleTerrain, airspace: toggleAirspace, weather: toggleWeather,
+        enemy: toggleEnemy, ground: toggleGround, trails: toggleTrails,
+        grid: toggleGrid, threats: toggleThreats,
+      };
+      toggles[layer]?.();
+    };
+    window.addEventListener('aircommand:map-layer', handleLayerToggle);
     // Expose global loadout handler for popup clicks
     (window as any).__airCommandLoadout = (type: string, tail: string) => {
       onLoadoutClick?.(type, tail);
@@ -285,6 +295,7 @@
     });
 
     return () => {
+      window.removeEventListener('aircommand:map-layer', handleLayerToggle);
       delete (window as any).__airCommandLoadout;
       map?.remove();
       map = null;
@@ -787,52 +798,6 @@
   <div class="coord bl mono">SCALE 1:5,000,000</div>
   <div class="coord br mono">WGS84 · EGM96</div>
 
-  <!-- LAYER 8: MAP CONTROLS PANEL (Top-Right under coordinate readout) -->
-  <div class="map-controls-panel">
-    <button
-      class="ctrl-btn {showTerrain ? 'active' : ''}"
-      onclick={toggleTerrain}
-      title="Toggle Terrain Hillshade"
-      aria-label="Toggle Terrain"
-    >
-      ◈ TERRAIN
-    </button>
-    <button
-      class="ctrl-btn {showGrid ? 'active' : ''}"
-      onclick={toggleGrid}
-      title="Toggle Tactical Lat/Lng Grid"
-      aria-label="Toggle Grid"
-    >
-      ◈ GRID
-    </button>
-    <button
-      class="ctrl-btn {showTrails ? 'active' : ''}"
-      onclick={toggleTrails}
-      title="Toggle Aircraft Trails"
-      aria-label="Toggle Trails"
-    >
-      ◈ TRAILS
-    </button>
-    <button
-      class="ctrl-btn {showThreats ? 'active' : ''}"
-      onclick={toggleThreats}
-      title="Toggle Layered Threat Zones"
-      aria-label="Toggle Threats"
-    >
-      ◈ THREAT
-    </button>
-    <button
-      class="ctrl-btn {showGround ? 'active' : ''}"
-      onclick={toggleGround}
-      title="Toggle Ground Assets"
-      aria-label="Toggle Ground Assets"
-    >
-      ◈ GROUND
-    </button>
-    <button class="ctrl-btn {showAirspace ? 'active' : ''}" onclick={toggleAirspace} title="Toggle Airspace" aria-label="Toggle Airspace">◈ AIRSPACE</button>
-    <button class="ctrl-btn {showWeather ? 'active' : ''}" onclick={toggleWeather} title="Toggle Weather" aria-label="Toggle Weather">◈ WEATHER</button>
-    <button class="ctrl-btn {showEnemy ? 'active' : ''}" onclick={toggleEnemy} title="Toggle Enemy Order of Battle" aria-label="Toggle Enemy">◈ ENEMY</button>
-  </div>
 </div>
 
 <style>
@@ -930,41 +895,6 @@
   .coord.tr { top: 8px; right: 10px; }
   .coord.bl { bottom: 8px; left: 10px; }
   .coord.br { bottom: 8px; right: 10px; }
-
-  /* LAYER 8: MAP CONTROLS PANEL */
-  .map-controls-panel {
-    position: absolute;
-    top: 28px;
-    right: 10px;
-    display: flex;
-    gap: 6px;
-    background: rgba(10, 14, 26, 0.85);
-    border: 1px solid var(--border-subtle);
-    padding: 4px 6px;
-    z-index: 6;
-    backdrop-filter: blur(4px);
-  }
-
-  .ctrl-btn {
-    font-family: var(--font-mono);
-    font-size: 8.5px;
-    letter-spacing: 0.12em;
-    padding: 4px 8px;
-    background: transparent;
-    border: 1px solid var(--accent-cyan);
-    color: var(--accent-cyan);
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  .ctrl-btn:hover {
-    background: rgba(0, 212, 255, 0.08);
-    box-shadow: 0 0 6px rgba(0, 212, 255, 0.3);
-  }
-  .ctrl-btn.active {
-    background: rgba(0, 212, 255, 0.15);
-    color: #ffffff;
-    box-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
-  }
 
   .degraded {
     position: absolute;
