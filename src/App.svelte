@@ -357,7 +357,8 @@
 <TooltipLayer />
 <CaptionLayer />
 <FocusPointer />
-<div class="shell">
+<div class="shell" class:fullscreen={mapFullscreen} data-fullscreen={mapFullscreen ? 'true' : 'false'}>
+  {#if !mapFullscreen}
   <TopBar
     aircraftCount={system.aircraft.length}
     missionCount={system.missions.length}
@@ -376,6 +377,7 @@
     modalCount={activeModalIds.length}
   />
   <ScenarioBar />
+  {/if}
 
   <PaneGroup direction="vertical" autoSaveId="aircommand.layout.v1" class="workspace-layout">
     <Pane defaultSize={66} minSize={55}>
@@ -425,14 +427,14 @@
         </Pane>{/if}
       </PaneGroup>
     </Pane>
-    <PaneResizer class="pane-resizer vertical-resizer" />
+    {#if !mapFullscreen}<PaneResizer class="pane-resizer vertical-resizer" />
     <Pane bind:this={logPane} defaultSize={34} minSize={3} maxSize={45}>
       <PaneGroup direction="horizontal" autoSaveId="aircommand.command-row" class="command-row">
         <Pane defaultSize={70} minSize={48}><EventLog collapsed={logCollapsed} onToggle={toggleLogPane} /></Pane>
         <PaneResizer class="pane-resizer" />
         <Pane defaultSize={30} minSize={22}><CommandStatus /></Pane>
       </PaneGroup>
-    </Pane>
+    </Pane>{/if}
   </PaneGroup>
 </div>
 
@@ -514,6 +516,8 @@
     gap: 1px;
   }
   :global(.workspace-layout) { flex: 1; min-height: 0; }
+  .shell.fullscreen { display:grid; grid-template-rows:1fr; grid-template-columns:1fr; grid-template-areas:"center"; gap:0; }
+  :global(.shell.fullscreen > .workspace-layout) { grid-area:center; width:100%; height:100%; min-height:0; }
   :global(.content-layout) { width: 100%; height: 100%; }
   :global(.content-layout [data-pane]), :global(.workspace-layout [data-pane]) { transition:flex-basis .2s ease; }
   .left { display:flex; flex-direction:column; gap:1px; background:#1a242e; overflow:hidden; height:100%; }
