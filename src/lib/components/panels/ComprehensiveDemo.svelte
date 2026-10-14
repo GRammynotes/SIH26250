@@ -383,6 +383,7 @@
 <style>
   :global(body.demo-active .shell) { pointer-events: none; }
   :global(body.demo-active .demo-overlay), :global(body.demo-active .demo-panel), :global(body.demo-active .demo-panel button), :global(body.demo-active .captions) { pointer-events: auto; }
+  :global(body.demo-active .focus-layer) { z-index: 501; }
 
   .demo-overlay {
     position: fixed;
@@ -391,7 +392,7 @@
     display: grid;
     place-items: center;
     background: rgba(3, 6, 12, 0.92);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(6px);
   }
 
   .demo-panel {
