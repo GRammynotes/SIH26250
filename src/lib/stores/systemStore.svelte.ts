@@ -18,6 +18,19 @@ export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
 export interface EventEntry { time: string; source: string; msg: string; level: EventLevel; scenario?: string | null; }
 
 class SystemStore {
+  focusMode = $state<{
+    active: boolean;
+    missionId: string | null;
+    visibleAircraftIds: string[];
+    visibleThreatIds: string[];
+    visibleTargetIds: string[];
+    revealedLayers: string[];
+    originBaseId: string | null;
+    assignedAircraftIds: string[];
+    routeThreatIds: string[];
+    visibleGroundIds: string[];
+    visibleEnemyIds: string[];
+  } | null>(null);
   aircraft = $state.raw<Aircraft[]>([]);
   missions = $state.raw<Mission[]>([]);
   threats = $state.raw<Threat[]>([]);
@@ -84,6 +97,54 @@ class SystemStore {
     const [[minLng, minLat], [maxLng, maxLat]] = bounds;
     const inArea = this.threats.filter((t) => t.position.lng >= minLng && t.position.lng <= maxLng && t.position.lat >= minLat && t.position.lat <= maxLat);
     return inArea.length ? inArea : this.threats.slice(0, 2);
+  }
+
+  enterFocusMode(missionId: string | null) {
+    const mission = this.missions.find((item) => item.id === missionId) ?? this.scenarioMissions[0] ?? null;
+    const active = mission && this.activeMissions.find((item) => item.missionId === mission.id);
+    const coa = this.coas.find((item) => item.id === this.selectedCoaId);
+    const assignedIds = active?.aircraftIds ?? coa?.assignments[mission?.id ?? ''] ?? [];
+    const preferredDemoAircraft = mission?.name === 'SWIFT STRIKE' ? this.aircraft.find((item) => item.tailNumber === 'SB-304' && item.status !== 'NMC') : undefined;
+    const aircraft = assignedIds.length ? this.aircraft.filter((item) => assignedIds.includes(item.id)) : preferredDemoAircraft ? [preferredDemoAircraft] : this.scenarioAircraft.filter((item) => item.status === 'FMC' || item.status === 'PMC').sort((a, b) => Math.hypot(a.position.lat - (mission?.target.lat ?? 0), a.position.lng - (mission?.target.lng ?? 0)) - Math.hypot(b.position.lat - (mission?.target.lat ?? 0), b.position.lng - (mission?.target.lng ?? 0))).slice(0, 1);
+    const routeThreats = mission ? this.scenarioThreats.filter((threat) => {
+      const startAircraft = aircraft[0];
+      if (!startAircraft) return false;
+      const a = { x: startAircraft.position.lng * 91, y: startAircraft.position.lat * 111 };
+      const b = { x: mission.target.lng * 91, y: mission.target.lat * 111 };
+      const p = { x: threat.position.lng * 91, y: threat.position.lat * 111 };
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+      return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)) <= threat.radius;
+    }).map((item) => item.id) : [];
+    this.focusMode = { active: true, missionId: mission?.id ?? null, visibleAircraftIds: [], visibleThreatIds: [], visibleTargetIds: [], revealedLayers: [], originBaseId: aircraft[0]?.base ?? null, assignedAircraftIds: aircraft.map((item) => item.id), routeThreatIds: routeThreats, visibleGroundIds: [], visibleEnemyIds: [] };
+  }
+
+  exitFocusMode() { this.focusMode = null; }
+
+  revealElement(type: 'aircraft' | 'threat' | 'target' | 'mission' | 'base' | 'route' | 'ground' | 'enemy' | 'wez' | 'impact' | 'egress', id?: string) {
+    let focus = this.focusMode;
+    if (!focus?.active) return;
+    if (type === 'aircraft' && id) {
+      const aircraft = this.aircraft.find((item) => item.id === id || item.tailNumber.toLowerCase() === id.toLowerCase());
+      if (aircraft && !focus.visibleAircraftIds.includes(aircraft.id)) focus.visibleAircraftIds = [...focus.visibleAircraftIds, aircraft.id];
+      if (aircraft) window.dispatchEvent(new CustomEvent('aircommand:map-focus-elements', { detail: [{ type: 'aircraft', id: aircraft.tailNumber, label: aircraft.tailNumber }] }));
+    } else if ((type === 'target' || type === 'mission') && id) {
+      const mission = this.missions.find((item) => item.id === id || item.name.toLowerCase() === id.toLowerCase() || item.name.toLowerCase().includes(id.toLowerCase()));
+      if (mission && focus.missionId !== mission.id) { this.enterFocusMode(mission.id); focus = this.focusMode; }
+      if (!focus) return;
+      const targetId = mission?.id ?? id;
+      if (!focus.visibleTargetIds.includes(targetId)) focus.visibleTargetIds = [...focus.visibleTargetIds, targetId];
+      if (mission) window.dispatchEvent(new CustomEvent('aircommand:map-focus-elements', { detail: [{ type: 'target', id: mission.id, label: mission.name }] }));
+    } else if (type === 'threat' && id) {
+      const threat = this.threats.find((item) => item.id.toLowerCase() === id.toLowerCase());
+      const threatId = threat?.id ?? id;
+      if (!focus.visibleThreatIds.includes(threatId)) focus.visibleThreatIds = [...focus.visibleThreatIds, threatId];
+    } else if ((type === 'ground' || type === 'enemy') && id) {
+      const key = type === 'ground' ? 'visibleGroundIds' : 'visibleEnemyIds';
+      if (!focus[key].includes(id)) focus[key] = [...focus[key], id];
+    }
+    const layer = type === 'aircraft' ? 'aircraft' : type === 'threat' ? 'threats' : type === 'target' || type === 'mission' ? 'targets' : type;
+    if (!focus.revealedLayers.includes(layer)) focus.revealedLayers = [...focus.revealedLayers, layer];
   }
 
   constructor() {
