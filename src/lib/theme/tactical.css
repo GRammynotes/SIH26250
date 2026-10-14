@@ -34,6 +34,16 @@ body {
 
 .mono { font-family: var(--font-mono); }
 
+/* Exercise console depth: retain the shared palette while adding restrained translucency. */
+.panel, .mission-block, .exec-panel, .log, .right-wrap, .matrix-panel, .cyber-panel, .left {
+  background: rgba(10, 14, 26, 0.85) !important;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.title, .tail, .time, .metric b, .coa-card.selected .rank {
+  text-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
+}
+
 /* Panel corner brackets — GodsView-style */
 .corners { position: relative; }
 .corners::before, .corners::after {

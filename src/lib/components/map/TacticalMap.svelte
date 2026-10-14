@@ -878,8 +878,8 @@
     inset: 0;
     background-image: repeating-linear-gradient(
       0deg,
-      rgba(0, 212, 255, 0.03) 0px,
-      rgba(0, 212, 255, 0.03) 1px,
+      rgba(0, 212, 255, 0.02) 0px,
+      rgba(0, 212, 255, 0.02) 1px,
       transparent 1px,
       transparent 3px
     );
