@@ -12,7 +12,8 @@
   import { SCENARIO_AREAS } from '../../engine/scenario';
   import { createTrailPathDeriver } from '../../engine/mapTrailCache';
   import { experienceBounds } from '../../data/scenarioBounds';
-  import { getSimulationFrame, setSimulationAnimationActive } from '../../engine/simAnimation.svelte';
+  import { clearSimulationTrails, getSimulationFrame, setSimulationAnimationActive } from '../../engine/simAnimation.svelte';
+  import type { MapFocusElement } from '../../engine/mapNarrative';
   import TacticalReadout from './TacticalReadout.svelte';
 
   let {
@@ -44,6 +45,9 @@
   let terrainResumeTimer: ReturnType<typeof setTimeout> | undefined;
   let diagramExplanation = $state('');
   let diagramExplanationTimer: ReturnType<typeof setTimeout> | undefined;
+  let mapFocusTimer: ReturnType<typeof setTimeout> | undefined;
+  let mapFocusClearTimer: ReturnType<typeof setTimeout> | undefined;
+  let narrativeMarkers = $state<Array<{ x: number; y: number; label: string; opacity: number }>>([]);
   const circlePolygonCache = new Map<string, number[][]>();
   const threatPolyCache = new Map<string, number[][]>();
 
@@ -56,6 +60,8 @@
   let showAirspace = $state(true);
   let showWeather = $state(true);
   let showEnemy = $state(true);
+  let overviewAircraft = $derived(system.activeScenarioFilter ? system.scenarioAircraft : system.aircraft);
+  let overviewFmcCount = $derived(overviewAircraft.filter((item) => item.status === 'FMC').length);
 
   const palette = getComputedStyle(document.documentElement);
   const C = {
@@ -72,24 +78,42 @@
   };
 
   let trailHistory = $state.raw<Record<string, [number, number][]>>({});
+  const trailClearTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let lastAircraftPositionKey = '';
+  let lastTrailFeatureSignature = '';
+  let lastSimulationTrailFeatureSignature = '';
   const deriveTrailPaths = createTrailPathDeriver();
 
   $effect(() => {
     const aircraft = system.aircraft;
-    const key = JSON.stringify(aircraft.map((ac) => [ac.id, ac.position.lng, ac.position.lat]));
+    const key = JSON.stringify(aircraft.map((ac) => [ac.id, ac.status, ac.position.lng, ac.position.lat]));
     if (key === lastAircraftPositionKey) return;
     lastAircraftPositionKey = key;
     const next = { ...untrack(() => trailHistory) };
     for (const ac of aircraft) {
+      if (ac.status === 'NMC') { delete next[ac.id]; continue; }
       const points = [...(next[ac.id] ?? [])];
       const position: [number, number] = [ac.position.lng, ac.position.lat];
       const last = points[points.length - 1];
       if (!last || last[0] !== position[0] || last[1] !== position[1]) points.push(position);
-      if (points.length > 14) points.splice(0, points.length - 14);
+      if (points.length > 8) points.splice(0, points.length - 8);
       next[ac.id] = points;
     }
+    const activeIds = new Set(aircraft.map((ac) => ac.id));
+    for (const id of Object.keys(next)) if (!activeIds.has(id)) delete next[id];
     trailHistory = next;
+  });
+
+  $effect(() => {
+    const completed = system.activeMissions.filter((mission) => mission.phase === 'COMPLETE' || mission.phase === 'ABORTED');
+    const active = new Set(system.activeMissions.filter((mission) => mission.phase !== 'COMPLETE' && mission.phase !== 'ABORTED').flatMap((mission) => mission.aircraftIds));
+    for (const mission of completed) for (const id of mission.aircraftIds) {
+      if (active.has(id) || trailClearTimers.has(id)) continue;
+      trailClearTimers.set(id, setTimeout(() => {
+        const next = { ...untrack(() => trailHistory) }; delete next[id]; trailHistory = next; trailClearTimers.delete(id);
+      }, 5000));
+    }
+    for (const [id, timer] of trailClearTimers) if (active.has(id)) { clearTimeout(timer); trailClearTimers.delete(id); }
   });
 
   const trails = $derived.by(() => deriveTrailPaths(trailHistory));
@@ -215,27 +239,34 @@
       ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       ctx.beginPath(); ctx.moveTo(24, 5); ctx.lineTo(27, 19); ctx.lineTo(41, 27); ctx.lineTo(41, 31); ctx.lineTo(27, 27); ctx.lineTo(26, 40); ctx.lineTo(32, 44); ctx.lineTo(32, 46); ctx.lineTo(24, 44); ctx.lineTo(16, 46); ctx.lineTo(16, 44); ctx.lineTo(22, 40); ctx.lineTo(21, 27); ctx.lineTo(7, 31); ctx.lineTo(7, 27); ctx.lineTo(21, 19); ctx.closePath(); ctx.stroke();
       map.addImage(imageId, ctx.getImageData(0, 0, 48, 48), { pixelRatio: 2 });
+      const triangle = document.createElement('canvas'); triangle.width = 24; triangle.height = 24;
+      const triangleCtx = triangle.getContext('2d');
+      if (triangleCtx) { triangleCtx.fillStyle = color; triangleCtx.strokeStyle = '#05080f'; triangleCtx.lineWidth = 1.5; triangleCtx.beginPath(); triangleCtx.moveTo(12, 2); triangleCtx.lineTo(22, 21); triangleCtx.lineTo(12, 17); triangleCtx.lineTo(2, 21); triangleCtx.closePath(); triangleCtx.fill(); triangleCtx.stroke(); map.addImage(`aircraft-triangle-${status}`, triangleCtx.getImageData(0, 0, 24, 24), { pixelRatio: 2 }); }
     }
     if (!map.getSource('aircraft-gl')) map.addSource('aircraft-gl', {
       type: 'geojson', data: { type: 'FeatureCollection', features: [] }, cluster: true, clusterMaxZoom: 6, clusterRadius: 50,
-      clusterProperties: { fmc: ['+', ['case', ['==', ['get', 'status'], 'FMC'], 1, 0]] },
+      clusterProperties: {
+        fmc: ['+', ['case', ['==', ['get', 'status'], 'FMC'], 1, 0]],
+        pmc: ['+', ['case', ['==', ['get', 'status'], 'PMC'], 1, 0]],
+        nmc: ['+', ['case', ['==', ['get', 'status'], 'NMC'], 1, 0]],
+      },
     });
     if (!map.getLayer('aircraft-clusters')) map.addLayer({
-      id: 'aircraft-clusters', type: 'circle', source: 'aircraft-gl', maxzoom: 6, filter: ['has', 'point_count'],
+      id: 'aircraft-clusters', type: 'circle', source: 'aircraft-gl', minzoom: 5, maxzoom: 6, filter: ['has', 'point_count'],
       paint: { 'circle-color': C.cyan, 'circle-stroke-color': C.cyan, 'circle-stroke-width': 1, 'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'], 2, 10, 50, 20, 200, 30], 'circle-opacity': 0.35 },
     });
     if (!map.getLayer('aircraft-cluster-count')) map.addLayer({
-      id: 'aircraft-cluster-count', type: 'symbol', source: 'aircraft-gl', maxzoom: 6, filter: ['has', 'point_count'],
+      id: 'aircraft-cluster-count', type: 'symbol', source: 'aircraft-gl', minzoom: 5, maxzoom: 6, filter: ['has', 'point_count'],
       layout: { 'text-field': ['get', 'point_count'], 'text-font': ['Open Sans Bold'], 'text-size': 13, 'text-allow-overlap': true },
       paint: { 'text-color': C.text, 'text-halo-color': C.base, 'text-halo-width': 1.6 },
     });
     if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
-      id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl', minzoom: 4, filter: ['!', ['has', 'point_count']],
-      layout: { 'icon-image': ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC'], 'icon-size': ['*', ['interpolate', ['linear'], ['zoom'], 4, 0.3, 7, 0.6, 10, 1, 13, 1.3], ['coalesce', ['get', 'scale'], 1]], 'icon-rotate': ['coalesce', ['get', 'heading'], 0], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'text-field': ['get', 'tailNumber'], 'text-font': ['Open Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.4], 'text-anchor': 'top', 'text-optional': true, 'text-allow-overlap': true, 'text-ignore-placement': true },
-      paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 5, 0.7, 6, 1], 'text-color': C.cyan, 'text-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 5, 0.7, 6, 1], 'text-halo-color': C.base, 'text-halo-width': 1.5 },
+      id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl', minzoom: 5, filter: ['!', ['has', 'point_count']],
+      layout: { 'icon-image': ['step', ['zoom'], ['match', ['get', 'status'], 'FMC', 'aircraft-triangle-FMC', 'PMC', 'aircraft-triangle-PMC', 'aircraft-triangle-NMC'], 8, ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC']], 'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 7, 0.55, 8, 0.75, 11, 1], 'icon-rotate': ['coalesce', ['get', 'heading'], 0], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+      paint: { 'icon-opacity': 1 },
     });
     if (!map.getLayer('aircraft-gl-labels')) map.addLayer({
-      id: 'aircraft-gl-labels', type: 'symbol', source: 'aircraft-gl', minzoom: 5, filter: ['!', ['has', 'point_count']],
+      id: 'aircraft-gl-labels', type: 'symbol', source: 'aircraft-gl', minzoom: 8, filter: ['!', ['has', 'point_count']],
       layout: { 'text-field': ['get', 'tailNumber'], 'text-font': ['Open Sans Bold'], 'text-size': 10, 'text-offset': [0, 1.7], 'text-anchor': 'top', 'text-allow-overlap': true, 'text-ignore-placement': true },
       paint: { 'text-color': C.cyan, 'text-halo-color': C.base, 'text-halo-width': 2 },
     });
@@ -437,7 +468,34 @@
         ring?.setData({ type: 'FeatureCollection', features: [] });
       }, 5000);
     };
+    const handleMapElementFocus = (event: Event) => {
+      if (!map) return;
+      const focus = (event as CustomEvent<MapFocusElement[]>).detail ?? [];
+      const focusPoints: Array<{ item: MapFocusElement; point: [number, number] }> = [];
+      for (const item of focus) {
+        let point: [number, number] | null = null;
+        if (item.type === 'aircraft') {
+          const aircraftItem = system.aircraft.find((aircraft) => aircraft.id === item.id || aircraft.tailNumber === item.id);
+          if (aircraftItem) point = [aircraftItem.position.lng, aircraftItem.position.lat];
+        } else if (item.type === 'target') {
+          const mission = system.missions.find((candidate) => candidate.id === item.id || candidate.name.toLowerCase() === item.id.toLowerCase());
+          if (mission) point = [mission.target.lng, mission.target.lat];
+        } else if (item.type === 'weapon') {
+          const activeMission = system.activeMissions.find((candidate) => candidate.phase !== 'COMPLETE' && candidate.phase !== 'ABORTED');
+          const launchingAircraft = system.aircraft.find((aircraft) => activeMission?.aircraftIds.includes(aircraft.id));
+          if (launchingAircraft) point = [launchingAircraft.position.lng, launchingAircraft.position.lat];
+        }
+        if (!point) continue;
+        focusPoints.push({ item, point });
+      }
+      if (focusPoints.length) map.jumpTo({ center: [focusPoints.reduce((sum, entry) => sum + entry.point[0], 0) / focusPoints.length, focusPoints.reduce((sum, entry) => sum + entry.point[1], 0) / focusPoints.length], zoom: Math.min(7.5, Math.max(5.5, map.getZoom())) });
+      narrativeMarkers = focusPoints.map(({ item, point }) => { const pixel = map!.project(point); return { x: pixel.x, y: pixel.y, label: item.label ?? item.id, opacity: 1 }; });
+      if (mapFocusTimer) clearTimeout(mapFocusTimer);
+      if (mapFocusClearTimer) clearTimeout(mapFocusClearTimer);
+      mapFocusTimer = setTimeout(() => { narrativeMarkers = narrativeMarkers.map((marker) => ({ ...marker, opacity: 0.15 })); mapFocusClearTimer = setTimeout(() => { narrativeMarkers = []; }, 500); }, 3500);
+    };
     window.addEventListener('aircommand:diagram-focus', onDiagramFocus);
+    window.addEventListener('aircommand:map-focus-elements', handleMapElementFocus);
     map.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     map.on('movestart', () => {
       if (terrainResumeTimer) clearTimeout(terrainResumeTimer);
@@ -476,13 +534,15 @@
       m.addLayer({ id: 'scenario-area-fill', type: 'fill', source: 'scenario-area', paint: { 'fill-color': C.cyan, 'fill-opacity': 0.035 } });
       m.addLayer({ id: 'scenario-area-outline', type: 'line', source: 'scenario-area', paint: { 'line-color': C.cyan, 'line-width': 1.6, 'line-opacity': 0.78, 'line-dasharray': [1.2, 1.6] } });
       m.addSource('diagram-focus-area', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addSource('aircraft-trails', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'aircraft-trails-line', type: 'line', source: 'aircraft-trails', layout: { visibility: showTrails ? 'visible' : 'none' }, paint: { 'line-color': ['match', ['get', 'status'], 'FMC', C.green, 'PMC', C.amber, C.muted], 'line-width': 2, 'line-opacity': ['get', 'opacity'] } });
       m.addLayer({ id: 'diagram-focus-outline', type: 'line', source: 'diagram-focus-area', paint: { 'line-color': C.cyan, 'line-width': 3, 'line-opacity': 0.95, 'line-dasharray': [1, 1.5] } });
       const hillshadeVisibility = showTerrain && m.getZoom() >= 8 ? 'visible' : 'none';
       m.setLayoutProperty('hillshade-base', 'visibility', hillshadeVisibility);
       m.setLayoutProperty('hillshade-detail', 'visibility', hillshadeVisibility);
       m.addSource('matrix-highlight', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addSource('simulation-trails', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      m.addLayer({ id: 'simulation-trails-line', type: 'line', source: 'simulation-trails', paint: { 'line-color': C.cyan, 'line-width': 2, 'line-opacity': .72, 'line-dasharray': [2, 1] } });
+      m.addLayer({ id: 'simulation-trails-line', type: 'line', source: 'simulation-trails', paint: { 'line-color': C.cyan, 'line-width': 2, 'line-opacity': ['get', 'opacity'], 'line-dasharray': [2, 1] } });
       m.addSource('simulation-missiles', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'simulation-missile-trail', type: 'line', source: 'simulation-missiles', filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': C.red, 'line-width': 2.5, 'line-opacity': .9 } });
       m.addLayer({ id: 'simulation-missile-point', type: 'circle', source: 'simulation-missiles', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-color': C.red, 'circle-stroke-color': C.text, 'circle-stroke-width': 1.5 } });
@@ -502,15 +562,20 @@
 
     return () => {
       window.removeEventListener('aircommand:diagram-focus', onDiagramFocus);
+      window.removeEventListener('aircommand:map-focus-elements', handleMapElementFocus);
       window.removeEventListener('aircommand:focus-lock', handleFocusLock);
       window.removeEventListener('aircommand:refocus', refocus);
       window.removeEventListener('aircommand:experience-mode', handleExperienceMode);
       if (diagramExplanationTimer) clearTimeout(diagramExplanationTimer);
+      if (mapFocusTimer) clearTimeout(mapFocusTimer);
+      if (mapFocusClearTimer) clearTimeout(mapFocusClearTimer);
       window.removeEventListener('aircommand:map-layer', handleLayerToggle);
       window.removeEventListener('aircommand:terrain-3d', handleTerrain3d);
       window.removeEventListener('aircommand:matrix-highlight', handleMatrixHighlight);
       delete (window as any).__airCommandLoadout;
       if (terrainResumeTimer) clearTimeout(terrainResumeTimer);
+      for (const timer of trailClearTimers.values()) clearTimeout(timer);
+      trailClearTimers.clear();
       map?.remove();
       map = null;
     };
@@ -525,6 +590,19 @@
     if (map.getLayer('hillshade-detail')) map.setLayoutProperty('hillshade-detail', 'visibility', vis);
   }
 
+  function clearTrails() {
+    trailHistory = {};
+    lastTrailFeatureSignature = '[]';
+    lastSimulationTrailFeatureSignature = '[]';
+    clearSimulationTrails();
+    for (const timer of trailClearTimers.values()) clearTimeout(timer);
+    trailClearTimers.clear();
+    const source = map?.getSource('aircraft-trails') as maplibregl.GeoJSONSource | undefined;
+    source?.setData({ type: 'FeatureCollection', features: [] });
+    const simSource = map?.getSource('simulation-trails') as maplibregl.GeoJSONSource | undefined;
+    simSource?.setData({ type: 'FeatureCollection', features: [] });
+  }
+
   function toggleGrid() {
     showGrid = !showGrid;
     if (!map) return;
@@ -535,11 +613,9 @@
   function toggleTrails() {
     showTrails = !showTrails;
     if (!map) return;
-    const vis = showTrails ? 'visible' : 'none';
-    for (let i = 0; i < 40; i++) {
-      if (map.getLayer(`trail-line-${i}`)) map.setLayoutProperty(`trail-line-${i}`, 'visibility', vis);
-      if (map.getLayer(`trail-head-${i}`)) map.setLayoutProperty(`trail-head-${i}`, 'visibility', vis);
-    }
+    if (!showTrails) clearTrails();
+    if (map.getLayer('aircraft-trails-line')) map.setLayoutProperty('aircraft-trails-line', 'visibility', showTrails ? 'visible' : 'none');
+    if (map.getLayer('simulation-trails-line')) map.setLayoutProperty('simulation-trails-line', 'visibility', showTrails ? 'visible' : 'none');
   }
 
   function toggleThreats() {
@@ -551,7 +627,8 @@
       'threat-fill-mid',
       'threat-fill-inner',
       'threat-outline-outer',
-      'threat-center-dot',
+      'threat-outline-mid',
+      'threat-outline-inner',
       'threat-spoofed-outline',
       'threat-spoofed-x',
     ];
@@ -574,6 +651,7 @@
     const trailSnapshot = trails;
     const spoofedTrackId = system.spoofedTrackId;
     if (scenarioKey !== lastScenarioView) {
+      if (lastScenarioView !== undefined && scenarioKey === null) clearTrails();
       lastScenarioView = scenarioKey;
       if (area) map.fitBounds(area, { padding: 70, duration: 850, maxZoom: 7.4 });
       else if (scenarioKey === null) map.flyTo({ center: [79, 31], zoom: 3.8, duration: 850 });
@@ -606,21 +684,16 @@
     const baseSource = map.getSource('bases-gl') as maplibregl.GeoJSONSource;
     baseSource.setData({ type: 'FeatureCollection', features: IAF_BASES.map((base) => ({ type: 'Feature', properties: { id: base.id, code: base.code, label: base.name, elevation: base.elevation, selected: base.id === selBase }, geometry: { type: 'Point', coordinates: [base.lng, base.lat] } })) });
 
-    // Clean previous trail layers
-    for (let i = 0; i < 40; i++) {
-      if (map.getLayer(`trail-line-${i}`)) map.removeLayer(`trail-line-${i}`);
-      if (map.getLayer(`trail-head-${i}`)) map.removeLayer(`trail-head-${i}`);
-      if (map.getSource(`trail-${i}`)) map.removeSource(`trail-${i}`);
-      if (map.getSource(`trail-head-src-${i}`)) map.removeSource(`trail-head-src-${i}`);
-    }
-
     // Clean previous threat layers & source
     const threatLayers = [
       'threat-fill-outer',
       'threat-fill-mid',
       'threat-fill-inner',
       'threat-outline-outer',
-      'threat-center-dot',
+      'threat-outline-mid',
+      'threat-outline-inner',
+      'threat-spoofed-outline',
+      'threat-spoofed-x',
     ];
     for (const lid of threatLayers) {
       if (map.getLayer(lid)) map.removeLayer(lid);
@@ -641,64 +714,21 @@
       }
     }
 
-    // Add upgraded aircraft trails (Layer 5)
-    aircraft.forEach((ac, i) => {
-      if (ac.status === 'NMC') return; // Hidden for NMC
-      const pts = trailSnapshot[ac.id] ?? [];
-      if (pts.length < 2) return;
-
-      const isFmc = ac.status === 'FMC';
-      const color = isFmc ? C.green : C.amber;
-      const opacity = isFmc ? 0.75 : 0.4;
-      const width = isFmc ? 2 : 1.5;
-
-      map!.addSource(`trail-${i}`, {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'LineString', coordinates: pts },
-        },
-      });
-
-      map!.addLayer({
-        id: `trail-line-${i}`,
-        type: 'line',
-        source: `trail-${i}`,
-        layout: { visibility: showTrails ? 'visible' : 'none' },
-        paint: {
-          'line-color': color,
-          'line-width': width,
-          'line-opacity': opacity,
-          'line-blur': 0.8,
-        },
-      });
-
-      // Trail pulse at current head position
-      const headPos = pts[pts.length - 1];
-      map!.addSource(`trail-head-src-${i}`, {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'Point', coordinates: headPos },
-        },
-      });
-
-      map!.addLayer({
-        id: `trail-head-${i}`,
-        type: 'circle',
-        source: `trail-head-src-${i}`,
-        layout: { visibility: showTrails ? 'visible' : 'none' },
-        paint: {
-          'circle-radius': isFmc ? 4 : 3,
-          'circle-color': color,
-          'circle-opacity': 0.85,
-          'circle-stroke-width': 1.5,
-          'circle-stroke-color': C.base,
-        },
-      });
-    });
+    const trailFeatures: GeoJSON.Feature[] = [];
+    for (const aircraftItem of aircraft) {
+      if (aircraftItem.status === 'NMC') continue;
+      const points = trailSnapshot[aircraftItem.id] ?? [];
+      for (let index = 1; index < points.length; index++) {
+        const alpha = points.length <= 2 ? 1 : 0.1 + ((index - 1) / (points.length - 2)) * 0.9;
+        trailFeatures.push({ type: 'Feature', properties: { status: aircraftItem.status, opacity: alpha }, geometry: { type: 'LineString', coordinates: [points[index - 1], points[index]] } });
+      }
+    }
+    const trailSource = map.getSource('aircraft-trails') as maplibregl.GeoJSONSource | undefined;
+    const trailSignature = JSON.stringify(trailFeatures);
+    if (trailSource && trailSignature !== lastTrailFeatureSignature) {
+      trailSource.setData({ type: 'FeatureCollection', features: trailFeatures });
+      lastTrailFeatureSignature = trailSignature;
+    }
 
     // Add 3-tier concentric translucent threat geometry (Layer 2)
     const threatFeatures: GeoJSON.Feature[] = [];
@@ -757,7 +787,7 @@
       source: 'threat-zones',
       filter: ['==', 'radiusLevel', 'outer'],
       layout: { visibility: threatVis },
-      paint: { 'fill-color': C.red, 'fill-opacity': 0.022 },
+      paint: { 'fill-color': C.red, 'fill-opacity': 0.05 },
     });
 
     // 2. Mid ring: fill 0.10
@@ -767,7 +797,7 @@
       source: 'threat-zones',
       filter: ['==', 'radiusLevel', 'mid'],
       layout: { visibility: threatVis },
-      paint: { 'fill-color': C.red, 'fill-opacity': 0.04 },
+      paint: { 'fill-color': C.red, 'fill-opacity': 0.10 },
     });
 
     // 3. Inner ring: fill 0.16
@@ -777,7 +807,7 @@
       source: 'threat-zones',
       filter: ['==', 'radiusLevel', 'inner'],
       layout: { visibility: threatVis },
-      paint: { 'fill-color': C.red, 'fill-opacity': 0.07 },
+      paint: { 'fill-color': C.red, 'fill-opacity': 0.15 },
     });
 
     // Outer dashed outline 1px, opacity 0.45
@@ -789,25 +819,15 @@
       layout: { visibility: threatVis },
       paint: {
         'line-color': C.red,
-        'line-width': 1,
+        'line-width': 1.5,
         'line-opacity': 0.45,
         'line-dasharray': [4, 3],
       },
     });
 
-    // Hostile assessment marker: diamond glyph keeps the indicator readable without color.
-    map.addLayer({
-      id: 'threat-center-dot',
-      type: 'symbol',
-      source: 'threat-centers',
-      filter: ['!', ['get', 'spoofed']],
-      layout: { visibility: threatVis, 'text-field': '◆', 'text-size': 11, 'text-allow-overlap': true, 'text-ignore-placement': true },
-      paint: {
-        'text-color': C.red,
-        'text-halo-color': C.base,
-        'text-halo-width': 1,
-      },
-    });
+    for (const [radiusLevel, layerId] of [['mid', 'threat-outline-mid'], ['inner', 'threat-outline-inner']] as const) {
+      map.addLayer({ id: layerId, type: 'line', source: 'threat-zones', filter: ['==', 'radiusLevel', radiusLevel], layout: { visibility: threatVis }, paint: { 'line-color': C.red, 'line-width': 0.5, 'line-opacity': 0.5 } });
+    }
 
     // Spoofed track marker: hollow red outline with X
     map.addLayer({
@@ -915,7 +935,12 @@
     const aircraftSource = map.getSource('aircraft-gl') as maplibregl.GeoJSONSource | undefined;
     if (aircraftSource && Object.keys(frame.aircraft).length) aircraftSource.setData({ type: 'FeatureCollection', features: system.scenarioAircraft.map((aircraft) => { const track = frame.aircraft[aircraft.id]; const pos = track ?? aircraft.position; return { type: 'Feature' as const, properties: { id: aircraft.id, tailNumber: aircraft.tailNumber, status: aircraft.status, type: aircraft.type, fuel: aircraft.fuel, base: aircraft.base.toUpperCase(), heading: track?.heading ?? 0, scale: track?.scale ?? 1 }, geometry: { type: 'Point' as const, coordinates: [pos.lng, pos.lat] as [number, number] } }; }) });
     const trailSource = map.getSource('simulation-trails') as maplibregl.GeoJSONSource | undefined;
-    trailSource?.setData({ type: 'FeatureCollection', features: Object.entries(frame.aircraft).filter(([, track]) => track.trail.length > 1).map(([id, track]) => ({ type: 'Feature' as const, properties: { id }, geometry: { type: 'LineString' as const, coordinates: track.trail } })) });
+    const simTrailFeatures = showTrails ? Object.entries(frame.aircraft).flatMap(([id, track]) => { const points = track.trail.slice(-8); return points.slice(1).map((point, index) => ({ type: 'Feature' as const, properties: { id, opacity: points.length <= 2 ? 1 : 0.1 + (index / (points.length - 2)) * 0.9 }, geometry: { type: 'LineString' as const, coordinates: [points[index], point] } })); }) : [];
+    const simTrailSignature = JSON.stringify(simTrailFeatures);
+    if (simTrailSignature !== lastSimulationTrailFeatureSignature) {
+      trailSource?.setData({ type: 'FeatureCollection', features: simTrailFeatures });
+      lastSimulationTrailFeatureSignature = simTrailSignature;
+    }
     const missileSource = map.getSource('simulation-missiles') as maplibregl.GeoJSONSource | undefined;
     missileSource?.setData({ type: 'FeatureCollection', features: frame.missiles.flatMap((missile) => [{ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: missile.trail } }, { type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: missile.coordinates } }]) });
     const impactSource = map.getSource('simulation-impacts') as maplibregl.GeoJSONSource | undefined;
@@ -939,6 +964,8 @@
 
 <div class="map-wrap">
   <div class="map-canvas" class:impact-shake={getSimulationFrame().impacts.some((impact) => impact.flash)} bind:this={container}></div>
+  {#if mapZoom < 5 && overviewFmcCount > 0}<div class="theater-aircraft-count" title={`${overviewFmcCount} FMC aircraft in this theater view`}>{overviewFmcCount}</div>{/if}
+  {#each narrativeMarkers as marker, index (`${marker.label}-${index}`)}<div class="narrative-focus-marker" style={`left:${marker.x}px;top:${marker.y}px;opacity:${marker.opacity}`}><span>{marker.label}</span></div>{/each}
   {#if mapReady && map}<TrajectoryLayer {map} />{/if}
   {#if theaterMapVisible}<TacticalReadout />{/if}
 
@@ -959,6 +986,7 @@
   <div class="coord tl mono">THEATER MAP · {mapCenterLabel}</div>
   <button class="theater-toggle" aria-label={theaterMapVisible ? 'Hide theater data panel' : 'Show theater data panel'} title="Toggle theater data panel; map remains visible" onclick={() => onToggleTheaterVisibility?.()}>◉</button>
   <div class="coord tr mono">ZOOM {mapZoom.toFixed(1)} · MERCATOR</div>
+  <div class="trail-controls"><button aria-pressed={showTrails} onclick={toggleTrails}>◈ TRAILS {showTrails ? 'ON' : 'OFF'}</button><button onclick={clearTrails}>× CLEAR TRAILS</button></div>
   <button class="fullscreen-btn" aria-label={fullscreen ? 'Exit map fullscreen' : 'Enter map fullscreen'} title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen map'} onclick={() => onFullscreenClick?.()}>{fullscreen ? '⛶ EXIT FULLSCREEN' : '⛶ FULLSCREEN'}</button>
   <TerrainToggle />
   <div class="coord bl mono">SCALE · WGS84</div>
@@ -983,6 +1011,9 @@
     position: absolute;
     inset: 0;
   }
+  .theater-aircraft-count { position:absolute; z-index:7; top:50%; left:50%; transform:translate(-50%,-50%); width:50px; height:50px; display:grid; place-items:center; border:2px solid var(--accent-cyan); border-radius:50%; background:rgba(5,24,34,.94); box-shadow:0 0 16px color-mix(in srgb,var(--accent-cyan) 40%,transparent); color:var(--text-primary); font:700 15px var(--font-mono); pointer-events:none; }
+  .narrative-focus-marker { position:absolute; z-index:8; width:80px; height:80px; transform:translate(-50%,-50%); border:2px dashed var(--accent-cyan); border-radius:50%; box-shadow:0 0 14px color-mix(in srgb,var(--accent-cyan) 35%,transparent); pointer-events:none; transition:opacity .45s ease; }
+  .narrative-focus-marker span { position:absolute; left:50%; top:-18px; transform:translateX(-50%); padding:2px 4px; background:var(--bg-base); color:var(--accent-cyan); font:8px var(--font-mono); white-space:nowrap; text-shadow:0 0 4px var(--bg-base); }
 
   :global(.maplibregl-canvas) { filter: invert(1) hue-rotate(180deg) brightness(.66) saturate(.38) contrast(.96); }
   .map-canvas.impact-shake :global(.maplibregl-canvas-container) { animation: impact-shake .2s ease-out; }
@@ -1069,6 +1100,7 @@
   .bearing { position:absolute; z-index:5; color:var(--text-muted); font:7px var(--font-mono); opacity:.65; pointer-events:none; }
   .bearing.north { top:34px; left:50%; transform:translateX(-50%); }.bearing.south { bottom:34px; left:50%; transform:translateX(-50%); }
   .bearing.east { right:10px; top:50%; transform:translateY(-50%); writing-mode:vertical-rl; }.bearing.west { left:10px; top:50%; transform:translateY(-50%); writing-mode:vertical-rl; }
+  .trail-controls { position:absolute; z-index:7; top:56px; right:10px; display:flex; gap:4px; }.trail-controls button { padding:5px 7px; color:var(--text-secondary); background:rgba(5,8,15,.9); border:1px solid var(--border-strong); font:7px var(--font-mono); cursor:pointer; }.trail-controls button[aria-pressed="true"] { color:var(--accent-cyan); border-color:var(--accent-cyan); }
   .fullscreen-btn { position:absolute; top:28px; right:10px; z-index:7; padding:6px 9px; background:rgba(5,8,15,.9); border:1px solid var(--border-strong); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; transition:background .18s,border-color .18s; }
   .theater-toggle { position:absolute; top:25px; left:10px; z-index:7; padding:4px 7px; background:rgba(5,8,15,.9); border:1px solid var(--border-strong); color:var(--accent-cyan); font:10px var(--font-mono); cursor:pointer; }
   .fullscreen-btn:hover,.fullscreen-btn:focus-visible { border-color:var(--accent-cyan); background:color-mix(in srgb, var(--accent-cyan) 10%, transparent); outline:none; }

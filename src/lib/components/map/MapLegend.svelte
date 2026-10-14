@@ -72,6 +72,13 @@
           </div>
         </section>
 
+        <section class="legend-section">
+          <h3>TRACK CLARITY</h3>
+          <div class="legend-item"><div class="legend-symbol line-trail"></div><div class="legend-info"><span class="legend-name">TRAIL</span><span class="legend-desc">Fading line behind moving aircraft. Older segments fade to 0. Clears on landing.</span></div></div>
+          <div class="legend-item"><div class="legend-symbol aircraft-fmc">46</div><div class="legend-info"><span class="legend-name">CLUSTER</span><span class="legend-desc">Number in circle = count of aircraft in that area. Zoom in to see individual.</span></div></div>
+          <div class="legend-item"><div class="legend-symbol threat-zone"></div><div class="legend-info"><span class="legend-name">THREAT RING</span><span class="legend-desc">Each concentric ring is a probability band, not a hard boundary.</span></div></div>
+        </section>
+
         <!-- Lines -->
         <section class="legend-section">
           <h3>LINES & PATHS</h3>
