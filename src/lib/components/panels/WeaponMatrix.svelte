@@ -77,7 +77,7 @@
   thead th { color:var(--text-muted); font-weight:400; white-space:nowrap; }
   tbody th { color:var(--text-secondary); text-align:left; white-space:nowrap; font-weight:400; }
   .cell { width:21px; height:20px; border:1px solid currentColor; background:transparent; font:10px var(--font-mono); cursor:crosshair; }
-  .cell.optimal { color:var(--accent-green); background:rgba(57,255,20,.09); }.cell.feasible { color:var(--accent-amber); background:rgba(255,184,0,.08); }.cell.infeasible { color:var(--accent-red); background:rgba(255,45,124,.07); }
+  .cell.optimal { color:var(--accent-green); background:color-mix(in srgb, var(--accent-green) 9%, transparent); }.cell.feasible { color:var(--accent-amber); background:color-mix(in srgb, var(--accent-amber) 8%, transparent); }.cell.infeasible { color:var(--accent-red); background:color-mix(in srgb, var(--accent-red) 7.000000000000001%, transparent); }
   .cell:focus-visible { outline:2px solid var(--accent-cyan); outline-offset:1px; }
   .unassigned { color:var(--text-muted); }
   .summary-heading { border-top:1px solid var(--border-subtle); }

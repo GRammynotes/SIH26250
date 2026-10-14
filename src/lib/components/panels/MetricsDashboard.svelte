@@ -262,7 +262,7 @@
     max-height: 92vh;
     background: var(--bg-panel);
     border: 1px solid var(--accent-cyan);
-    box-shadow: 0 0 50px rgba(0, 212, 255, 0.22);
+    box-shadow: 0 0 50px color-mix(in srgb, var(--accent-cyan) 22%, transparent);
     display: flex; flex-direction: column;
     overflow: hidden; position: relative;
     font-family: var(--font-mono);
@@ -286,7 +286,7 @@
     display: flex; justify-content: space-between; align-items: flex-start;
     padding: 16px 20px;
     border-bottom: 1px solid var(--border-subtle);
-    background: rgba(0, 212, 255, 0.04);
+    background: color-mix(in srgb, var(--accent-cyan) 4%, transparent);
   }
   .hdr-left { display: flex; flex-direction: column; gap: 4px; }
   .eyebrow {
@@ -300,7 +300,7 @@
   }
   .live-pill {
     font-size: 8px; padding: 2px 7px; border: 1px solid var(--accent-green);
-    color: var(--accent-green); background: rgba(57, 255, 20, 0.08);
+    color: var(--accent-green); background: color-mix(in srgb, var(--accent-green) 8%, transparent);
     letter-spacing: 0.12em; font-weight: 700;
   }
   .sub { font-size: 8.5px; color: var(--text-muted); letter-spacing: 0.12em; }
@@ -313,7 +313,7 @@
   }
   .close-btn:hover {
     border-color: var(--accent-red); color: var(--accent-red);
-    box-shadow: 0 0 8px rgba(255, 45, 124, 0.3);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent-red) 30%, transparent);
   }
 
   .body-scroll {
@@ -345,7 +345,7 @@
   .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 
   .stat-card {
-    background: #070b14; border: 1px solid var(--border-subtle);
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
     padding: 12px 14px; display: flex; flex-direction: column; gap: 5px;
   }
   .st-lbl { font-size: 8px; letter-spacing: 0.14em; color: var(--text-muted); text-transform: uppercase; }
@@ -364,13 +364,13 @@
 
   /* TIME SAVED BOX */
   .time-box {
-    background: #070b14; border: 1px solid var(--border-subtle);
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
     padding: 14px 16px; display: flex; flex-direction: column; gap: 14px;
   }
   .time-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .time-stat { display: flex; flex-direction: column; gap: 4px; flex: 1; }
   .time-stat.highlight {
-    background: rgba(57, 255, 20, 0.05); border: 1px solid rgba(57, 255, 20, 0.3);
+    background: color-mix(in srgb, var(--accent-green) 5%, transparent); border: 1px solid color-mix(in srgb, var(--accent-green) 30%, transparent);
     padding: 8px 12px;
   }
   .t-lbl { font-size: 8px; letter-spacing: 0.14em; color: var(--text-muted); text-transform: uppercase; }
@@ -384,11 +384,11 @@
   .time-bar-wrap { display: flex; flex-direction: column; gap: 4px; }
   .tb-outer { height: 16px; display: flex; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); }
   .tb-saved {
-    background: rgba(57, 255, 20, 0.25); border-right: 1px solid var(--accent-green);
+    background: color-mix(in srgb, var(--accent-green) 25%, transparent); border-right: 1px solid var(--accent-green);
     display: flex; align-items: center; padding-left: 8px;
   }
   .tb-system {
-    background: rgba(0, 212, 255, 0.3);
+    background: color-mix(in srgb, var(--accent-cyan) 30%, transparent);
     display: flex; align-items: center; justify-content: center;
   }
   .tb-txt { font-size: 7.5px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.1em; }
@@ -404,12 +404,12 @@
   .btn-close {
     font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.16em;
     padding: 7px 16px; border: 1px solid var(--accent-cyan); color: var(--accent-cyan);
-    background: rgba(0, 212, 255, 0.08); cursor: pointer; font-weight: 700;
+    background: color-mix(in srgb, var(--accent-cyan) 8%, transparent); cursor: pointer; font-weight: 700;
     transition: all 0.15s;
   }
   .btn-close:hover {
-    background: rgba(0, 212, 255, 0.2);
-    box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+    background: color-mix(in srgb, var(--accent-cyan) 20%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--accent-cyan) 40%, transparent);
   }
   .frame.inline { min-width:0; max-width:100%; }
   .frame.inline header { min-width:0; padding:9px 11px; }

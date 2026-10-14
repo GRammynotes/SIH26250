@@ -163,7 +163,7 @@
     height: min(900px, 94vh);
     background: var(--bg-panel);
     border: 1px solid var(--accent-cyan);
-    box-shadow: 0 0 60px rgba(0, 212, 255, 0.25);
+    box-shadow: 0 0 60px color-mix(in srgb, var(--accent-cyan) 25%, transparent);
     display: flex; flex-direction: column;
     overflow: hidden;
   }
@@ -172,7 +172,7 @@
     display: flex; justify-content: space-between; align-items: flex-start;
     padding: 14px 20px;
     border-bottom: 1px solid var(--border-subtle);
-    background: rgba(0, 212, 255, 0.03);
+    background: color-mix(in srgb, var(--accent-cyan) 3%, transparent);
   }
   .eyebrow {
     display: block;
@@ -201,7 +201,7 @@
   .content { flex: 1; min-height:0; display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); overflow: hidden; }
 
   .sidebar {
-    background: #05080f;
+    background: var(--bg-base);
     border-right: 1px solid var(--border-subtle);
     overflow-y: auto;
     padding: 12px 0;
@@ -231,7 +231,7 @@
   .entry:hover { background: var(--bg-elevated); }
   .entry.active {
     border-left-color: var(--accent-cyan);
-    background: rgba(0, 212, 255, 0.06);
+    background: color-mix(in srgb, var(--accent-cyan) 6%, transparent);
   }
   .entry-title {
     font-size: 10px; color: var(--text-primary);
@@ -245,7 +245,7 @@
 
   .viewer {
     display: flex; flex-direction: column;
-    background: #05080f;
+    background: var(--bg-base);
     overflow: hidden;
   }
   .img-wrap {
@@ -260,21 +260,21 @@
     max-height: 100%;
     object-fit: contain;
     filter: saturate(1.05);
-    background: #05080f;
+    background: var(--bg-base);
   }
   .diagram-image { position:relative; max-width:100%; max-height:100%; height:100%; display:grid; place-items:center; padding:0; border:0; background:transparent; cursor:zoom-in; }
   .diagram-image img { max-width:100%; max-height:100%; object-fit:contain; }
   .diagram-image span { position:absolute; right:8px; bottom:8px; padding:5px 7px; color:var(--accent-cyan); background:rgba(5,8,15,.9); border:1px solid var(--border-strong); font:8px var(--font-mono); letter-spacing:.1em; opacity:0; transition:opacity .15s; }
   .diagram-image:hover span,.diagram-image:focus-visible span { opacity:1; }
   .diagram-image:focus-visible { outline:1px solid var(--accent-cyan); }
-  .diagram-actions { display:flex; flex-wrap:wrap; gap:6px; padding:8px 16px; background:#05080f; border-top:1px solid var(--border-subtle); }
+  .diagram-actions { display:flex; flex-wrap:wrap; gap:6px; padding:8px 16px; background:var(--bg-base); border-top:1px solid var(--border-subtle); }
   .diagram-actions button { display:flex; gap:10px; align-items:center; padding:6px 8px; color:var(--text-secondary); border:1px solid var(--border-subtle); background:transparent; font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; }
   .diagram-actions button:hover,.diagram-actions button:focus-visible { color:var(--accent-cyan); border-color:var(--accent-cyan); outline:none; }
   .diagram-actions span { color:var(--accent-cyan); }
   .desc {
     border-top: 1px solid var(--border-subtle);
     padding: 12px 20px;
-    background: rgba(0, 212, 255, 0.02);
+    background: color-mix(in srgb, var(--accent-cyan) 2%, transparent);
   }
   .desc-label {
     display: block;

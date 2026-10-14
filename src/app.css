@@ -4,8 +4,8 @@
 
 /* DRIVER.JS TACTICAL OVERLAY & POPOVER */
 .driver-popover.air-command-popover {
-  background: #0a0e1a !important;
-  border: 1px solid #00d4ff !important;
+  background: var(--bg-panel) !important;
+  border: 1px solid var(--accent-cyan) !important;
   border-radius: 0 !important;
   box-shadow: 0 0 40px rgba(0, 212, 255, 0.3) !important;
   font-family: 'JetBrains Mono', monospace !important;
@@ -14,7 +14,7 @@
 }
 
 .driver-popover.air-command-popover .driver-popover-title {
-  color: #00d4ff !important;
+  color: var(--accent-cyan) !important;
   font-size: 12px !important;
   letter-spacing: 0.15em !important;
   text-transform: uppercase !important;
@@ -23,7 +23,7 @@
 }
 
 .driver-popover.air-command-popover .driver-popover-description {
-  color: #94a3b8 !important;
+  color: var(--text-secondary) !important;
   font-size: 11px !important;
   line-height: 1.6 !important;
   font-family: 'JetBrains Mono', monospace !important;
@@ -39,8 +39,8 @@
 
 .driver-popover.air-command-popover .driver-popover-footer button {
   background: transparent !important;
-  border: 1px solid #2a3447 !important;
-  color: #94a3b8 !important;
+  border: 1px solid var(--border-strong) !important;
+  color: var(--text-secondary) !important;
   border-radius: 0 !important;
   font-family: 'JetBrains Mono', monospace !important;
   font-size: 10px !important;
@@ -52,14 +52,14 @@
 }
 
 .driver-popover.air-command-popover .driver-popover-footer button:hover {
-  border-color: #00d4ff !important;
-  color: #00d4ff !important;
+  border-color: var(--accent-cyan) !important;
+  color: var(--accent-cyan) !important;
   box-shadow: 0 0 10px rgba(0, 212, 255, 0.3) !important;
   background: rgba(0, 212, 255, 0.08) !important;
 }
 
 .driver-popover.air-command-popover .driver-popover-progress-text {
-  color: #64748b !important;
+  color: var(--text-muted) !important;
   font-size: 10px !important;
   letter-spacing: 0.15em !important;
   font-family: 'JetBrains Mono', monospace !important;

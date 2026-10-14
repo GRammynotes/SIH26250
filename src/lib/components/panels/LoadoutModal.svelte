@@ -76,7 +76,7 @@
     max-height: 92vh;
     background: var(--bg-panel);
     border: 1px solid var(--accent-cyan);
-    box-shadow: 0 0 60px rgba(0, 212, 255, 0.25);
+    box-shadow: 0 0 60px color-mix(in srgb, var(--accent-cyan) 25%, transparent);
     display: flex; flex-direction: column;
     overflow: hidden;
   }
@@ -85,7 +85,7 @@
     display: flex; justify-content: space-between; align-items: flex-start;
     padding: 14px 20px;
     border-bottom: 1px solid var(--border-subtle);
-    background: rgba(0, 212, 255, 0.03);
+    background: color-mix(in srgb, var(--accent-cyan) 3%, transparent);
   }
   .eyebrow {
     display: block;
@@ -110,13 +110,13 @@
     flex: 1;
     padding: 16px;
     overflow: auto;
-    background: #05080f;
+    background: var(--bg-base);
     display: grid; place-items: center;
     gap: 12px;
   }
   .body img { display: block; width: 100%; height: auto; max-height: 62vh; object-fit: contain; }
   .station { display:flex; justify-content:space-between; width:min(100%,700px); padding:9px 12px; color:var(--text-secondary); background:transparent; border:1px dashed var(--accent-cyan); font:9px var(--font-mono); cursor:pointer; }
-  .station:hover,.station.selected { color:var(--accent-cyan); background:rgba(0,212,255,.08); }
+  .station:hover,.station.selected { color:var(--accent-cyan); background:color-mix(in srgb, var(--accent-cyan) 8%, transparent); }
   .weapon-card { width:min(100%,700px); border:1px solid var(--accent-cyan); background:var(--bg-panel); font:9px/1.45 var(--font-mono); }
   .weapon-card header,.weapon-card>div { display:grid; grid-template-columns:1.3fr .7fr .5fr .8fr 1.5fr; gap:8px; padding:9px; }
   .weapon-card header { color:var(--accent-cyan); border-bottom:1px solid var(--border-subtle); }

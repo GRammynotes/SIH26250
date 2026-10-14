@@ -43,7 +43,7 @@
     max-height: 92vh;
     background: var(--bg-panel);
     border: 1px solid var(--accent-cyan);
-    box-shadow: 0 0 60px rgba(0, 212, 255, 0.25);
+    box-shadow: 0 0 60px color-mix(in srgb, var(--accent-cyan) 25%, transparent);
     display: flex; flex-direction: column;
     overflow: hidden;
   }
@@ -52,7 +52,7 @@
     display: flex; justify-content: space-between; align-items: flex-start;
     padding: 14px 20px;
     border-bottom: 1px solid var(--border-subtle);
-    background: rgba(0, 212, 255, 0.03);
+    background: color-mix(in srgb, var(--accent-cyan) 3%, transparent);
   }
   .eyebrow {
     display: block;
@@ -77,7 +77,7 @@
     flex: 1;
     padding: 16px;
     overflow: auto;
-    background: #05080f;
+    background: var(--bg-base);
   }
   .body img {
     display: block;
@@ -90,7 +90,7 @@
     display: flex; justify-content: space-around;
     padding: 10px 16px;
     border-top: 1px solid var(--border-subtle);
-    background: rgba(0, 212, 255, 0.02);
+    background: color-mix(in srgb, var(--accent-cyan) 2%, transparent);
     font-family: var(--font-mono); font-size: 9px;
     letter-spacing: 0.15em; color: var(--text-muted);
   }

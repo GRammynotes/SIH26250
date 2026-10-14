@@ -53,7 +53,7 @@
   kbd { padding:3px 5px; border:1px solid var(--border-strong); color:var(--text-muted); font:8px var(--font-mono); }
   .results { overflow:auto; padding:6px; }
   .results button { width:100%; display:flex; justify-content:space-between; padding:10px; border:1px solid transparent; background:transparent; text-align:left; color:var(--text-secondary); font:10px var(--font-mono); cursor:pointer; }
-  .results button:hover,.results button.active { border-color:var(--border-strong); background:rgba(0,212,255,.06); color:var(--accent-cyan); }
+  .results button:hover,.results button.active { border-color:var(--border-strong); background:color-mix(in srgb, var(--accent-cyan) 6%, transparent); color:var(--accent-cyan); }
   .category { color:var(--text-muted); font-size:8px; letter-spacing:.13em; }
   .empty { padding:18px 10px; color:var(--text-muted); font-size:9px; }
   footer { display:flex; gap:16px; padding:8px 14px; border-top:1px solid var(--border-subtle); color:var(--text-muted); font-size:8px; letter-spacing:.1em; }

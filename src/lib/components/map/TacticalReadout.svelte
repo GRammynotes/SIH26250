@@ -63,7 +63,7 @@
 
 <style>
   .readout { position:absolute; top:42px; left:14px; z-index:6; width:min(226px,calc(100% - 28px)); color:var(--text-secondary); background:rgba(5,8,15,.92); border:1px solid var(--border-strong); border-left:2px solid var(--accent-cyan); box-shadow:0 8px 26px rgba(0,0,0,.38); backdrop-filter:blur(8px); font-family:var(--font-mono); pointer-events:auto; }
-  header { padding:10px 11px 9px; border-bottom:1px solid var(--border-subtle); background:linear-gradient(110deg,rgba(0,212,255,.07),transparent 72%); }
+  header { padding:10px 11px 9px; border-bottom:1px solid var(--border-subtle); background:linear-gradient(110deg,color-mix(in srgb, var(--accent-cyan) 7.000000000000001%, transparent),transparent 72%); }
   .eyebrow,.section-head,.force-line,.threat-line,footer { display:flex; align-items:center; justify-content:space-between; }
   .eyebrow { gap:6px; color:var(--accent-cyan); font-size:8px; letter-spacing:.13em; }
   .live-dot { width:6px; height:6px; background:var(--accent-green); border-radius:50%; box-shadow:0 0 7px var(--accent-green); animation:blink 1.6s ease-in-out infinite; }

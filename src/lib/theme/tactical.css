@@ -15,9 +15,7 @@
   --accent-cyan: #00d4ff;
   --accent-green: #39ff14;
   --accent-amber: #ffb800;
-  --accent-red: #ff2d7c;
-  --accent-blue: #3b82f6;
-  --accent-purple: #a855f7;
+  --accent-red: #ff453a;
 
   /* Fonts */
   --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, 'IBM Plex Mono', monospace;
@@ -27,7 +25,7 @@
 body {
   background: var(--bg-base);
   color: var(--text-primary);
-  font-family: var(--font-sans);
+  font-family: var(--font-mono);
   margin: 0;
   overflow: hidden;
 }
