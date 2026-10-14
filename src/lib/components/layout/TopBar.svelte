@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { system } from '../../stores/systemStore.svelte';
+  import { isVoiceEnabled, setVoiceEnabled } from '../../engine/voice';
 
   let {
     aircraftCount = 0, missionCount = 0, threatCount = 0,
@@ -18,6 +19,7 @@
   let zulu = $state('00:00:00');
   let utcDate = $state('');
   let openMenu = $state<string | null>(null);
+  let voiceOn = $state(true);
   const menus = ['VIEW', 'TOOLS', 'HELP', 'SYSTEM'];
   const layers = [
     ['Terrain', 'terrain'], ['Airspace', 'airspace'], ['Weather', 'weather'], ['Enemy', 'enemy'], ['Ground', 'ground'],
@@ -26,6 +28,7 @@
   const securityStatus = $derived(system.spoofedTrackId ? 'LINK COMPROMISED' : system.mode === 'DEGRADED' ? 'KEY ROTATION DUE' : 'LINK SECURE');
 
   onMount(() => {
+    voiceOn = isVoiceEnabled();
     const tick = () => { const d = new Date(); zulu = d.toISOString().slice(11, 23); utcDate = d.toISOString().slice(0, 10); };
     tick(); const id = setInterval(tick, 100);
     const close = () => openMenu = null;
@@ -38,6 +41,7 @@
     event.stopPropagation(); openMenu = openMenu === name ? null : name;
   }
   function action(fn?: () => void) { fn?.(); openMenu = null; }
+  function toggleVoice() { voiceOn = !voiceOn; setVoiceEnabled(voiceOn); }
 </script>
 
 <header class="topbar">
@@ -74,6 +78,7 @@
     {/each}
   </nav>
   <span class="spacer"></span>
+  <button class="voice-toggle" aria-pressed={voiceOn} title="Toggle voice narration" onclick={toggleVoice}>◈ VOICE {voiceOn ? 'ON' : 'OFF'}</button>
   <span class="metric">AC <b>{aircraftCount}</b></span><span class="metric">MSN <b>{missionCount}</b></span><span class="metric">THR <b>{threatCount}</b></span>
   <span class="indicators" aria-label="System status">
     <span class="indicator link" title="Link OK" aria-label="Link OK">●✓</span>
@@ -93,6 +98,7 @@
   .sep { color:var(--border-strong); } .spacer { flex:1; } .metric,.date { color:var(--text-muted); white-space:nowrap; } .metric b { color:var(--text-secondary); font-weight:500; margin-left:3px; } .time { color:var(--accent-cyan); white-space:nowrap; }
   .live { display:flex; align-items:center; gap:5px; color:var(--accent-green); font-size:8px; } .dot { width:5px; height:5px; border-radius:50%; background:var(--accent-green); box-shadow:0 0 6px var(--accent-green); }
   .menus { display:flex; align-items:center; height:100%; gap:4px; margin-left:8px; } .menu-group { position:relative; height:100%; display:flex; align-items:center; }
+  .voice-toggle { padding:4px 7px; background:transparent; border:1px solid var(--border-subtle); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; white-space:nowrap; }.voice-toggle[aria-pressed="false"] { color:var(--text-muted); }
   .menu-trigger { position:relative; height:100%; padding:0 10px; background:transparent; border:0; color:var(--text-secondary); font:9px var(--font-mono); letter-spacing:.16em; cursor:pointer; }
   .menu-trigger::after { content:''; position:absolute; bottom:5px; left:10px; right:10px; height:1px; background:var(--accent-cyan); transform:scaleX(0); transition:transform .18s ease; }
   .menu-trigger:hover::after,.menu-trigger.open::after { transform:scaleX(1); } .menu-trigger:hover,.menu-trigger.open { color:var(--accent-cyan); }

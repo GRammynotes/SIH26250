@@ -6,11 +6,12 @@ import {
   createActiveMission, nextPhase, phaseDuration, progressFraction, interpolatePosition,
   type ActiveMission,
 } from '../engine/missionExecutor';
-import { optimalWeaponFor } from '../data/weapons';
+import { optimalWeaponFor, WEAPONS } from '../data/weapons';
 import { freshAirspace } from '../data/airspace';
 import { freshWeather } from '../data/weather';
 import { detectDeconflictionWarnings } from '../engine/deconfliction';
 import { analyzeTrackLoss, type TrackLossAnalysis } from '../engine/trackLossEngine';
+import { narrateEvent } from '../engine/voice';
 import type { Aircraft, Mission, Threat, COA, AircraftStatus } from '../types';
 
 export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
@@ -125,6 +126,7 @@ class SystemStore {
   pushEvent(source: string, msg: string, level: EventLevel = 'info') {
     const time = new Date().toISOString().slice(11, 23);
     this.events = [...this.events, { time, source, msg, level }].slice(-80);
+    narrateEvent(source, msg, level === 'alert');
   }
 
   async generateCOAs() {
@@ -179,8 +181,9 @@ class SystemStore {
     this.triggerReoptimization();
   }
 
-  addThreat(t: Threat) { 
+  addThreat(t: Threat) {
     this.threats = [...this.threats, t]; 
+    this.pushEvent('THREAT', `THREAT ALERT · ${t.type}`, 'warn');
     this.triggerReoptimization();
   }
   closeAirspace(id: string) {
@@ -281,6 +284,12 @@ class SystemStore {
           nextAm.phase = np;
           nextAm.phaseStartTime = Date.now();
           this.pushEvent('EXEC', `${am.missionName} ENTERED ${np}`, 'info');
+          if (np === 'RELEASE') {
+            const weapon = am.weaponId ? WEAPONS[am.weaponId] : null;
+            const mission = this.missions.find((m) => m.id === am.missionId);
+            this.pushEvent('WEAPON', `WEAPON RELEASED · ${weapon?.name ?? am.weaponId ?? 'UNSPECIFIED'} · ${mission?.targetType ?? 'UNKNOWN TARGET'}`, 'alert');
+            window.setTimeout(() => this.pushEvent('WEAPON', `IMPACT CONFIRMED · ${am.missionName}`, 'alert'), 5000);
+          }
         }
       }
 
