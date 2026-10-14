@@ -75,7 +75,7 @@
         {#snippet renderItem(ac)}{@render aircraftRow(ac)}{/snippet}
       </SvelteVirtualList>
     {:else}
-      {#each sorted as ac (ac.id)}{@render aircraftRow(ac)}{/each}
+      {#if sorted.length === 0}<div class="empty-state"><b>[ NO DATA ]</b><span>Adjust filters to show available aircraft.</span></div>{:else}{#each sorted as ac (ac.id)}{@render aircraftRow(ac)}{/each}{/if}
     {/if}
   </div>
 </aside>
@@ -90,6 +90,8 @@
   .chips { display:flex; gap:3px; } .chips button,.sort-toggle { padding:4px 5px; background:transparent; border:1px solid var(--border-subtle); color:var(--text-muted); font:8px var(--font-mono); cursor:pointer; }
   .chips button.active,.chips button:hover,.sort-toggle:hover { border-color:var(--accent-cyan); color:var(--accent-cyan); }
   .list { flex: 1; overflow-y: auto; }
+  .empty-state { min-height:140px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; color:var(--text-muted); text-align:center; font:8px var(--font-mono); letter-spacing:.1em; }
+  .empty-state b { color:var(--accent-cyan); font-size:10px; }
   :global(.aircraft-virtual) { height:100%; min-height:0; overflow:hidden; }
   :global(.aircraft-viewport) { height:100%; overflow-y:auto; }
   .list::-webkit-scrollbar { width: 3px; }

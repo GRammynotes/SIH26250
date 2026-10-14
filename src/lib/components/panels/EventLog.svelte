@@ -20,7 +20,8 @@
     <span class="log-actions"><span class="count">{visibleEvents.length} ENTRIES</span><button aria-label="Hide mission log" title="Hide mission log" onclick={() => onToggleVisibility?.()}>◉</button><button aria-label={collapsed ? 'Expand event log' : 'Collapse event log'} title={collapsed ? 'Expand event log' : 'Collapse event log'} onclick={() => onToggle?.()}>{collapsed ? '⌃' : '⌄'}</button></span>
   </div>
   {#if !collapsed}<div class="entries">
-    {#if visibleEvents.length > 30}
+    {#if visibleEvents.length === 0}<div class="empty-state"><b>[ NO DATA ]</b><span>Choose a scenario or continue the exercise to populate the log.</span></div>
+    {:else if visibleEvents.length > 30}
       <SvelteVirtualList items={visibleEvents} itemKey={(item, index) => `${item.time}-${item.source}-${index}`} defaultEstimatedItemHeight={18} containerClass="event-virtual" viewportClass="event-viewport" viewportLabel="Mission event log">
         {#snippet renderItem(e)}<div class="entry"><span class="t">[{e.time}Z]</span><span class="classification-tag">[U]</span><span class="src" style="color:{levelColor(e.level)};">{e.source}</span><span class="msg">{e.msg}</span></div>{/snippet}
       </SvelteVirtualList>
@@ -37,6 +38,8 @@
   .log::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent); opacity: 0.15; }
   .hdr { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; border-bottom: 1px solid var(--border-subtle); font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em; color: var(--text-muted); text-transform: uppercase; }
   .entries { flex: 1; padding: 6px 14px; overflow-y: auto; }
+  .empty-state { height:100%; min-height:48px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; color:var(--text-muted); text-align:center; font:8px var(--font-mono); letter-spacing:.08em; }
+  .empty-state b { color:var(--accent-cyan); font-size:9px; }
   :global(.event-virtual) { height:100%; min-height:0; overflow:hidden; }
   :global(.event-viewport) { height:100%; overflow-y:auto; }
   .log-actions { display:flex; align-items:center; gap:10px; } .log-actions button { background:transparent; border:0; color:var(--accent-cyan); cursor:pointer; font:12px var(--font-mono); }

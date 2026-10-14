@@ -99,7 +99,7 @@
         {#snippet renderItem(m)}{@render missionRow(m)}{/snippet}
       </SvelteVirtualList>
     {:else}
-      {#each groups as [groupName, missions] (groupName)}<div class="group-label">{groupName} · {missions.length}</div>{#each missions as m (m.id)}{@render missionRow(m)}{/each}{:else}<div class="empty">NO MISSIONS MATCH THIS FILTER</div>{/each}
+      {#each groups as [groupName, missions] (groupName)}<div class="group-label">{groupName} · {missions.length}</div>{#each missions as m (m.id)}{@render missionRow(m)}{/each}{:else}<div class="empty"><b>[ NO DATA ]</b><span>Adjust filters or search terms.</span></div>{/each}
     {/if}
   </div>
 </div>
@@ -129,7 +129,8 @@
   .quick-actions button.execute-action { color:var(--accent-green); }
   .detail-row { padding-top:5px; color:var(--text-muted); font-size:8px; line-height:1.5; }
   .state-planned { color:var(--text-muted); font-size:8px; }
-  .empty { padding:18px 12px; color:var(--text-muted); font:9px var(--font-mono); }
+  .empty { min-height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:18px 12px; color:var(--text-muted); text-align:center; font:8px var(--font-mono); letter-spacing:.08em; }
+  .empty b { color:var(--accent-cyan); font-size:10px; }
   .line1 { display: flex; justify-content: space-between; align-items: center; }
   .name { color: var(--accent-amber); font-size: 10px; letter-spacing: 0.08em; }
   .line1-right { display: flex; gap: 6px; align-items: center; }

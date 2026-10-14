@@ -1,0 +1,8 @@
+04-scenario-dropdown.png: capture did not complete because the scenario menu item was hidden by the saved pane layout.
+05-modal-dock.png: capture flow stopped before three modals could be minimized.
+06-layout-reset-toast.png: not captured.
+07-focus-lock-both-states.png: not captured.
+08-empty-state.png: current scenario and filter combination did not produce an empty roster.
+09-tactical-picture-toggle.png: not captured.
+10-esc-hint-flash.png: not captured.
+

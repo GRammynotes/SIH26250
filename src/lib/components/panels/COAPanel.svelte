@@ -41,6 +41,7 @@
 
   <div class="body">
     {#if coas.length === 0}
+      <div class="empty-state"><b>[ NO DATA ]</b><span>Click GENERATE COA to create options.</span><button onclick={() => system.generateCOAs()} disabled={system.computing}>▸ GENERATE COA</button></div>
       <div class="section">
         <div class="sec-label">STATUS</div>
         <div class="sec-value">AWAITING GENERATION</div>
@@ -138,6 +139,9 @@
   .view-tabs button.active { color: var(--accent-cyan); background: color-mix(in srgb, var(--accent-cyan) 7.000000000000001%, transparent); }
   .view-tabs button.red-active { color: var(--accent-red); background: color-mix(in srgb, var(--accent-red) 7.000000000000001%, transparent); }
   .body { flex: 1; padding: 12px; overflow-y: auto; }
+  .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; min-height:94px; padding:12px; text-align:center; color:var(--text-muted); font:8px var(--font-mono); letter-spacing:.08em; }
+  .empty-state b { color:var(--accent-cyan); font-size:10px; }
+  .empty-state button { padding:5px 8px; border:1px solid var(--border-strong); background:transparent; color:var(--accent-cyan); font:8px var(--font-mono); cursor:pointer; }
   .body::-webkit-scrollbar { width: 3px; }
   .body::-webkit-scrollbar-thumb { background: var(--border-strong); }
   .section { margin-bottom: 18px; }
