@@ -33,7 +33,7 @@
   let container: HTMLDivElement;
   let map: maplibregl.Map | null = null;
   let mapReady = $state(false);
-  let mapZoom = $state(4.2);
+  let mapZoom = $state(3.8);
   let mapCenterLabel = $state('31.0°N / 79.0°E');
   let dynamicMarkers: maplibregl.Marker[] = [];
   let aircraftCountMarker: maplibregl.Marker | null = null;
@@ -151,7 +151,7 @@
       },
     },
     layers: [
-      { id: 'bg', type: 'raster', source: 'osm', paint: { 'raster-resampling': 'nearest' } },
+      { id: 'bg', type: 'raster', source: 'osm', paint: { 'raster-resampling': 'linear' } },
       {
         id: 'hillshade-base',
         type: 'hillshade',
@@ -227,8 +227,13 @@
     });
     if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
       id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl', minzoom: 4, filter: ['!', ['has', 'point_count']],
-      layout: { 'icon-image': ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.3, 7, 0.6, 10, 1, 13, 1.3], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'text-field': ['get', 'tailNumber'], 'text-font': ['Open Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.15], 'text-anchor': 'top', 'text-optional': true },
-      paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 5, 0.7, 6, 1] },
+      layout: { 'icon-image': ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.3, 7, 0.6, 10, 1, 13, 1.3], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'text-field': ['get', 'tailNumber'], 'text-font': ['Open Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.4], 'text-anchor': 'top', 'text-optional': true, 'text-allow-overlap': true, 'text-ignore-placement': true },
+      paint: { 'icon-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 5, 0.7, 6, 1], 'text-color': '#00d4ff', 'text-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0, 5, 0.7, 6, 1], 'text-halo-color': '#05080f', 'text-halo-width': 1.5 },
+    });
+    if (!map.getLayer('aircraft-gl-labels')) map.addLayer({
+      id: 'aircraft-gl-labels', type: 'symbol', source: 'aircraft-gl', minzoom: 5, filter: ['!', ['has', 'point_count']],
+      layout: { 'text-field': ['get', 'tailNumber'], 'text-font': ['Open Sans Bold'], 'text-size': 10, 'text-offset': [0, 1.7], 'text-anchor': 'top', 'text-allow-overlap': true, 'text-ignore-placement': true },
+      paint: { 'text-color': '#00d4ff', 'text-halo-color': '#05080f', 'text-halo-width': 2 },
     });
     if (!aircraftLayerClickAttached) {
       map.on('click', 'aircraft-gl-symbols', (event) => {
@@ -256,7 +261,7 @@
         const current = system.aircraft;
         if (!current.length) return;
         const focus = current.reduce((sum, item) => ({ lng: sum.lng + item.position.lng / current.length, lat: sum.lat + item.position.lat / current.length }), { lng: 0, lat: 0 });
-        map?.flyTo({ center: [focus.lng, focus.lat], zoom: 4.2, duration: 700 });
+        map?.flyTo({ center: [focus.lng, focus.lat], zoom: 5.2, duration: 700 });
       });
       aircraftCountMarker = new maplibregl.Marker({ element: badge, anchor: 'center' }).setLngLat([center.lng, center.lat]).addTo(map);
     } else aircraftCountMarker.setLngLat([center.lng, center.lat]);
@@ -446,7 +451,7 @@
       container,
       style: MAP_STYLE,
       center: [79, 31],
-      zoom: 4.2,
+      zoom: 3.8,
       attributionControl: false,
       dragRotate: false,
     });
@@ -634,7 +639,7 @@
     if (scenarioKey !== lastScenarioView) {
       lastScenarioView = scenarioKey;
       if (area) map.fitBounds(area, { padding: 70, duration: 850, maxZoom: 7.4 });
-      else if (scenarioKey === null) map.flyTo({ center: [79, 31], zoom: 4.2, duration: 850 });
+      else if (scenarioKey === null) map.flyTo({ center: [79, 31], zoom: 3.8, duration: 850 });
     }
     const areaSource = map.getSource('scenario-area') as maplibregl.GeoJSONSource | undefined;
     if (areaSource) {

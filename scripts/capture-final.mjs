@@ -13,14 +13,13 @@ try {
   });
   await page.goto('http://localhost:4173/', { waitUntil: 'networkidle', timeout: 120_000 });
   await page.waitForTimeout(1200);
-  const canvas = page.locator('.maplibregl-canvas').first();
-  await canvas.click();
+  const getZoom = async () => Number((await page.locator('.coord.tr').innerText()).match(/ZOOM ([\d.]+)/)?.[1] ?? 4.2);
   const zoomOut = page.locator('.maplibregl-ctrl-zoom-out');
-  for (let i = 0; i < 5; i++) await zoomOut.click();
+  for (let i = 0; i < 10 && await getZoom() > 2.5; i++) { await zoomOut.click(); await page.waitForTimeout(700); }
   await page.waitForTimeout(500);
   await page.screenshot({ path: 'docs/screenshots/final/01-zoom-2-cluster.png' });
   const zoomIn = page.locator('.maplibregl-ctrl-zoom-in');
-  for (let i = 0; i < 8; i++) await zoomIn.click();
+  for (let i = 0; i < 10 && await getZoom() < 5.9; i++) { await zoomIn.click(); await page.waitForTimeout(700); }
   await page.waitForTimeout(500);
   await page.screenshot({ path: 'docs/screenshots/final/02-zoom-6-symbols.png' });
   await page.getByRole('button', { name: 'HELP' }).click();
