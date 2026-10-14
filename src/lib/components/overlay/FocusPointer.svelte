@@ -7,9 +7,15 @@
 
   function dismiss() { cues = []; }
   function handleUserClick() { if (cues.length) dismiss(); }
+  function findTarget(selector: string): Element | null {
+    for (const candidate of selector.split(',').map((item) => item.trim()).filter(Boolean)) {
+      try { const target = document.querySelector(candidate); if (target) return target; } catch { /* Ignore invalid optional focus selectors. */ }
+    }
+    return null;
+  }
   function refresh() {
     cues = cues.flatMap((cue) => {
-      const el = document.querySelector(cue.selector.split(',')[0].trim()) ?? document.querySelector(cue.selector.split(',')[1]?.trim() ?? '');
+      const el = findTarget(cue.selector);
       if (!el || cue.expires <= Date.now()) return [];
       const r = el.getBoundingClientRect();
       return [{ ...cue, x: r.left, y: r.top, w: r.width, h: r.height }];
@@ -19,7 +25,7 @@
   onMount(() => {
     const add = (event: Event) => {
       const detail = (event as CustomEvent<{ selector: string; duration: number; text: string }>).detail;
-      const el = document.querySelector(detail.selector.split(',')[0].trim()) ?? document.querySelector(detail.selector.split(',')[1]?.trim() ?? '');
+      const el = findTarget(detail.selector);
       if (!el) return;
       const rect = el.getBoundingClientRect();
       cues = [...cues.slice(-1), { id: ++sequence, selector: detail.selector, text: detail.text, x: rect.left, y: rect.top, w: rect.width, h: rect.height, expires: Date.now() + Math.min(detail.duration || 3000, 3000) }];
@@ -60,8 +66,8 @@
 <style>
   .focus-layer { position:fixed; inset:0; z-index:250; pointer-events:none; }
   .dimmer { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-  .ring { position:fixed; border:2px dashed var(--accent-cyan); border-radius:3px; box-shadow:0 0 10px rgba(0,212,255,.45); animation:ring-pulse .8s ease-in-out infinite alternate; pointer-events:none; }
+  .ring { position:fixed; border:2px dashed var(--accent-cyan); border-radius:3px; box-shadow:0 0 10px color-mix(in srgb, var(--accent-cyan) 45%, transparent); animation:ring-pulse .8s ease-in-out infinite alternate; pointer-events:none; }
   .arrow { position:fixed; color:var(--accent-cyan); text-shadow:0 0 8px var(--accent-cyan); font:22px var(--font-mono); pointer-events:none; }
-  .bubble { position:fixed; width:min(310px,calc(100vw - 24px)); padding:8px 10px; background:rgba(5,8,15,.96); border:1px solid var(--accent-cyan); color:var(--text-primary); font:10px/1.45 var(--font-mono); box-shadow:0 0 14px rgba(0,212,255,.2); pointer-events:none; }
-  @keyframes ring-pulse { to { border-color:rgba(0,212,255,.5); box-shadow:0 0 18px rgba(0,212,255,.25); } }
+  .bubble { position:fixed; width:min(310px,calc(100vw - 24px)); padding:8px 10px; background:rgba(5,8,15,.96); border:1px solid var(--accent-cyan); color:var(--text-primary); font:10px/1.45 var(--font-mono); box-shadow:0 0 14px color-mix(in srgb, var(--accent-cyan) 20%, transparent); pointer-events:none; }
+  @keyframes ring-pulse { to { border-color:color-mix(in srgb, var(--accent-cyan) 50%, transparent); box-shadow:0 0 18px color-mix(in srgb, var(--accent-cyan) 25%, transparent); } }
 </style>

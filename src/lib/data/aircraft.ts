@@ -38,6 +38,6 @@ export const AIRCRAFT_TYPES: Record<string, AircraftType> = {
   'MiG-29UPG': {
     id: 'mig29upg', name: 'MiG-29UPG', role: 'interceptor', origin: 'Russia',
     maxSpeed: 1290, combatRadius: 700, hardpoints: 7,
-    typicalWeapons: ['R-77', 'R-73', 'Astra'],
+    typicalWeapons: ['R-77', 'R-73', 'Astra', 'Hammer'],
   },
 };

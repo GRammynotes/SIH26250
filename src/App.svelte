@@ -26,7 +26,9 @@
   import CaptionLayer from './lib/components/overlay/CaptionLayer.svelte';
   import FocusPointer from './lib/components/overlay/FocusPointer.svelte';
   import SystemGuide from './lib/components/panels/SystemGuide.svelte';
+import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   import ComprehensiveDemo from './lib/components/panels/ComprehensiveDemo.svelte';
+  import MapLegend from './lib/components/map/MapLegend.svelte';
   import { narrateUtterance } from './lib/engine/voice';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
@@ -37,7 +39,9 @@
   let AfterActionReview = $state<Component<any> | null>(null);
   let MetricsDashboard = $state<Component<any> | null>(null);
   let SimulationModal = $state<Component<any> | null>(null);
+  let ProbabilisticSimulation = $state<Component<any> | null>(null);
   let simulationOpen = $state(false);
+  let probabilisticSimOpen = $state(false);
   let systemGuideOpen = $state(false);
   let flowOpen = $state(false);
   let referenceOpen = $state(false);
@@ -54,6 +58,7 @@
   let demoCompleteOpen = $state(false);
   let demoActive = $state(false);
   let comprehensiveDemoOpen = $state(false);
+  let mapLegendOpen = $state(false);
   let commandPaletteOpen = $state(false);
   let modalStack = $state<string[]>([]);
   let minimizedModals = $state<string[]>([]);
@@ -64,7 +69,8 @@
   let panelVisibility = $state({ forceRoster: true, missions: true, theaterMap: true, coa: true, missionLog: true, commandStatus: true, scenarioBar: true });
   let savedLeftSize = 18;
   let savedRightSize = 22;
-  let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution' | 'weapons' | 'cyber'>('coa');
+  let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution' | 'weapons' | 'cyber' | 'flow'>('coa');
+  let focusMode = $state(false);
   let leftPanelTab = $state<'roster' | 'missions'>('roster');
   let leftPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let rightPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
@@ -78,6 +84,7 @@
     { id: 'act-metrics', label: 'Open Metrics Dashboard', category: 'ACTION', keywords: 'analytics stats', kind: 'action' },
     { id: 'act-glossary', label: 'Open Glossary', category: 'ACTION', keywords: 'terms definitions help', kind: 'action' },
     { id: 'act-shortcuts', label: 'Show Keyboard Shortcuts', category: 'ACTION', keywords: 'hotkeys help', kind: 'action' },
+    { id: 'act-legend', label: 'Show Map Legend', category: 'ACTION', keywords: 'map legend symbols help', kind: 'action' },
     { id: 'act-demo', label: 'Start Comprehensive Demo', category: 'ACTION', keywords: 'tour walkthrough comprehensive', kind: 'action' },
     { id: 'act-simulation', label: 'Start Training Simulation', category: 'ACTION', keywords: 'training historical exercise', kind: 'action' },
     { id: 'act-auto', label: 'Toggle Auto-Opt', category: 'ACTION', keywords: 'continuous reoptimisation', kind: 'action' },
@@ -94,7 +101,8 @@
     ...(aarMissionId ? ['aar'] : []), ...(metricsOpen ? ['metrics'] : []),
     ...(shortcutHelpOpen ? ['shortcuts'] : []), ...(glossaryOpen ? ['glossary'] : []),
     ...(demoCompleteOpen ? ['demo-complete'] : []), ...(commandPaletteOpen ? ['command-palette'] : []),
-    ...(simulationOpen ? ['simulation'] : []), ...(comprehensiveDemoOpen ? ['comprehensive-demo'] : []),
+    ...(simulationOpen ? ['simulation'] : []), ...(probabilisticSimOpen ? ['probabilistic-sim'] : []), ...(comprehensiveDemoOpen ? ['comprehensive-demo'] : []),
+    ...(mapLegendOpen ? ['map-legend'] : []),
   ]);
   let previousModalIds: string[] = [];
   let previousRightTab: typeof rightTab = 'coa';
@@ -102,7 +110,7 @@
   let previousScenarioFilter: string | null = null;
   let visibleModalIds = $derived(modalStack.filter((id) => activeModalIds.includes(id) && !minimizedModals.includes(id)).slice(-3));
   let dockedModalIds = $derived(activeModalIds.filter((id) => minimizedModals.includes(id) || !visibleModalIds.includes(id)));
-  const modalLabels: Record<string, string> = { decision: 'DECISION', 'track-loss': 'TRACK LOSS', 'mission-flow': 'MISSION FLOW', loadout: 'LOADOUT', reference: 'REFERENCE', briefing: 'BRIEFING', aar: 'AFTER ACTION', metrics: 'METRICS', shortcuts: 'SHORTCUTS', glossary: 'GLOSSARY', 'demo-complete': 'DEMO COMPLETE', 'command-palette': 'COMMAND PALETTE', simulation: 'SIMULATION', 'comprehensive-demo': 'COMPREHENSIVE DEMO' };
+  const modalLabels: Record<string, string> = { decision: 'DECISION', 'track-loss': 'TRACK LOSS', 'mission-flow': 'MISSION FLOW', loadout: 'LOADOUT', reference: 'REFERENCE', briefing: 'BRIEFING', aar: 'AFTER ACTION', metrics: 'METRICS', shortcuts: 'SHORTCUTS', glossary: 'GLOSSARY', 'demo-complete': 'DEMO COMPLETE', 'command-palette': 'COMMAND PALETTE', simulation: 'SIMULATION', 'probabilistic-sim': 'PROBABILITY SIMULATION', 'comprehensive-demo': 'COMPREHENSIVE DEMO', 'map-legend': 'MAP LEGEND' };
 
   $effect(() => {
     const open = activeModalIds;
@@ -184,6 +192,7 @@
     if (referenceOpen && !ReferenceLibrary) void import('./lib/components/panels/ReferenceLibrary.svelte').then((module) => ReferenceLibrary = module.default);
     if (aarMissionId && !AfterActionReview) void import('./lib/components/panels/AfterActionReview.svelte').then((module) => AfterActionReview = module.default);
     if (simulationOpen && !SimulationModal) void import('./lib/components/panels/SimulationModal.svelte').then((module) => SimulationModal = module.default);
+    if (probabilisticSimOpen && !ProbabilisticSimulation) void import('./lib/components/panels/ProbabilisticSimulation.svelte').then((module) => ProbabilisticSimulation = module.default);
     if ((metricsOpen || rightTab === 'metrics') && !MetricsDashboard) void import('./lib/components/panels/MetricsDashboard.svelte').then((module) => MetricsDashboard = module.default);
   });
 
@@ -299,8 +308,11 @@
   }
 
   function startSimulation() {
+    demoActive = true;
     simulationOpen = true;
   }
+
+  function startProbabilisticSimulation() { demoActive = true; probabilisticSimOpen = true; }
 
   function navigateGuide(panel: string) {
     systemGuideOpen = false;
@@ -318,24 +330,26 @@
     const actions: Record<string, () => void> = {
       g: () => system.generateCOAs(), r: () => referenceOpen = true,
       f: () => flowOpen = true, m: () => metricsOpen = true, d: startDemo,
-      s: startSimulation,
+      s: startSimulation, l: () => mapLegendOpen = true,
     };
     actions[key]?.();
     if (labelsForShortcut[key]) narrateUtterance(`${labelsForShortcut[key]} opened.`, { source: 'SYSTEM', speaker: 'agent' });
-    const labels: Record<string, string> = { g: 'GENERATE COA', r: 'REFERENCE', f: 'MISSION FLOW', m: 'METRICS', d: 'DEMO', s: 'SIMULATION' };
+    const labels: Record<string, string> = { g: 'GENERATE COA', r: 'REFERENCE', f: 'MISSION FLOW', m: 'METRICS', d: 'DEMO', s: 'SIMULATION', l: 'MAP LEGEND' };
     if (labels[key]) {
       shortcutToast = `SHORTCUT: ${labels[key]}`;
       if (toastTimer) clearTimeout(toastTimer);
       toastTimer = setTimeout(() => shortcutToast = '', 1200);
     }
   }
-  const labelsForShortcut: Record<string, string> = { r: 'Reference library', f: 'Mission flow', m: 'Metrics dashboard', d: 'Comprehensive demo', s: 'Historical simulation' };
+  const labelsForShortcut: Record<string, string> = { r: 'Reference library', f: 'Mission flow', m: 'Metrics dashboard', d: 'Comprehensive demo', s: 'Historical simulation', l: 'Map legend' };
 
   function handleGlobalKeydown(event: KeyboardEvent) {
     if (event.ctrlKey && event.key.toLowerCase() === 'k') { event.preventDefault(); commandPaletteOpen = true; return; }
     const target = event.target as HTMLElement | null;
     if (target?.matches('input, textarea, [contenteditable]')) return;
+    if (!event.ctrlKey && !event.altKey && event.key.toLowerCase() === 'f') { focusMode = !focusMode; return; }
     if (event.key === 'Escape') {
+      if (demoActive) { demoActive = false; simulationOpen = false; probabilisticSimOpen = false; comprehensiveDemoOpen = false; return; }
       if (mapFullscreen) { toggleMapFullscreen(); return; }
       const topModal = [...modalStack].reverse().find((id) => activeModalIds.includes(id) && !minimizedModals.includes(id));
       if (topModal) { closeModal(topModal); return; }
@@ -382,7 +396,7 @@
       'act-generate': () => system.generateCOAs(), 'act-reference': () => referenceOpen = true,
       'act-flow': () => flowOpen = true, 'act-metrics': () => metricsOpen = true,
       'act-glossary': () => glossaryOpen = true, 'act-shortcuts': () => shortcutHelpOpen = true,
-      'act-demo': startDemo, 'act-simulation': startSimulation, 'act-auto': () => system.toggleContinuousReoptimization(),
+      'act-legend': () => mapLegendOpen = true, 'act-demo': startDemo, 'act-simulation': startSimulation, 'act-auto': () => system.toggleContinuousReoptimization(),
       'act-degraded': () => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED'),
       'act-reset': () => system.reset(),
     };
@@ -398,7 +412,7 @@
 <TooltipLayer />
 <CaptionLayer />
 <FocusPointer />
-<div class="shell" class:fullscreen={mapFullscreen} class:scenario-hidden={!panelVisibility.scenarioBar} data-fullscreen={mapFullscreen ? 'true' : 'false'}>
+<div class="shell" class:fullscreen={mapFullscreen} class:scenario-hidden={!panelVisibility.scenarioBar} class:focus-mode={focusMode} class:demo-locked={demoActive} data-fullscreen={mapFullscreen ? 'true' : 'false'}>
   {#if !mapFullscreen}
   <TopBar
     aircraftCount={system.aircraft.length}
@@ -409,6 +423,7 @@
     onMetricsClick={() => (metricsOpen = true)}
     onDemoClick={startDemo}
     onSimulationClick={startSimulation}
+    onMapLegendClick={() => (mapLegendOpen = true)}
     onGlossaryClick={() => glossaryOpen = true}
     onShortcutHelpClick={() => shortcutHelpOpen = true}
     onGuideClick={() => { systemGuideOpen = !systemGuideOpen; narrateUtterance(systemGuideOpen ? 'System guide opened.' : 'System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }}
@@ -458,6 +473,7 @@
                 <button role="tab" aria-selected={rightTab === 'cyber'} class:active={rightTab === 'cyber'} onclick={() => rightTab = 'cyber'}>CYBER <kbd>Ctrl+6</kbd></button>
                 <button role="tab" aria-selected={rightTab === 'metrics'} class:active={rightTab === 'metrics'} onclick={() => rightTab = 'metrics'}>METRICS <kbd>Ctrl+3</kbd></button>
                 <button role="tab" aria-selected={rightTab === 'execution'} class:active={rightTab === 'execution'} onclick={() => rightTab = 'execution'}>EXECUTION <kbd>Ctrl+4</kbd></button>
+                <button role="tab" aria-selected={rightTab === 'flow'} class:active={rightTab === 'flow'} onclick={() => rightTab = 'flow'}>MISSION FLOW</button>
                 <button class="right-collapse" aria-label="Collapse right panel" title="Collapse right panel" onclick={toggleRightPane}>›</button>
               </div>
               <div class="right-tab-content">
@@ -466,6 +482,7 @@
                 {:else if rightTab === 'metrics'}{#if MetricsDashboard}<MetricsDashboard open={true} inline={true} />{:else}<div class="map-loading mono">LOADING ANALYTICS</div>{/if}
                 {:else if rightTab === 'execution'}<ExecutionPanel />
                 {:else if rightTab === 'weapons'}<div class="weapon-workspace"><WeaponMatrix /><PrioritizationSlider /></div>
+                {:else if rightTab === 'flow'}<MissionIOFlow />
                 {:else}<CyberPanel />{/if}
               </div>
             </div>
@@ -483,6 +500,13 @@
     </Pane>{/if}
   </PaneGroup>
 </div>
+
+<nav class="experience-dock" aria-label="Demo and training controls">
+  <button onclick={startDemo} aria-label="Start comprehensive demo">▶ DEMO</button>
+  <button onclick={startSimulation} aria-label="Start historical training">▷ TRAINING</button>
+  <button onclick={startProbabilisticSimulation} aria-label="Start probabilistic simulation">◈ SIM</button>
+</nav>
+{#if demoActive}<div class="lock-bar"><span>SYSTEM LOCKED · PRESS ESC TO EXIT</span></div>{/if}
 
 {#if pending?.pendingDecision && !simulationOpen}
   <ModalLayer label={modalLabels.decision} zIndex={modalZ('decision')} visible={isModalVisible('decision')} onMinimize={() => minimizeModal('decision')}><DecisionPrompt
@@ -540,8 +564,10 @@
 {#if glossaryOpen}<ModalLayer label={modalLabels.glossary} zIndex={modalZ('glossary')} visible={isModalVisible('glossary')} onMinimize={() => minimizeModal('glossary')}><GlossaryModal open={glossaryOpen} onClose={() => glossaryOpen = false} /></ModalLayer>{/if}
 {#if commandPaletteOpen}<ModalLayer label={modalLabels['command-palette']} zIndex={modalZ('command-palette')} visible={isModalVisible('command-palette')} onMinimize={() => minimizeModal('command-palette')}><CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={() => commandPaletteOpen = false} onSelect={selectPaletteCommand} /></ModalLayer>{/if}
 {#if simulationOpen && SimulationModal}<ModalLayer label={modalLabels.simulation} zIndex={modalZ('simulation')} visible={isModalVisible('simulation')} onMinimize={() => minimizeModal('simulation')}><SimulationModal open={simulationOpen} onClose={() => { simulationOpen = false; demoActive = false; narrateUtterance('Historical simulation closed.', { source: 'SYSTEM', speaker: 'agent' }); }} /></ModalLayer>{/if}
+{#if probabilisticSimOpen && ProbabilisticSimulation}<ModalLayer label={modalLabels['probabilistic-sim']} zIndex={modalZ('probabilistic-sim')} visible={isModalVisible('probabilistic-sim')} onMinimize={() => minimizeModal('probabilistic-sim')}><ProbabilisticSimulation open={probabilisticSimOpen} onClose={() => { probabilisticSimOpen = false; demoActive = false; }} /></ModalLayer>{/if}
 {#if comprehensiveDemoOpen}<ComprehensiveDemo open={comprehensiveDemoOpen} onClose={() => { comprehensiveDemoOpen = false; demoActive = false; narrateUtterance('Comprehensive demo closed.', { source: 'SYSTEM', speaker: 'agent' }); }} onComplete={() => { demoCompleteOpen = true; comprehensiveDemoOpen = false; }} />{/if}
 <SystemGuide open={systemGuideOpen} onClose={() => { systemGuideOpen = false; narrateUtterance('System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }} onNavigate={navigateGuide} />
+{#if mapLegendOpen}<MapLegend open={mapLegendOpen} onClose={() => { mapLegendOpen = false; narrateUtterance('Map legend closed.', { source: 'SYSTEM', speaker: 'agent' }); }} />{/if}
 {#if demoCompleteOpen}
   <ModalLayer label={modalLabels['demo-complete']} zIndex={modalZ('demo-complete')} visible={isModalVisible('demo-complete')} onMinimize={() => minimizeModal('demo-complete')}><div class="overlay" role="presentation">
     <section class="demo-complete" role="dialog" aria-modal="true" aria-label="Demo complete">
@@ -595,6 +621,15 @@
   :global(.collapsed-rail) { display:flex; flex-direction:column; align-items:center; gap:12px; height:100%; padding:8px 0; background:var(--bg-panel); color:var(--accent-cyan); font:9px var(--font-mono); box-sizing:border-box; }
   :global(.collapsed-rail button), :global(.collapse-btn) { background:transparent; border:0; color:var(--accent-cyan); font:14px var(--font-mono); cursor:pointer; padding:4px; }
   :global(.collapsed-rail button:focus-visible), :global(.collapse-btn:focus-visible) { outline:1px solid var(--accent-cyan); }
+  .experience-dock { position:fixed; z-index:120; left:12px; bottom:30px; display:flex; gap:4px; padding:5px; border:1px solid var(--border-strong); background:var(--bg-panel); box-shadow:0 4px 18px #0008; }
+  .experience-dock button { padding:7px 10px; color:var(--accent-cyan); border:1px solid var(--border-subtle); background:transparent; font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; }
+  .experience-dock button:hover { border-color:var(--accent-cyan); }
+  .lock-bar { position:fixed; z-index:600; left:0; right:0; top:0; padding:7px; text-align:center; color:var(--accent-amber); background:var(--bg-base); border-bottom:1px solid var(--accent-amber); font:9px var(--font-mono); letter-spacing:.12em; pointer-events:none; }
+  .shell.demo-locked { pointer-events:none; }
+  .shell.focus-mode > :global(*) { opacity:.16; filter:saturate(.35); transition:opacity .18s; }
+  .shell.focus-mode > :global(.workspace-layout) { opacity:1; filter:none; }
+  .shell.focus-mode .left,.shell.focus-mode .right-wrap,.shell.focus-mode .command-row { opacity:.16; }
+  .shell.focus-mode .center { opacity:1; box-shadow:0 0 0 1px var(--accent-cyan); }
   .center { position: relative; overflow: hidden; background: #05080f; height: 100%; }
   .map-loading { display:grid; place-items:center; width:100%; height:100%; color:var(--accent-cyan); background:var(--bg-base); font:9px var(--font-mono); letter-spacing:.15em; }
   :global(.pane-resizer) { width: 2px; height: 2px; background: var(--border-subtle); flex-shrink: 0; transition: background .15s; }

@@ -402,7 +402,7 @@
     flex-direction: column;
     background: var(--bg-panel);
     border: 2px solid var(--accent-cyan);
-    box-shadow: 0 0 60px rgba(0, 212, 255, 0.3);
+    box-shadow: 0 0 60px color-mix(in srgb, var(--accent-cyan) 30%, transparent);
     font-family: var(--font-mono);
     overflow: hidden;
   }
@@ -414,7 +414,7 @@
     align-items: center;
     padding: 16px 20px;
     border-bottom: 1px solid var(--border-subtle);
-    background: rgba(0, 212, 255, 0.05);
+    background: color-mix(in srgb, var(--accent-cyan) 5%, transparent);
   }
 
   .header-left {
@@ -510,7 +510,7 @@
   /* Glossary */
   .glossary-section {
     padding: 12px;
-    background: rgba(255, 184, 0, 0.05);
+    background: color-mix(in srgb, var(--accent-amber) 5%, transparent);
     border: 1px solid var(--accent-amber);
     border-radius: 4px;
   }
@@ -583,7 +583,7 @@
   }
 
   .step-item.active {
-    background: rgba(0, 212, 255, 0.1);
+    background: color-mix(in srgb, var(--accent-cyan) 10%, transparent);
     border-color: var(--accent-cyan);
     color: var(--accent-cyan);
   }
@@ -644,17 +644,17 @@
   }
 
   .control-btn.primary {
-    background: rgba(0, 212, 255, 0.1);
+    background: color-mix(in srgb, var(--accent-cyan) 10%, transparent);
     border-color: var(--accent-cyan);
     color: var(--accent-cyan);
   }
 
   .control-btn.primary:hover:not(:disabled) {
-    background: rgba(0, 212, 255, 0.2);
+    background: color-mix(in srgb, var(--accent-cyan) 20%, transparent);
   }
 
   .control-btn.active {
-    background: rgba(0, 212, 255, 0.1);
+    background: color-mix(in srgb, var(--accent-cyan) 10%, transparent);
     border-color: var(--accent-cyan);
     color: var(--accent-cyan);
   }
