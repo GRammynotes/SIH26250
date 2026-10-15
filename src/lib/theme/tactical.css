@@ -16,6 +16,7 @@
   --accent-green: #39ff14;
   --accent-amber: #ffb800;
   --accent-red: #ff453a;
+  --map-brightness: .9;
 
   /* Fonts */
   --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, 'IBM Plex Mono', monospace;

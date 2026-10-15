@@ -87,6 +87,7 @@
     secondary: palette.getPropertyValue('--text-secondary').trim(),
     elevated: palette.getPropertyValue('--bg-elevated').trim(),
   };
+  const threatFillColor = '#ff2d7c';
 
   let trailHistory = $state.raw<Record<string, [number, number][]>>({});
   const trailClearTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -1042,7 +1043,7 @@
       minzoom: 5,
       filter: ['==', 'radiusLevel', 'outer'],
       layout: { visibility: threatVis },
-      paint: { 'fill-color': C.red, 'fill-opacity': 0.05 },
+      paint: { 'fill-color': threatFillColor, 'fill-opacity': 0.05 },
     });
 
     // 2. Mid ring: fill 0.10
@@ -1053,7 +1054,7 @@
       minzoom: 5,
       filter: ['==', 'radiusLevel', 'mid'],
       layout: { visibility: threatVis },
-      paint: { 'fill-color': C.red, 'fill-opacity': 0.10 },
+      paint: { 'fill-color': threatFillColor, 'fill-opacity': 0.10 },
     });
 
     // 3. Inner ring: fill 0.16
@@ -1064,7 +1065,7 @@
       minzoom: 5,
       filter: ['==', 'radiusLevel', 'inner'],
       layout: { visibility: threatVis },
-      paint: { 'fill-color': C.red, 'fill-opacity': 0.15 },
+      paint: { 'fill-color': threatFillColor, 'fill-opacity': 0.15 },
     });
 
     // Outer dashed outline 1px, opacity 0.45
@@ -1178,7 +1179,7 @@
 
     setGeoJSONSource('missions-gl', { type: 'FeatureCollection', features: missions.map((item) => ({ type: 'Feature', properties: labelProperties('mission', { id: item.id, label: item.name, priority: item.priority, status: labelState.activeMissionIds.has(item.id) ? 'ACTIVE' : item.status, risk: item.riskLevel, color: item.priority === 1 ? C.red : item.priority === 2 ? C.amber : C.muted }), geometry: { type: 'Point', coordinates: [item.target.lng, item.target.lat] } })) });
     setGeoJSONSource('assets-gl', { type: 'FeatureCollection', features: [
-      ...(showGround ? GROUND_ASSETS.map((item) => ({ type: 'Feature' as const, properties: labelProperties('ground', { id: item.id, family: 'ground', label: item.designation, type: item.type, status: item.status, color: C.green, opacity: !area || inArea([item.position]) ? 1 : .24, armament: item.armament, rangeKm: item.range_km }), geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : []),
+      ...(showGround ? GROUND_ASSETS.map((item) => ({ type: 'Feature' as const, properties: labelProperties('ground', { id: item.id, family: 'ground', label: item.designation, type: item.type, status: item.status, color: C.green, opacity: !area || inArea([item.position]) ? 1 : .5, armament: item.armament, rangeKm: item.range_km }), geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : []),
       ...(showEnemy ? ENEMY_ASSETS.map((item) => ({ type: 'Feature' as const, properties: labelProperties('enemy', { id: item.id, family: 'enemy', label: item.designation, type: item.type, behaviour: item.behaviour, color: C.red, opacity: !area || inArea([item.position]) ? 1 : .24, rangeKm: item.engagementRange_km, probabilityKill: item.probabilityKill }), geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : []),
     ] });
     map.setLayoutProperty('ground-assets-symbols', 'visibility', 'visible');
@@ -1432,7 +1433,7 @@
   .narrative-focus-marker { position:absolute; z-index:8; width:80px; height:80px; transform:translate(-50%,-50%); border:2px dashed var(--accent-cyan); border-radius:50%; box-shadow:0 0 14px color-mix(in srgb,var(--accent-cyan) 35%,transparent); pointer-events:none; transition:opacity .45s ease; }
   .narrative-focus-marker span { position:absolute; left:50%; top:-18px; transform:translateX(-50%); padding:2px 4px; background:var(--bg-base); color:var(--accent-cyan); font:8px var(--font-mono); white-space:nowrap; text-shadow:0 0 4px var(--bg-base); }
 
-  :global(.maplibregl-canvas) { filter: invert(1) hue-rotate(180deg) brightness(.66) saturate(.38) contrast(.96); }
+  :global(.maplibregl-canvas) { filter: invert(1) hue-rotate(180deg) brightness(var(--map-brightness, .9)) saturate(.38) contrast(.96); }
   .map-canvas.impact-shake :global(.maplibregl-canvas-container) { animation: impact-shake .2s ease-out; }
   @keyframes impact-shake { 25% { transform:translate(2px,-1px); } 50% { transform:translate(-2px,1px); } 75% { transform:translate(1px,2px); } }
 
