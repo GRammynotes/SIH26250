@@ -44,7 +44,7 @@
     }
     if (autoRotate) modelGroup.rotation.y += delta * 0.08;
     modelGroup.position.y = Math.sin(elapsed * Math.PI) * 0.5;
-  });
+  }, { autoInvalidate: false });
 </script>
 
 <T.PerspectiveCamera makeDefault position={[0, 2.5, 8]} fov={38} />
