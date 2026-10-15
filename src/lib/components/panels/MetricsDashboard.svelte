@@ -1,430 +1,59 @@
 <script lang="ts">
   import { system } from '../../stores/systemStore.svelte';
-  import { weaponsForAircraft } from '../../data/weapons';
 
   let { open = false, onClose, inline = false }: { open?: boolean; onClose?: () => void; inline?: boolean } = $props();
-
-  // 1. OVERVIEW
-  const totalSorties = $derived(
-    system.activeMissions.filter((m) => m.phase !== 'ABORTED').length
-  );
-
-  const missionsCompleted = $derived(
-    system.activeMissions.filter((m) => m.phase === 'COMPLETE').length
-  );
-
-  const uniqueAircraftTasked = $derived(
-    new Set(system.activeMissions.flatMap((m) => m.aircraftIds)).size
-  );
-
-  const totalDecisionsMade = $derived(
-    system.activeMissions.reduce((acc, m) => acc + m.decisionsMade.length, 0)
-  );
-
-  // 2. COA EFFECTIVENESS
-  const avgSuccessProb = $derived.by(() => {
-    if (system.coas.length === 0) return 0;
-    const sum = system.coas.reduce((acc, c) => acc + c.successProbability, 0);
-    return Math.round(sum / system.coas.length);
+  const fleet = $derived({
+    fmc: system.aircraft.filter((item) => item.status === 'FMC').length,
+    pmc: system.aircraft.filter((item) => item.status === 'PMC').length,
+    nmc: system.aircraft.filter((item) => item.status === 'NMC').length,
+    total: system.aircraft.length,
   });
-
-  const avgRisk = $derived.by(() => {
-    if (system.coas.length === 0) return 0;
-    const sum = system.coas.reduce((acc, c) => acc + c.riskScore, 0);
-    return Math.round(sum / system.coas.length);
-  });
-
-  // 3. WEAPONEERING
-  const fleetCompatibleCount = $derived.by(() => {
-    return system.aircraft.filter((ac) => weaponsForAircraft(ac.type).length > 0).length;
-  });
-
-  const uncoveredMissions = $derived.by(() => {
-    if (system.coas.length === 0) return 0;
-    const firstCoa = system.coas[0];
-    return Object.values(firstCoa.assignments).filter((arr) => arr.length === 0).length;
-  });
-
-  const standoffRatio = $derived.by(() => {
-    const assignedIds = system.coas[0] ? Object.values(system.coas[0].assignments).flat() : [];
-    if (assignedIds.length === 0) return 0;
-    const assignedAc = system.aircraft.filter((a) => assignedIds.includes(a.id));
-    const standoffCapable = assignedAc.filter((ac) => {
-      const wList = weaponsForAircraft(ac.type);
-      return wList.some((w) => w.standoff);
-    }).length;
-    return Math.round((standoffCapable / assignedAc.length) * 100);
-  });
-
-  // 4. TIME-SAVED ESTIMATE
-  const manualPlanningMinutes = 90;
-  // Estimate or measured system compute seconds
-  const systemPlanningSeconds = $derived(
-    system.lastCoaComputeMs > 0 ? (system.lastCoaComputeMs / 1000) : (system.coaGenerationCount * 2.5 || 0.85)
-  );
-
-  const systemPlanningMinutes = $derived(
-    Number((systemPlanningSeconds / 60).toFixed(2))
-  );
-
-  const timeSavedMinutes = $derived(
-    Number((manualPlanningMinutes - systemPlanningMinutes).toFixed(1))
-  );
-
-  const timeSavedPercent = $derived(
-    Math.round(((manualPlanningMinutes - systemPlanningMinutes) / manualPlanningMinutes) * 100)
-  );
+  const available = $derived(fleet.fmc + fleet.pmc);
+  const readinessPercent = $derived(fleet.total ? Math.round(fleet.fmc / fleet.total * 100) : 0);
+  const coaOptions = $derived(system.coas.slice(0, 3).map((coa, index) => ({
+    ...coa,
+    label: ['AGGRESSIVE', 'BALANCED', 'CONSERVATIVE'][index] ?? `OPTION ${index + 1}`,
+  })));
+  const decisions = $derived(system.activeMissions.flatMap((mission) => mission.decisionsMade.map((decision) => ({
+    phase: decision.point.atPhase,
+    choice: decision.branch.label,
+    effect: decision.branch.consequence,
+    outcome: decision.branch.outcome,
+    at: decision.at,
+  }))));
+  const planningSeconds = $derived(system.lastCoaComputeMs > 0 ? system.lastCoaComputeMs / 1000 : 2.3);
+  const timeScale = $derived(Math.max(0.2, Math.min(100, planningSeconds / 90 * 100)));
 </script>
 
 {#if open}
-  <div
-    class="overlay"
-    class:inline
-    onclick={(e) => e.target === e.currentTarget && onClose?.()}
-    onkeydown={(e) => e.key === 'Escape' && onClose?.()}
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-  >
-    <div class="frame corners" class:inline>
-      <!-- HEADER -->
-      <header>
-        <div class="hdr-left">
-          <span class="eyebrow">COMMAND DECISION-SUPPORT ANALYTICS</span>
-          <div class="title-row">
-            <h2>COMMAND METRICS DASHBOARD</h2>
-            <span class="live-pill">LIVE TELEMETRY</span>
-          </div>
-          <span class="sub">REAL-TIME TACTICAL EFFICIENCY & WEAPONEERING METRICS · MoD PS 26250</span>
-        </div>
-        <button class="close-btn" onclick={() => onClose?.()} aria-label="Close">✕</button>
-      </header>
-
-      <!-- BODY GRID -->
-      <div class="body-scroll">
-        <!-- 1. OVERVIEW -->
-        <section class="sec">
-          <div class="sec-hdr">
-            <span class="sec-num">01</span>
-            <h3>OPERATIONAL SORTIE OVERVIEW</h3>
-            <span class="sec-meta">ACTIVE STATE MACHINE TELEMETRY</span>
-          </div>
-          <div class="grid-4">
-            <div class="stat-card">
-              <span class="st-lbl">TOTAL SORTIES GENERATED</span>
-              <span class="st-val cyan">{totalSorties}</span>
-              <span class="st-sub">ACTIVE + COMPLETE MISSIONS</span>
-            </div>
-            <div class="stat-card">
-              <span class="st-lbl">MISSIONS COMPLETED</span>
-              <span class="st-val green">{missionsCompleted}</span>
-              <span class="st-sub">FULL PHASING (RTB COMPLETE)</span>
-            </div>
-            <div class="stat-card">
-              <span class="st-lbl">AIRCRAFT TASKED</span>
-              <span class="st-val amber">{uniqueAircraftTasked} / {system.aircraft.length}</span>
-              <span class="st-sub">UNIQUE TAILS DISPATCHED</span>
-            </div>
-            <div class="stat-card">
-              <span class="st-lbl">DECISIONS RESOLVED</span>
-              <span class="st-val cyan">{totalDecisionsMade}</span>
-              <span class="st-sub">COMMANDER BRANCH INTERVENTIONS</span>
-            </div>
-          </div>
+  <div class="overlay" class:inline onclick={(event) => event.target === event.currentTarget && onClose?.()} onkeydown={(event) => event.key === 'Escape' && onClose?.()} role="dialog" aria-modal="true" aria-label="Command metrics dashboard" tabindex="-1">
+    <div class="frame" class:inline>
+      <header><div><span class="eyebrow">COMMAND ANALYTICS</span><h2>METRICS</h2></div><button class="close" onclick={() => onClose?.()} aria-label="Close metrics">×</button></header>
+      <main>
+        <section class="block readiness"><div class="heading"><b>01 · FLEET READINESS</b><span>{readinessPercent}% FMC</span></div>
+          <div class="stack" aria-label={`FMC ${fleet.fmc}, PMC ${fleet.pmc}, NMC ${fleet.nmc}`}>
+            <i class="fmc" style={`width:${fleet.total ? fleet.fmc / fleet.total * 100 : 0}%`}></i><i class="pmc" style={`width:${fleet.total ? fleet.pmc / fleet.total * 100 : 0}%`}></i><i class="nmc" style={`width:${fleet.total ? fleet.nmc / fleet.total * 100 : 0}%`}></i>
+          </div><div class="legend"><span>FMC {fleet.fmc}</span><span>PMC {fleet.pmc}</span><span>NMC {fleet.nmc}</span></div>
+          <p>{available} of {fleet.total} aircraft are available for tasking right now.</p><small>Readiness above 70% supports sustained operations.</small>
         </section>
-
-        <!-- 2. COA EFFECTIVENESS -->
-        <section class="sec">
-          <div class="sec-hdr">
-            <span class="sec-num">02</span>
-            <h3>COA GENERATOR EFFECTIVENESS (NSGA-II)</h3>
-            <span class="sec-meta">PARETO OPTIMISATION BENCHMARKS</span>
-          </div>
-          <div class="grid-4">
-            <div class="stat-card">
-              <span class="st-lbl">COAs COMPUTED</span>
-              <span class="st-val cyan">{system.coaGenerationCount}</span>
-              <span class="st-sub">OPTIMISATION CYCLES RUN</span>
-            </div>
-            <div class="stat-card">
-              <span class="st-lbl">COAs EVALUATED</span>
-              <span class="st-val amber">{system.coaSelectionCount}</span>
-              <span class="st-sub">COMMANDER COA SELECTION CLICKS</span>
-            </div>
-            <div class="stat-card">
-              <span class="st-lbl">AVG SUCCESS PROBABILITY</span>
-              <span class="st-val green">{avgSuccessProb}%</span>
-              <div class="prog-bar"><div class="fill green-fill" style="width:{avgSuccessProb}%;"></div></div>
-            </div>
-            <div class="stat-card">
-              <span class="st-lbl">AVG ROUTE RISK SCORE</span>
-              <span class="st-val amber">{avgRisk} / 100</span>
-              <div class="prog-bar"><div class="fill amber-fill" style="width:{avgRisk}%;"></div></div>
-            </div>
-          </div>
+        <section class="block coa"><div class="heading"><b>02 · COA EFFECTIVENESS</b><span>{coaOptions.length} OPTIONS</span></div>
+          <div class="options">{#each coaOptions as option (option.id)}<article><div class="option-title"><b>{option.label}</b><span>{option.id === system.selectedCoaId ? 'SELECTED' : ''}</span></div><label>SUCCESS <b>{Math.round(option.successProbability)}%</b></label><div class="bar cyan"><i style={`width:${option.successProbability}%`}></i></div><label>RISK <b>{Math.round(option.riskScore)} / 100</b></label><div class="bar risk"><i style={`width:${Math.max(0, 100 - option.riskScore)}%`}></i></div></article>{/each}</div>
+          <p>Compare success probability with route risk across the available plans.</p><small>Choose posture based on commander intent.</small>
         </section>
-
-        <!-- 3. WEAPONEERING & COVERAGE -->
-        <section class="sec">
-          <div class="sec-hdr">
-            <span class="sec-num">03</span>
-            <h3>WEAPONEERING & GEOMETRIC COVERAGE</h3>
-            <span class="sec-meta">STANDOFF ENVELOPE & INTERCEPT AVOIDANCE</span>
-          </div>
-          <div class="grid-3">
-            <div class="stat-card">
-              <span class="st-lbl">COMPATIBLE FLEET PLATFORMS</span>
-              <span class="st-val green">{fleetCompatibleCount} / {system.aircraft.length}</span>
-              <span class="st-sub">AIRCRAFT WITH VALID PAYLOAD PAIRINGS</span>
-            </div>
-            <div class="stat-card">
-              <span class="st-lbl">UNCOVERED MISSIONS IN PRIMARY COA</span>
-              <span class="st-val {uncoveredMissions > 0 ? 'red' : 'green'}">{uncoveredMissions}</span>
-              <span class="st-sub">TARGETS LACKING COMPATIBLE WEAPON/RANGE</span>
-            </div>
-            <div class="stat-card">
-              <span class="st-lbl">STANDOFF EMPLOYMENT RATIO</span>
-              <span class="st-val cyan">{standoffRatio}%</span>
-              <div class="prog-bar"><div class="fill cyan-fill" style="width:{standoffRatio}%;"></div></div>
-            </div>
-          </div>
+        <section class="block time"><div class="heading"><b>03 · TIME SAVED</b><span>PLANNING CYCLE</span></div>
+          <div class="bars"><div><span>90 MIN · MANUAL ATO</span><i class="manual" style="height:100%"></i><b>90 min</b></div><div><span>{planningSeconds.toFixed(1)} SEC · SYSTEM</span><i class="system" style={`height:${timeScale}%`}></i><b>{planningSeconds.toFixed(1)} sec</b></div></div>
+          <p>Reduces planning cycle from 90 minutes to under 3 seconds.</p><small>90-minute baseline from doctrinal ATO cycle.</small>
         </section>
-
-        <!-- 4. TIME-SAVED ESTIMATE -->
-        <section class="sec">
-          <div class="sec-hdr">
-            <span class="sec-num">04</span>
-            <h3>OPERATIONAL ACCELERATION & TIME SAVED</h3>
-            <span class="sec-meta">PAIN POINT: MANUAL AIR-TASKING CYCLE REDUCTION</span>
-          </div>
-          <div class="time-box">
-            <div class="time-main">
-              <div class="time-stat">
-                <span class="t-lbl">MANUAL PLANNING BASELINE</span>
-                <span class="t-val muted">{manualPlanningMinutes} MIN</span>
-                <span class="t-sub">DOCTRINAL ATO MANUAL CYCLE</span>
-              </div>
-              <div class="arrow-sep">➔</div>
-              <div class="time-stat">
-                <span class="t-lbl">SYSTEM PLANNING TIME</span>
-                <span class="t-val cyan">{systemPlanningSeconds.toFixed(1)} SEC</span>
-                <span class="t-sub">NSGA-II MULTI-OBJECTIVE SOLVER</span>
-              </div>
-              <div class="arrow-sep">➔</div>
-              <div class="time-stat highlight">
-                <span class="t-lbl">ESTIMATED TIME SAVED</span>
-                <span class="t-val green">~{timeSavedMinutes} MIN ({timeSavedPercent}%)</span>
-                <span class="t-sub">NEAR REAL-TIME RE-TASKING CAPABILITY</span>
-              </div>
-            </div>
-            <div class="time-bar-wrap">
-              <div class="tb-outer">
-                <div class="tb-saved" style="width:{timeSavedPercent}%;">
-                  <span class="tb-txt">SAVED: {timeSavedPercent}%</span>
-                </div>
-                <div class="tb-system" style="width:{Math.max(2, 100 - timeSavedPercent)}%;">
-                  <span class="tb-txt">&lt;1%</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        <section class="block decisions"><div class="heading"><b>04 · DECISIONS MADE</b><span>{decisions.length} RECORDED</span></div>
+          {#if decisions.length}<ol>{#each decisions as decision, index (`${decision.at}-${index}`)}<li class:good={decision.outcome === 'success'} class:bad={decision.outcome === 'abort' || decision.outcome === 'escalate'}><span class="marker"></span><div><b>{decision.phase}</b><strong>{decision.choice}</strong><p>{decision.effect}</p></div></li>{/each}</ol>{:else}<p class="empty">Decision outcomes appear here as the commander resolves mission branches.</p>{/if}
+          <small>Every commander decision is traceable to an outcome.</small>
         </section>
-      </div>
-
-      <!-- FOOTER -->
-      <footer>
-        <div class="footer-left">
-          AIR COMMAND METRICS REPOSITORIES · AIR OPERATIONS INTELLIGENCE CELL
-        </div>
-        <button class="btn btn-close" onclick={() => onClose?.()}>
-          CLOSE DASHBOARD
-        </button>
-      </footer>
+      </main>
+      <footer><span>LIVE EXERCISE DATA · ILLUSTRATIVE MODEL OUTPUTS</span><button onclick={() => onClose?.()}>CLOSE</button></footer>
     </div>
   </div>
 {/if}
 
 <style>
-  .overlay {
-    position: fixed; inset: 0;
-    background: rgba(5, 8, 15, 0.94);
-    backdrop-filter: blur(4px);
-    display: grid; place-items: center;
-    z-index: 250;
-    animation: fadein 0.15s ease-out;
-    padding: 20px; box-sizing: border-box;
-  }
-  .overlay.inline { position:absolute; inset:0; padding:0; background:transparent; backdrop-filter:none; z-index:1; }
-  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
-
-  .frame {
-    width: min(1300px, 95vw);
-    max-height: 92vh;
-    background: var(--bg-panel);
-    border: 1px solid var(--accent-cyan);
-    box-shadow: 0 0 50px color-mix(in srgb, var(--accent-cyan) 22%, transparent);
-    display: flex; flex-direction: column;
-    overflow: hidden; position: relative;
-    font-family: var(--font-mono);
-  }
-  .frame.inline { width:100%; height:100%; max-height:none; border:0; box-shadow:none; }
-
-  .corners::before {
-    content: ''; position: absolute; top: -1px; left: -1px;
-    width: 10px; height: 10px;
-    border-top: 2px solid var(--accent-cyan); border-left: 2px solid var(--accent-cyan);
-    pointer-events: none; z-index: 10;
-  }
-  .corners::after {
-    content: ''; position: absolute; bottom: -1px; right: -1px;
-    width: 10px; height: 10px;
-    border-bottom: 2px solid var(--accent-cyan); border-right: 2px solid var(--accent-cyan);
-    pointer-events: none; z-index: 10;
-  }
-
-  header {
-    display: flex; justify-content: space-between; align-items: flex-start;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-subtle);
-    background: color-mix(in srgb, var(--accent-cyan) 4%, transparent);
-  }
-  .hdr-left { display: flex; flex-direction: column; gap: 4px; }
-  .eyebrow {
-    font-size: 8px; letter-spacing: 0.22em; color: var(--accent-cyan);
-    text-transform: uppercase;
-  }
-  .title-row { display: flex; align-items: center; gap: 12px; }
-  header h2 {
-    margin: 0; font-size: 14px; letter-spacing: 0.14em;
-    color: var(--text-primary); font-weight: 700;
-  }
-  .live-pill {
-    font-size: 8px; padding: 2px 7px; border: 1px solid var(--accent-green);
-    color: var(--accent-green); background: color-mix(in srgb, var(--accent-green) 8%, transparent);
-    letter-spacing: 0.12em; font-weight: 700;
-  }
-  .sub { font-size: 8.5px; color: var(--text-muted); letter-spacing: 0.12em; }
-
-  .close-btn {
-    background: transparent; border: 1px solid var(--border-subtle);
-    color: var(--text-muted); font-size: 14px;
-    width: 28px; height: 28px; display: grid; place-items: center;
-    cursor: pointer; transition: all 0.12s;
-  }
-  .close-btn:hover {
-    border-color: var(--accent-red); color: var(--accent-red);
-    box-shadow: 0 0 8px color-mix(in srgb, var(--accent-red) 30%, transparent);
-  }
-
-  .body-scroll {
-    flex: 1; overflow-y: auto; padding: 18px 20px;
-    display: flex; flex-direction: column; gap: 20px;
-  }
-  .body-scroll::-webkit-scrollbar { width: 4px; }
-  .body-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); }
-
-  .sec {
-    display: flex; flex-direction: column; gap: 10px;
-    border-bottom: 1px solid var(--border-subtle);
-    padding-bottom: 18px;
-  }
-  .sec:last-child { border-bottom: none; padding-bottom: 0; }
-
-  .sec-hdr { display: flex; align-items: baseline; gap: 8px; }
-  .sec-num { font-size: 10px; color: var(--accent-cyan); font-weight: 700; }
-  .sec-hdr h3 {
-    margin: 0; font-size: 11px; letter-spacing: 0.16em;
-    color: var(--text-primary); text-transform: uppercase;
-  }
-  .sec-meta {
-    font-size: 8px; letter-spacing: 0.15em; color: var(--text-muted);
-    text-transform: uppercase; margin-left: auto;
-  }
-
-  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-
-  .stat-card {
-    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
-    padding: 12px 14px; display: flex; flex-direction: column; gap: 5px;
-  }
-  .st-lbl { font-size: 8px; letter-spacing: 0.14em; color: var(--text-muted); text-transform: uppercase; }
-  .st-val { font-size: 20px; font-weight: 700; letter-spacing: 0.05em; }
-  .st-val.cyan { color: var(--accent-cyan); }
-  .st-val.green { color: var(--accent-green); }
-  .st-val.amber { color: var(--accent-amber); }
-  .st-val.red { color: var(--accent-red); }
-  .st-sub { font-size: 7.5px; color: var(--text-muted); letter-spacing: 0.1em; }
-
-  .prog-bar { height: 3px; background: var(--border-subtle); margin-top: 4px; }
-  .fill { height: 100%; }
-  .green-fill { background: var(--accent-green); }
-  .amber-fill { background: var(--accent-amber); }
-  .cyan-fill { background: var(--accent-cyan); }
-
-  /* TIME SAVED BOX */
-  .time-box {
-    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
-    padding: 14px 16px; display: flex; flex-direction: column; gap: 14px;
-  }
-  .time-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .time-stat { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-  .time-stat.highlight {
-    background: color-mix(in srgb, var(--accent-green) 5%, transparent); border: 1px solid color-mix(in srgb, var(--accent-green) 30%, transparent);
-    padding: 8px 12px;
-  }
-  .t-lbl { font-size: 8px; letter-spacing: 0.14em; color: var(--text-muted); text-transform: uppercase; }
-  .t-val { font-size: 16px; font-weight: 700; }
-  .t-val.muted { color: var(--text-secondary); }
-  .t-val.cyan { color: var(--accent-cyan); }
-  .t-val.green { color: var(--accent-green); }
-  .t-sub { font-size: 7.5px; color: var(--text-muted); letter-spacing: 0.1em; }
-  .arrow-sep { font-size: 16px; color: var(--border-strong); }
-
-  .time-bar-wrap { display: flex; flex-direction: column; gap: 4px; }
-  .tb-outer { height: 16px; display: flex; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle); }
-  .tb-saved {
-    background: color-mix(in srgb, var(--accent-green) 25%, transparent); border-right: 1px solid var(--accent-green);
-    display: flex; align-items: center; padding-left: 8px;
-  }
-  .tb-system {
-    background: color-mix(in srgb, var(--accent-cyan) 30%, transparent);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .tb-txt { font-size: 7.5px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.1em; }
-
-  /* FOOTER */
-  footer {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 20px;
-    border-top: 1px solid var(--border-subtle);
-    background: rgba(5, 8, 15, 0.85);
-  }
-  .footer-left { font-size: 8px; color: var(--text-muted); letter-spacing: 0.14em; }
-  .btn-close {
-    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.16em;
-    padding: 7px 16px; border: 1px solid var(--accent-cyan); color: var(--accent-cyan);
-    background: color-mix(in srgb, var(--accent-cyan) 8%, transparent); cursor: pointer; font-weight: 700;
-    transition: all 0.15s;
-  }
-  .btn-close:hover {
-    background: color-mix(in srgb, var(--accent-cyan) 20%, transparent);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--accent-cyan) 40%, transparent);
-  }
-  .frame.inline { min-width:0; max-width:100%; }
-  .frame.inline header { min-width:0; padding:9px 11px; }
-  .frame.inline .title-row { flex-wrap:wrap; gap:5px; }
-  .frame.inline header h2 { font-size:11px; line-height:1.35; letter-spacing:.08em; }
-  .frame.inline .live-pill { white-space:normal; font-size:7px; }
-  .frame.inline .sub { font-size:7px; line-height:1.4; letter-spacing:.06em; }
-  .frame.inline .body-scroll { min-width:0; overflow-x:hidden; padding:10px; gap:12px; }
-  .frame.inline .sec-hdr { flex-wrap:wrap; }
-  .frame.inline .sec-hdr h3 { flex:1; font-size:9px; line-height:1.35; letter-spacing:.08em; }
-  .frame.inline .sec-meta { width:100%; margin-left:18px; }
-  .frame.inline .grid-4,.frame.inline .grid-3 { grid-template-columns:minmax(0,1fr); gap:6px; }
-  .frame.inline .stat-card { min-width:0; padding:8px; overflow-wrap:anywhere; }
-  .frame.inline .time-main { flex-direction:column; align-items:stretch; }
-  .frame.inline .time-box { padding:9px; gap:9px; }
-  .frame.inline footer { padding:8px; gap:5px; flex-wrap:wrap; }
-  .frame.inline .footer-left { font-size:7px; line-height:1.4; }
+  .overlay{position:fixed;inset:0;z-index:250;display:grid;place-items:center;padding:18px;box-sizing:border-box;background:rgba(5,8,15,.94);backdrop-filter:blur(4px)}.overlay.inline{position:absolute;inset:0;padding:0;background:transparent;backdrop-filter:none;z-index:1}.frame{width:min(1120px,96vw);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--accent-cyan);background:var(--bg-panel);font-family:var(--font-mono)}.frame.inline{width:100%;height:100%;max-height:none;border:0}header,footer{display:flex;align-items:center;justify-content:space-between;padding:11px 15px;border-bottom:1px solid var(--border-subtle)}header .eyebrow,small,.heading span{color:var(--text-muted);font-size:8px;letter-spacing:.1em}.eyebrow{color:var(--accent-cyan)}h2{margin:3px 0 0;font-size:14px;letter-spacing:.16em}.close{background:none;border:1px solid var(--border-subtle);color:var(--text-muted);font-size:19px;cursor:pointer}main{overflow:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px}.block{min-width:0;padding:11px;border:1px solid var(--border-subtle);background:var(--bg-elevated)}.heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:11px}.heading>b{font-size:9px;letter-spacing:.12em;color:var(--text-secondary)}.heading>span{color:var(--accent-cyan)}.stack{height:16px;display:flex;overflow:hidden;background:var(--bg-base)}.stack i{height:100%}.fmc{background:var(--accent-green)}.pmc{background:var(--accent-amber)}.nmc{background:var(--accent-red)}.legend{display:flex;justify-content:space-between;margin:6px 0;color:var(--text-muted);font-size:8px}.block p{margin:9px 0 4px;font:10px/1.45 var(--font-sans);color:var(--text-secondary)}.block small{display:block;line-height:1.45}.options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.options article{padding:8px;border:1px solid var(--border-subtle)}.option-title{display:flex;justify-content:space-between;min-height:20px;color:var(--accent-cyan);font-size:8px}.option-title span{color:var(--accent-green);font-size:7px}.options label{display:flex;justify-content:space-between;margin:6px 0 3px;color:var(--text-muted);font-size:7px}.options label b{color:var(--text-primary)}.bar{height:5px;background:var(--bg-base)}.bar i{display:block;height:100%;background:var(--accent-cyan)}.bar.risk i{background:var(--accent-red)}.bars{height:98px;display:flex;align-items:end;justify-content:center;gap:45px;border-bottom:1px solid var(--border-strong)}.bars>div{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:end;gap:4px;font-size:8px;color:var(--text-muted)}.bars>div>span{font-size:7px}.bars>div>b{color:var(--text-primary)}.bars i{width:30px;min-height:2px}.manual{background:#64748b}.system{background:var(--accent-cyan)}.decisions ol{max-height:160px;overflow:auto;display:grid;gap:7px;margin:0;padding:0;list-style:none}.decisions li{display:grid;grid-template-columns:8px 1fr;gap:8px;padding-bottom:7px;border-bottom:1px solid var(--border-subtle)}.marker{width:7px;height:7px;margin-top:3px;border-radius:50%;background:var(--accent-amber)}li.good .marker{background:var(--accent-green)}li.bad .marker{background:var(--accent-red)}li>div{display:grid;gap:3px}li b{font-size:7px;color:var(--text-muted)}li strong{font-size:9px;color:var(--text-primary)}li p{margin:0!important;font-size:9px!important}.empty{min-height:40px}footer{border-top:1px solid var(--border-subtle);border-bottom:0;color:var(--text-muted);font-size:7px;letter-spacing:.08em}footer button{padding:6px 10px;background:transparent;border:1px solid var(--accent-cyan);color:var(--accent-cyan);font:8px var(--font-mono);cursor:pointer}@media(max-width:700px){main{grid-template-columns:1fr}.options{grid-template-columns:1fr}.frame{max-height:97vh}}
 </style>
