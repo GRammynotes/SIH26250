@@ -20,10 +20,14 @@
   let lastFrame = 0;
   let flightsVisible = false;
   let impactsVisible = false;
+  let disposed = false;
 
   function fc(features: GeoJSON.Feature[]): GeoJSON.FeatureCollection { return { type: 'FeatureCollection', features }; }
-  function setupLayers() {
-    if (map.getSource(routeSourceId)) return;
+  function setupLayers(): boolean {
+    // MapLibre can temporarily detach its style while the parent map is being
+    // removed or a style is loading. Do not call getSource/getLayer then.
+    if (disposed || !map || !map.isStyleLoaded()) return false;
+    if (map.getSource(routeSourceId)) return true;
     map.addSource(routeSourceId, { type: 'geojson', data: fc([]) });
     map.addLayer({ id: 'trajectory-boost', type: 'line', source: routeSourceId, filter: ['==', ['get', 'segment'], 'boost'], paint: { 'line-color': C.cyan, 'line-width': 2.4, 'line-opacity': .95 } });
     map.addLayer({ id: 'trajectory-cruise', type: 'line', source: routeSourceId, filter: ['==', ['get', 'segment'], 'cruise'], paint: { 'line-color': C.amber, 'line-width': 2.4, 'line-opacity': .95 } });
@@ -41,10 +45,11 @@
       const weapon = mission.weaponId ? WEAPONS[mission.weaponId] : null;
       new maplibregl.Popup({ offset: 12 }).setLngLat(event.lngLat).setHTML(`<div style="font:9px 'JetBrains Mono',monospace;color:${C.text};background:${C.base};border:1px solid ${C.border};padding:9px 12px"><b style="color:${C.red}">IMPACT · ${weapon?.name ?? 'WEAPON RELEASE'}</b><br>TARGET: ${mission.missionName}<br>STATUS: ASSESSMENT PENDING</div>`).addTo(map);
     });
+    return true;
   }
 
   function buildRoutes(active: ActiveMission[]) {
-    setupLayers();
+    if (!setupLayers()) return;
     const routeFeatures: GeoJSON.Feature[] = [];
     const liveIds = new Set<string>();
     for (const mission of active) {
@@ -61,11 +66,13 @@
       if (mission.phase === 'RELEASE' && !impactStarts.has(mission.id)) impactStarts.set(mission.id, performance.now());
     }
     for (const id of flights.keys()) if (!liveIds.has(id)) flights.delete(id);
-    (map.getSource(routeSourceId) as maplibregl.GeoJSONSource).setData(fc(routeFeatures));
+    const routeSource = map.getSource(routeSourceId) as maplibregl.GeoJSONSource | undefined;
+    routeSource?.setData(fc(routeFeatures));
   }
 
   function animate(now: number) {
-    if (now - lastFrame >= 200 && map.isStyleLoaded()) {
+    if (disposed) return;
+    if (now - lastFrame >= 200 && map && map.isStyleLoaded()) {
       lastFrame = now;
       if (flights.size || flightsVisible) {
         const flightFeatures: GeoJSON.Feature[] = [];
@@ -90,14 +97,20 @@
         impactsVisible = impacts.length > 0;
       }
     }
-    raf = requestAnimationFrame(animate);
+    if (!disposed) raf = requestAnimationFrame(animate);
   }
 
-  $effect(() => { buildRoutes(system.activeMissions); });
-  setupLayers();
+  $effect(() => {
+    const active = system.activeMissions;
+    if (map.isStyleLoaded()) buildRoutes(active);
+  });
+  // The parent only mounts this layer once the base style has loaded.
+  if (map.isStyleLoaded()) setupLayers();
   raf = requestAnimationFrame(animate);
   onDestroy(() => {
+    disposed = true;
     cancelAnimationFrame(raf);
+    if (!map || !map.isStyleLoaded()) return;
     for (const id of ['trajectory-boost', 'trajectory-cruise', 'trajectory-terminal', 'trajectory-waypoints', 'trajectory-flight-points', 'trajectory-impact-fill', 'trajectory-impact-line']) if (map.getLayer(id)) map.removeLayer(id);
     for (const id of [routeSourceId, flightSourceId, impactSourceId]) if (map.getSource(id)) map.removeSource(id);
   });

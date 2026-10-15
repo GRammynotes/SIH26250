@@ -47,6 +47,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let ReferenceLibrary = $state<Component<any> | null>(null);
   let AfterActionReview = $state<Component<any> | null>(null);
   let MetricsDashboard = $state<Component<any> | null>(null);
+  let metricsImportError = $state(false);
   let SimulationModal = $state<Component<any> | null>(null);
   let ProbabilisticSimulation = $state<Component<any> | null>(null);
   let simulationOpen = $state(false);
@@ -305,7 +306,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     if (aarMissionId && !AfterActionReview) void import('./lib/components/panels/AfterActionReview.svelte').then((module) => AfterActionReview = module.default);
     if (simulationOpen && !SimulationModal) void import('./lib/components/rail/SimulationModal.svelte').then((module) => SimulationModal = module.default);
     if (probabilisticSimOpen && !ProbabilisticSimulation) void import('./lib/components/rail/ProbabilisticSimulation.svelte').then((module) => ProbabilisticSimulation = module.default);
-    if ((metricsOpen || rightTab === 'metrics') && !MetricsDashboard) void import('./lib/components/panels/MetricsDashboard.svelte').then((module) => MetricsDashboard = module.default);
+    if ((metricsOpen || rightTab === 'metrics') && !MetricsDashboard && !metricsImportError) void import('./lib/components/panels/MetricsDashboard.svelte').then((module) => MetricsDashboard = module.default).catch((error) => { console.error('Metrics dashboard failed to load', error); metricsImportError = true; });
   });
 
   onMount(() => {
@@ -764,7 +765,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
             {:else if weaponDetail}<WeaponDetail weaponId={weaponDetail} onClose={closeWeaponDetail} />
             {:else if rightTab === 'coa' && panelVisibility.coa}<COAPanel mode="blue" onToggleVisibility={() => setPanelVisibility('coa', false)} />
             {:else if rightTab === 'red'}<COAPanel mode="red" />
-            {:else if rightTab === 'metrics'}{#if MetricsDashboard}<MetricsDashboard open={true} inline={true} />{:else}<div class="map-loading mono">LOADING ANALYTICS</div>{/if}
+            {:else if rightTab === 'metrics'}{#if MetricsDashboard}<MetricsDashboard open={true} inline={true} />{:else if metricsImportError}<div class="map-loading mono">METRICS FAILED TO LOAD · RELOAD TO RETRY</div>{:else}<div class="map-loading mono">LOADING ANALYTICS</div>{/if}
             {:else if rightTab === 'execution'}<ExecutionPanel />
             {:else if rightTab === 'weapons'}<div class="weapon-workspace"><WeaponMatrix /><PrioritizationSlider /></div>
             {:else if rightTab === 'flow'}<MissionIOFlow />
@@ -832,7 +833,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     aarMissionId = null;
   }}
 />{:else}<div class="map-loading mono">LOADING AFTER ACTION REVIEW</div>{/if}</ModalLayer>{/if}
-{#if metricsOpen}<ModalLayer label={modalLabels.metrics} zIndex={modalZ('metrics')} visible={isModalVisible('metrics')} onMinimize={() => minimizeModal('metrics')}>{#if MetricsDashboard}<MetricsDashboard open={metricsOpen} onClose={() => (metricsOpen = false)} />{:else}<div class="map-loading mono">LOADING METRICS</div>{/if}</ModalLayer>{/if}
+{#if metricsOpen}<ModalLayer label={modalLabels.metrics} zIndex={modalZ('metrics')} visible={isModalVisible('metrics')} onMinimize={() => minimizeModal('metrics')}>{#if MetricsDashboard}<MetricsDashboard open={metricsOpen} onClose={() => (metricsOpen = false)} />{:else if metricsImportError}<div class="map-loading mono">METRICS FAILED TO LOAD · RELOAD TO RETRY</div>{:else}<div class="map-loading mono">LOADING METRICS</div>{/if}</ModalLayer>{/if}
 {#if shortcutHelpOpen}<ModalLayer label={modalLabels.shortcuts} zIndex={modalZ('shortcuts')} visible={isModalVisible('shortcuts')} onMinimize={() => minimizeModal('shortcuts')}><ShortcutHelp open={shortcutHelpOpen} onClose={() => shortcutHelpOpen = false} /></ModalLayer>{/if}
 {#if glossaryOpen}<ModalLayer label={modalLabels.glossary} zIndex={modalZ('glossary')} visible={isModalVisible('glossary')} onMinimize={() => minimizeModal('glossary')}><GlossaryModal open={glossaryOpen} onClose={() => glossaryOpen = false} /></ModalLayer>{/if}
 {#if commandPaletteOpen}<ModalLayer label={modalLabels['command-palette']} zIndex={modalZ('command-palette')} visible={isModalVisible('command-palette')} onMinimize={() => minimizeModal('command-palette')}><CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={() => commandPaletteOpen = false} onSelect={selectPaletteCommand} /></ModalLayer>{/if}

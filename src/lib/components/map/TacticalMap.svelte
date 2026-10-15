@@ -518,7 +518,10 @@
       }, 5000);
     };
     const handleMapElementFocus = (event: Event) => {
-      if (!map) return;
+      // Focus reveals can arrive while the map is being replaced or its style
+      // is being detached. In that window MapLibre getters such as getLayer
+      // throw even though the map object still exists.
+      if (!map || !map.isStyleLoaded()) return;
       const focus = (event as CustomEvent<MapFocusElement[]>).detail ?? [];
       const focusPoints: Array<{ item: MapFocusElement; point: [number, number] }> = [];
       for (const item of focus) {
@@ -551,20 +554,22 @@
       if (map && terrain3dEnabled && terrainPaused) { map.setTerrain({ source: 'terrain-dem', exaggeration: 1.5 }); terrainPaused = false; }
     });
     map.on('moveend', () => {
-      if (map) {
+      if (map && map.isStyleLoaded()) {
         const center = map.getCenter();
         mapCenterLabel = `${Math.abs(center.lat).toFixed(1)}°${center.lat >= 0 ? 'N' : 'S'} / ${Math.abs(center.lng).toFixed(1)}°${center.lng >= 0 ? 'E' : 'W'}`;
       }
-      if (map && terrain3dEnabled) {
+      if (map && map.isStyleLoaded() && terrain3dEnabled) {
         map.setTerrain(null); terrainPaused = true;
         if (terrainResumeTimer) clearTimeout(terrainResumeTimer);
         terrainResumeTimer = setTimeout(() => {
-          if (map && terrain3dEnabled) { map.setTerrain({ source: 'terrain-dem', exaggeration: 1.5 }); terrainPaused = false; }
+          if (map && map.isStyleLoaded() && terrain3dEnabled) { map.setTerrain({ source: 'terrain-dem', exaggeration: 1.5 }); terrainPaused = false; }
         }, 200);
       }
     });
     map.on('zoom', () => {
-      if (!map) return;
+      // MapLibre emits movement/zoom callbacks as a map is removed. Avoid
+      // querying hillshade layers after its style has been detached.
+      if (!map || !map.isStyleLoaded()) return;
       const zoom = map.getZoom();
       mapZoom = zoom;
       const center = map.getCenter();
