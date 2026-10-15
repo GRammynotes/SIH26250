@@ -903,7 +903,7 @@
     const aircraftSource = map.getSource('aircraft-gl') as maplibregl.GeoJSONSource | undefined;
     if (aircraftSource) {
       aircraftSource.setData({ type: 'FeatureCollection', features: aircraft.map((ac) => ({ type: 'Feature', properties: labelProperties('aircraft', { id: ac.id, label: ac.tailNumber, tailNumber: ac.tailNumber, status: ac.status, type: ac.type, fuel: ac.fuel, base: ac.base.toUpperCase() }), geometry: { type: 'Point', coordinates: [ac.position.lng, ac.position.lat] } })) });
-      map.setLayoutProperty('aircraft-gl-symbols', 'visibility', 'visible');
+      if (map.getLayer('aircraft-gl-symbols')) map.setLayoutProperty('aircraft-gl-symbols', 'visibility', 'visible');
     }
     const focusAircraftSource = map.getSource('focus-aircraft') as maplibregl.GeoJSONSource | undefined;
     focusAircraftSource?.setData({ type: 'FeatureCollection', features: focus?.active ? system.aircraft.filter((item) => focus.assignedAircraftIds.includes(item.id)).map((item) => ({ type: 'Feature' as const, properties: labelProperties('aircraft', { id: item.id, label: item.tailNumber, tailNumber: item.tailNumber, status: item.status, opacity: focus.visibleAircraftIds.includes(item.id) ? 1 : 0 }), geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : [] });
