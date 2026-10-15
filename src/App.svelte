@@ -437,7 +437,10 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   function startDemo() {
     closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false;
     demoActive = true;
-    system.enterFocusMode(system.scenarioMissions[0]?.id ?? null);
+    if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike');
+    const demoMission = system.scenarioMissions.find((item) => item.targetType === HISTORICAL_MISSIONS.sindoor_deep.targetType) ?? system.scenarioMissions[0];
+    system.enterFocusMode(demoMission?.id ?? null);
+    if (demoMission) system.revealElement('target', demoMission.id);
     railMode = 'demo'; railCollapsed = false;
     comprehensiveDemoOpen = true;
   }
@@ -454,7 +457,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     simulationOpen = true;
   }
 
-  function startProbabilisticSimulation() { closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false; demoActive = false; system.enterFocusMode(system.scenarioMissions[0]?.id ?? null); railMode = 'sim'; railCollapsed = false; comprehensiveDemoOpen = false; probabilisticSimOpen = true; }
+  function startProbabilisticSimulation() { closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false; demoActive = false; if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike'); const mission = system.scenarioMissions[0]; system.enterFocusMode(mission?.id ?? null); if (mission) system.revealElement('target', mission.id); railMode = 'sim'; railCollapsed = false; comprehensiveDemoOpen = false; probabilisticSimOpen = true; }
   function closeWelcome() { welcomeOpen = false; try { localStorage.setItem('aircommand.seen', 'true'); } catch {} }
   function replayWelcome() { try { localStorage.removeItem('aircommand.seen'); } catch {} welcomeOpen = true; }
   function closeExperienceRail() { railMode = null; demoActive = false; comprehensiveDemoOpen = false; arcViewer = null; system.exitFocusMode(); if (railExitTimer) clearTimeout(railExitTimer); }

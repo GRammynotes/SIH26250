@@ -17,7 +17,6 @@
   let decisionTimer: ReturnType<typeof setTimeout> | undefined;
   let runner: ReturnType<typeof setTimeout> | undefined;
   let exitTimer: ReturnType<typeof setTimeout> | undefined;
-  let focusRevealTimers: ReturnType<typeof setTimeout>[] = [];
   let autoDecision = $state(true);
   const history = HISTORICAL_MISSIONS.sindoor_deep;
   let active = $derived(system.activeMissions.find((mission) => mission.missionId === simMissionId) ?? null);
@@ -29,6 +28,36 @@
     turns = [...turns, { speaker, text: narrative.text }].slice(-30);
     narrateUtterance(narrative.text, { source: speaker, speaker: speaker === 'COMMANDER' ? 'commander' : 'agent', priority: speaker === 'SYSTEM' ? 'critical' : 'info' });
     window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: speaker, text: narrative.text } }));
+  }
+  const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+  async function sequencedReveal(missionId: string, missionName: string, aircraft: typeof system.scenarioAircraft, threatIds: string[], startAt: number) {
+    const current = () => system.focusMode?.active && system.focusMode.missionId === missionId;
+    const waitFor = async (offset: number) => { const remaining = startAt + offset - performance.now(); if (remaining > 0) await wait(remaining); };
+    await waitFor(2000);
+    if (!current()) return;
+    const firstAircraft = aircraft[0];
+    system.revealElement('aircraft', firstAircraft.tailNumber);
+    system.startMission(missionId, aircraft.map((item) => item.id), 'sindoor_deep');
+    say('OPS AGENT', `Aircraft ${firstAircraft.tailNumber} is assigned to ${missionName}.`);
+    await waitFor(4000);
+    if (!current()) return;
+    system.revealElement('route');
+    say('OPS AGENT', `The trajectory to ${missionName} is now shown. Route risk is assessed against the current threat picture.`);
+    await waitFor(6000);
+    for (const id of threatIds) {
+      if (!current()) return;
+      system.revealElement('threat', id);
+      await wait(200);
+    }
+    await waitFor(8000);
+    if (!current()) return;
+    say('OPS AGENT', `Review the aircraft trajectory for ${firstAircraft.tailNumber}.`);
+    window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: 'aircraft', entityId: firstAircraft.tailNumber, missionId } }));
+    await waitFor(Math.max(10000, 8000 + threatIds.length * 200 + 800));
+    if (!current()) return;
+    say('OPS AGENT', `Course of action generated. ${aircraft.length} available aircraft are assigned for this training run. AUTO is ${autoDecision ? 'on' : 'off'}; decision points pause for your review when AUTO is off.`);
+    busy = false;
+    advanceToDecision();
   }
   function startExercise() {
     if (started) return;
@@ -48,41 +77,13 @@
       return;
     }
     simMissionId = mission.id;
+    const sequenceStart = performance.now();
     system.enterFocusMode(mission.id);
     system.revealElement('target', mission.id);
     say('SYSTEM', 'TRAINING MODE. This runs a historical IAF mission with scripted decision points. You act as commander. Pick branches. See how choices change the outcome. Purpose: practice decision-making under operational pressure.');
     say('SYSTEM', `HISTORICAL TRAINING CASE · ${history.reference} · ${history.date}. Simulation values are illustrative.`);
     say('OPS AGENT', history.narrative);
-    const firstAircraft = aircraft[0];
-    const revealAt = (delay: number, callback: () => void) => {
-      focusRevealTimers.push(window.setTimeout(() => {
-        if (system.focusMode?.active && system.focusMode.missionId === mission.id) callback();
-      }, delay));
-    };
-    revealAt(2000, () => {
-      system.revealElement('aircraft', firstAircraft.tailNumber);
-      system.startMission(mission.id, aircraft.map((item) => item.id), 'sindoor_deep');
-      say('OPS AGENT', `Aircraft ${firstAircraft.tailNumber} is assigned to ${mission.name}.`);
-    });
-    revealAt(4000, () => {
-      system.revealElement('route');
-      say('OPS AGENT', `The trajectory to ${mission.name} is now shown. Route risk is assessed against the current threat picture.`);
-    });
-    const routeThreatIds = system.focusMode?.routeThreatIds ?? [];
-    routeThreatIds.forEach((id, index) => {
-      revealAt(6000 + index * 1600, () => system.revealElement('threat', id));
-    });
-    revealAt(6000, () => say('OPS AGENT', 'Threat overlap along the route is being revealed one ring at a time.'));
-    revealAt(8000, () => {
-      say('OPS AGENT', `Review the aircraft trajectory for ${firstAircraft.tailNumber}.`);
-      window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: 'aircraft', entityId: firstAircraft.tailNumber, missionId: mission.id } }));
-    });
-    const lastThreatDelay = routeThreatIds.length ? 6000 + (routeThreatIds.length - 1) * 1600 : 6000;
-    revealAt(Math.max(10000, lastThreatDelay + 1600), () => {
-      say('OPS AGENT', `Course of action generated. ${aircraft.length} available aircraft are assigned for this training run. AUTO is ${autoDecision ? 'on' : 'off'}; decision points pause for your review when AUTO is off.`);
-      busy = false;
-      advanceToDecision();
-    });
+    void sequencedReveal(mission.id, mission.name, aircraft, system.focusMode?.routeThreatIds ?? [], sequenceStart);
   }
   function advanceToDecision() {
     if (paused || busy || !active || active.phase === 'COMPLETE' || active.phase === 'ABORTED') return;
@@ -144,7 +145,7 @@
     }
     return () => { if (decisionTimer) clearTimeout(decisionTimer); };
   });
-  onDestroy(() => { if (decisionTimer) clearTimeout(decisionTimer); if (runner) clearTimeout(runner); if (exitTimer) clearTimeout(exitTimer); focusRevealTimers.forEach(clearTimeout); });
+  onDestroy(() => { if (decisionTimer) clearTimeout(decisionTimer); if (runner) clearTimeout(runner); if (exitTimer) clearTimeout(exitTimer); });
   $effect(() => { if (open && !started) startExercise(); });
 </script>
 

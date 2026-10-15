@@ -3,7 +3,6 @@
   import { onDestroy } from 'svelte';
   import { HISTORICAL_MISSIONS } from '../../data/historicalMissions';
   import { system } from '../../stores/systemStore.svelte';
-  import { distanceKm, focusMapElements } from '../../engine/mapNarrative';
   let { open = false, simSpeed = 1, onSpeedChange, onClose }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onSpeedChange?: (speed: 0 | 1 | 2 | 4) => void; onClose?: () => void } = $props();
   let autoEnabled = $state(true);
   let caseId = $state<keyof typeof HISTORICAL_MISSIONS>('sindoor_deep');
@@ -14,6 +13,7 @@
   let pastDecisionsExpanded = $state(false);
   let introAnnounced = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let revealSequenceToken = 0;
   const cases = Object.values(HISTORICAL_MISSIONS);
   const scenarios = {
     balakot: [{ name: 'TARGET DESTROYED', chance: 72, consequence: 'Primary target effect achieved; package returns for full BDA correlation.' }, { name: 'TARGET DAMAGED', chance: 22, consequence: 'Partial effect; commander reviews re-attack options and collateral assessment.' }, { name: 'TARGET MISSED', chance: 6, consequence: 'No confirmed effect; preserve the force and reassess intelligence.' }],
@@ -21,29 +21,41 @@
     sead_suppression: [{ name: 'RADAR SUPPRESSED', chance: 64, consequence: 'Threat emission ceases and the follow-on corridor opens.' }, { name: 'RADAR DEGRADED', chance: 27, consequence: 'Coverage is reduced, but the radar may recover.' }, { name: 'RADAR RELOCATED', chance: 9, consequence: 'Last-known coordinates are empty; update the threat picture.' }],
   } as const;
   const activeCase = $derived(HISTORICAL_MISSIONS[caseId]);
+  const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+  async function sequenceBranchReveal(missionId: string, aircraftTail: string, threatIds: string[], startAt: number) {
+    const sequenceToken = revealSequenceToken;
+    const current = () => revealSequenceToken === sequenceToken && system.focusMode?.active && system.focusMode.missionId === missionId;
+    const waitUntil = async (offset: number) => { const remaining = startAt + offset - performance.now(); if (remaining > 0) await wait(remaining); };
+    await waitUntil(2000);
+    if (!current()) return;
+    system.revealElement('aircraft', aircraftTail);
+    await waitUntil(4000);
+    if (!current()) return;
+    system.revealElement('route');
+    await waitUntil(6000);
+    for (const id of threatIds) { if (!current()) return; system.revealElement('threat', id); await wait(200); }
+    await waitUntil(8000);
+    if (current()) window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: 'aircraft', entityId: aircraftTail, missionId } }));
+  }
   const outcomes = $derived(scenarios[caseId]);
   function simulate(forcedIndex?: number) {
     const roll = forcedIndex === undefined ? Math.random() * 100 : 0; let total = 0;
     selectedOutcome = forcedIndex ?? outcomes.findIndex((item) => { total += item.chance; return roll < total; });
     const result = outcomes[selectedOutcome];
     pastDecisions = [...pastDecisions, { at: Date.now(), title: `RUN ${runCount + 1}`, choice: result.name }];
-    const mission = system.missions.find((item) => item.targetType === activeCase.targetType);
-    const aircraft = system.aircraft.find((item) => item.status === 'FMC');
+    const mission = system.scenarioMissions.find((item) => item.targetType === activeCase.targetType) ?? system.missions.find((item) => item.targetType === activeCase.targetType);
+    const assignment = mission ? system.coas.find((coa) => coa.id === system.selectedCoaId)?.assignments[mission.id] ?? [] : [];
+    const aircraft = system.aircraft.find((item) => assignment.includes(item.id) && (item.status === 'FMC' || item.status === 'PMC')) ?? system.aircraft.find((item) => item.status === 'FMC');
     if (mission) {
-      if (!system.focusMode?.active) system.enterFocusMode(mission.id);
-      window.setTimeout(() => {
-        if (aircraft) system.revealElement('aircraft', aircraft.tailNumber);
-        system.revealElement('target', mission.id);
-        system.revealElement('route');
-        window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: 'aircraft', entityId: aircraft?.tailNumber ?? '', missionId: mission.id } }));
-        (system.focusMode?.routeThreatIds ?? []).forEach((id, index) => window.setTimeout(() => system.revealElement('threat', id), (index + 1) * 300));
-      }, 800);
+      system.enterFocusMode(mission.id);
+      system.revealElement('target', mission.id);
+      revealSequenceToken++;
+      if (aircraft) void sequenceBranchReveal(mission.id, aircraft.tailNumber, system.focusMode?.routeThreatIds ?? [], performance.now());
     }
     runCount++;
     system.pushEvent('SIMULATION', `${result.name} · ${result.chance}% MODELED PROBABILITY`, result.name.includes('DESTROYED') || result.name.includes('SUPPRESSED') ? 'ok' : 'info');
     narrateUtterance(`Simulation branch selected: ${result.name}. ${result.consequence}`, { source: 'SIMULATION', speaker: 'agent' });
     window.dispatchEvent(new CustomEvent('aircommand:diagram-focus', { detail: { bounds: [[72.7, 29.5], [77.2, 34.3]], text: `${result.name}. ${result.consequence}` } }));
-    focusMapElements([...(aircraft ? [{ type: 'aircraft' as const, id: aircraft.tailNumber, label: `${aircraft.tailNumber} · ${mission ? distanceKm(aircraft.position, mission.target) : 0} km` }] : []), ...(mission ? [{ type: 'target' as const, id: mission.name, label: mission.name }] : [])]);
     window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: 'SIMULATION', text: `${result.name} · ${result.chance}% modeled probability` } }));
   }
   $effect(() => {
@@ -51,7 +63,7 @@
     if (timer) clearTimeout(timer);
     if (open && autoEnabled && simSpeed !== 0) timer = setTimeout(() => { simulate(); }, 6000 / simSpeed);
   });
-  onDestroy(() => { if (timer) clearTimeout(timer); });
+  onDestroy(() => { revealSequenceToken++; if (timer) clearTimeout(timer); });
   $effect(() => {
     if (open && !introAnnounced) {
       introAnnounced = true;

@@ -3,6 +3,8 @@
   import { COMPREHENSIVE_DEMO_STEPS, getStepGlossaryTerms } from '../../demo/comprehensiveDemoScript';
   import { narrateUtterance, stopVoice } from '../../engine/voice';
   import { parseMapNarrative } from '../../engine/mapNarrative';
+  import { system } from '../../stores/systemStore.svelte';
+  import type { NarrativeMarker } from '../../engine/mapNarrative';
 
   let { open = false, simSpeed = 1, onClose, onComplete }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onClose?: () => void; onComplete?: () => void } = $props();
 
@@ -14,6 +16,7 @@
   let autoAdvance = $state(true);
   let stepTimer: ReturnType<typeof setTimeout> | undefined;
   let actionTimer: ReturnType<typeof setTimeout> | undefined;
+  let revealSequenceToken = 0;
 
   // Current step data
   let currentStep = $derived(COMPREHENSIVE_DEMO_STEPS[currentStepIndex] ?? null);
@@ -39,6 +42,7 @@
     if (!currentStep || isPaused || !isPlaying) return;
     window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
     const narration = parseMapNarrative(currentStep.narration);
+    void sequenceStepFocus(currentStep, narration.markers);
     const caption = parseMapNarrative(currentStep.caption).text;
     window.dispatchEvent(new CustomEvent('aircommand:tour-target', { detail: currentStep.element ?? '[data-tour="map"]' }));
 
@@ -77,6 +81,45 @@
       }
     } else {
       scheduleNextStep();
+    }
+  }
+
+  async function sequenceStepFocus(step: NonNullable<typeof currentStep>, markers: NarrativeMarker[]) {
+    const token = ++revealSequenceToken;
+    const startedAt = performance.now();
+    const focus = step.focusIds;
+    if (!focus && !markers.length) return;
+    const missionId = system.focusMode?.missionId ?? system.scenarioMissions[0]?.id ?? '';
+    const assignedId = system.focusMode?.assignedAircraftIds[0] ?? system.scenarioAircraft.find((aircraft) => aircraft.status === 'FMC' || aircraft.status === 'PMC')?.id ?? '';
+    const assigned = system.aircraft.find((aircraft) => aircraft.id === assignedId);
+    const targetId = focus?.target ? missionId : markers.find((marker) => marker.kind === 'target')?.id ?? '';
+    const aircraftIds = [...(focus?.aircraft ?? []).map((id) => id === '$assigned' ? assigned?.tailNumber ?? '' : id), ...markers.filter((marker) => marker.kind === 'aircraft').map((marker) => marker.id)].filter(Boolean);
+    const threatIds = [...(focus?.threats ?? []).flatMap((id) => id === '$route' ? system.focusMode?.routeThreatIds ?? [] : [id]), ...markers.filter((marker) => marker.kind === 'threat').map((marker) => marker.id)];
+    const stillCurrent = () => token === revealSequenceToken && isPlaying && !isPaused && open;
+    const waitUntil = async (offset: number) => { const remaining = startedAt + offset - performance.now(); if (remaining > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, remaining)); };
+    if (targetId) system.revealElement('target', targetId);
+    for (const layer of (focus?.layers ?? []).filter((name) => !['route', 'wez', 'egress'].includes(name))) system.revealElement(layer);
+    if (aircraftIds.length) {
+      await waitUntil(2000);
+      if (!stillCurrent()) return;
+      system.revealElement('aircraft', aircraftIds[0]);
+      for (const id of aircraftIds.slice(1)) { await new Promise<void>((resolve) => window.setTimeout(resolve, 1500)); if (!stillCurrent()) return; system.revealElement('aircraft', id); }
+    }
+    if ((focus?.layers ?? []).includes('route')) {
+      await waitUntil(4000);
+      if (!stillCurrent()) return;
+      system.revealElement('route');
+    }
+    if ((focus?.layers ?? []).includes('wez')) system.revealElement('wez');
+    if ((focus?.layers ?? []).includes('egress')) system.revealElement('egress');
+    if (threatIds.length) {
+      await waitUntil(6000);
+      for (const id of threatIds) { if (!stillCurrent()) return; system.revealElement('threat', id); await new Promise<void>((resolve) => window.setTimeout(resolve, 200)); }
+    }
+    if (assigned && (aircraftIds.length || (focus?.layers ?? []).includes('route'))) {
+      await waitUntil(8000);
+      if (!stillCurrent()) return;
+      window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: 'aircraft', entityId: assigned.tailNumber, missionId } }));
     }
   }
 
@@ -139,6 +182,7 @@
 
   // Stop demo
   function stopDemo() {
+    revealSequenceToken++;
     clearTimeout(stepTimer);
     clearTimeout(actionTimer);
     isPlaying = false;
@@ -152,6 +196,7 @@
 
   // Complete demo
   function completeDemo() {
+    revealSequenceToken++;
     clearTimeout(stepTimer);
     clearTimeout(actionTimer);
     isPlaying = false;
@@ -221,6 +266,7 @@
   });
 
   onDestroy(() => {
+    revealSequenceToken++;
     document.body.classList.remove('demo-active');
     stopVoice();
     window.removeEventListener('keydown', handleKeydown);

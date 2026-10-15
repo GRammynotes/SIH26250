@@ -41,16 +41,6 @@ export function parseMapNarrative(text: string): { text: string; markers: Narrat
     return label;
   });
   const plainText = clean.replace(/\s+([.,;])/g, '$1').replace(/\s{2,}/g, ' ').trim();
-  markers.forEach((marker, index) => {
-    const reveal = () => {
-      system.revealElement(marker.kind as 'aircraft' | 'threat' | 'target', marker.id);
-      if (marker.kind === 'aircraft' || marker.kind === 'weapon') {
-        const missionId = system.focusMode?.missionId ?? system.activeMissions.find((item) => item.phase !== 'COMPLETE' && item.phase !== 'ABORTED')?.missionId ?? '';
-        window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: marker.kind === 'weapon' ? 'missile' : 'aircraft', entityId: marker.id, missionId } }));
-      }
-    };
-    window.setTimeout(reveal, 800 + index * 300);
-  });
   if (markers.length) window.dispatchEvent(new CustomEvent('aircommand:map-narrative-markers', { detail: { markers, text: plainText, duration: 3000 } }));
   return { text: plainText, markers };
 }
