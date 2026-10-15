@@ -3,10 +3,13 @@
   import { system } from '../../stores/systemStore.svelte';
   type Caption = { id: number; source: string; text: string };
   let captions = $state<Caption[]>([]);
+  let captionsOn = $state(true);
   let nextId = 0;
   const timers = new Map<number, number>();
 
   onMount(() => {
+    try { captionsOn = localStorage.getItem('aircommand.captions') !== 'false'; } catch { captionsOn = true; }
+    const setState = (event: Event) => captionsOn = Boolean((event as CustomEvent<boolean>).detail);
     const add = (event: Event) => {
       const detail = (event as CustomEvent<{ source: string; text: string }>).detail;
       const caption = { id: ++nextId, source: detail.source || 'SYSTEM', text: detail.text };
@@ -18,11 +21,12 @@
       }, duration));
     };
     window.addEventListener('aircommand:caption', add);
-    return () => { window.removeEventListener('aircommand:caption', add); for (const timer of timers.values()) clearTimeout(timer); };
+    window.addEventListener('aircommand:captions-state', setState);
+    return () => { window.removeEventListener('aircommand:caption', add); window.removeEventListener('aircommand:captions-state', setState); for (const timer of timers.values()) clearTimeout(timer); };
   });
 </script>
 
-<div class="captions" aria-live="polite" aria-atomic="false">
+<div class="captions" class:disabled={!captionsOn} aria-live="polite" aria-atomic="false">
   {#each captions as caption (caption.id)}
     <article class="caption"><span class="source">[{caption.source.toUpperCase()}]</span><p>{caption.text}</p></article>
   {/each}
@@ -30,6 +34,7 @@
 
 <style>
   .captions { position:fixed; left:50%; bottom:60px; transform:translateX(-50%); z-index:150; display:flex; flex-direction:column-reverse; gap:6px; width:min(560px,calc(100vw - 32px)); pointer-events:none; }
+  .captions.disabled { opacity:.4; }
   .caption { padding:8px 12px 9px; background:rgba(5,8,15,.92); border:1px solid var(--border-subtle); border-left:1px solid var(--accent-cyan); box-shadow:0 6px 18px rgba(0,0,0,.35); animation:caption-in .18s ease-out both; }
   .source { color:var(--accent-amber); font:9px var(--font-mono); letter-spacing:.14em; }
   p { margin:4px 0 0; color:var(--text-primary); font:12px/1.45 var(--font-mono); letter-spacing:.025em; }

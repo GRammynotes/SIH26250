@@ -23,6 +23,9 @@
   let utcDate = $state('');
   let openMenu = $state<string | null>(null);
   let voiceOn = $state(true);
+  let captionsOn = $state(true);
+  let toggleToast = $state('');
+  let toastTimer: ReturnType<typeof setTimeout> | undefined;
   const menus = ['VIEW', 'TOOLS', 'HELP', 'SYSTEM'];
   const layers = [
     ['Terrain', 'terrain'], ['Airspace', 'airspace'], ['Weather', 'weather'], ['Enemy', 'enemy'], ['Ground', 'ground'],
@@ -34,12 +37,13 @@
 
   onMount(() => {
     voiceOn = isVoiceEnabled();
+    try { captionsOn = localStorage.getItem('aircommand.captions') !== 'false'; } catch { captionsOn = true; }
     const tick = () => { const d = new Date(); zulu = d.toISOString().slice(11, 23); utcDate = d.toISOString().slice(0, 10); };
     tick(); const id = setInterval(tick, 100);
     const close = () => openMenu = null;
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
     window.addEventListener('click', close); window.addEventListener('keydown', escape);
-    return () => { clearInterval(id); window.removeEventListener('click', close); window.removeEventListener('keydown', escape); };
+    return () => { clearInterval(id); if (toastTimer) clearTimeout(toastTimer); window.removeEventListener('click', close); window.removeEventListener('keydown', escape); };
   });
 
   function toggleMenu(name: string, event: MouseEvent) {
@@ -47,7 +51,9 @@
   }
   function action(fn?: () => void) { fn?.(); openMenu = null; }
   function toggleLayer(key: string) { layerChecked = { ...layerChecked, [key]: !layerChecked[key as keyof typeof layerChecked] }; onLayerToggle?.(key); }
-  function toggleVoice() { voiceOn = !voiceOn; setVoiceEnabled(voiceOn); }
+  function showToggleToast(label: string, enabled: boolean) { toggleToast = `${label}: ${enabled ? 'ON' : 'OFF'}`; if (toastTimer) clearTimeout(toastTimer); toastTimer = setTimeout(() => toggleToast = '', 1200); }
+  function toggleVoice() { voiceOn = !voiceOn; setVoiceEnabled(voiceOn); showToggleToast('VOICE', voiceOn); }
+  function toggleCaptions() { captionsOn = !captionsOn; try { localStorage.setItem('aircommand.captions', String(captionsOn)); } catch {} window.dispatchEvent(new CustomEvent('aircommand:captions-state', { detail: captionsOn })); showToggleToast('CAPTIONS', captionsOn); }
 </script>
 
 <header class="topbar">
@@ -91,6 +97,8 @@
   </nav>
   <span class="spacer"></span>
   <button class="voice-toggle" data-tour="voice-toggle" aria-pressed={voiceOn} title="Toggle voice narration" onclick={toggleVoice}>◈ VOICE {voiceOn ? 'ON' : 'OFF'}</button>
+  <button class="voice-toggle" aria-pressed={captionsOn} title="Toggle captions" onclick={toggleCaptions}>CC {captionsOn ? 'ON' : 'OFF'}</button>
+  {#if toggleToast}<span class="toggle-toast" role="status">{toggleToast}</span>{/if}
   <span class="metric">AC <b>{aircraftCount}</b></span><span class="metric">MSN <b>{missionCount}</b></span><span class="metric">THR <b>{threatCount}</b></span>
   <span class="indicators" aria-label="System status">
     <span class="indicator link" title="Link OK" aria-label="Link OK">●✓</span>
@@ -111,6 +119,7 @@
   .live { display:flex; align-items:center; gap:5px; color:var(--accent-green); font-size:8px; } .dot { width:5px; height:5px; border-radius:50%; background:var(--accent-green); box-shadow:0 0 6px var(--accent-green); }
   .menus { display:flex; align-items:center; height:100%; gap:4px; margin-left:8px; } .menu-group { position:relative; height:100%; display:flex; align-items:center; }
   .voice-toggle { padding:4px 7px; background:transparent; border:1px solid var(--border-subtle); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; white-space:nowrap; }.voice-toggle[aria-pressed="false"] { color:var(--text-muted); }
+  .toggle-toast { position:absolute; right:12px; top:38px; z-index:60; padding:6px 9px; border:1px solid var(--accent-cyan); background:var(--bg-panel); color:var(--accent-cyan); font:8px var(--font-mono); }
   .menu-trigger { position:relative; height:100%; padding:0 10px; background:transparent; border:0; color:var(--text-secondary); font:9px var(--font-mono); letter-spacing:.16em; cursor:pointer; }
   .menu-trigger::after { content:''; position:absolute; bottom:5px; left:10px; right:10px; height:1px; background:var(--accent-cyan); transform:scaleX(0); transition:transform .18s ease; }
   .menu-trigger:hover::after,.menu-trigger.open::after { transform:scaleX(1); } .menu-trigger:hover,.menu-trigger.open { color:var(--accent-cyan); }

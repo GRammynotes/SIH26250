@@ -134,16 +134,21 @@ async function drain(): Promise<void> {
 }
 
 export function narrateEvent(source: string, message: string, interrupt = false): void {
-  if (!enabled || typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return;
   const narration = narrationFor(source, message);
   if (!narration) return;
+  window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source, text: narration.text } }));
+  if (!enabled) return;
   const line: QueuedLine = { ...narration, source };
   enqueue(line, interrupt);
 }
 
 export function narrateUtterance(text: string, options: { source?: string; priority?: VoicePriority; focus?: VoiceFocusTarget; speaker?: VoiceCharacter } = {}): void {
-  if (!enabled || typeof window === 'undefined' || !text.trim()) return;
-  enqueue({ text, source: options.source ?? (options.speaker === 'commander' ? 'COMMANDER' : 'OPS AGENT'), priority: options.priority ?? 'info', focus: options.focus, speaker: options.speaker }, options.priority === 'critical');
+  if (typeof window === 'undefined' || !text.trim()) return;
+  const source = options.source ?? (options.speaker === 'commander' ? 'COMMANDER' : 'OPS AGENT');
+  window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source, text } }));
+  if (!enabled) return;
+  enqueue({ text, source, priority: options.priority ?? 'info', focus: options.focus, speaker: options.speaker }, options.priority === 'critical');
 }
 
 function enqueue(line: QueuedLine, interrupt: boolean): void {
