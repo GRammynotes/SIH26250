@@ -585,6 +585,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
     if (event.ctrlKey && event.key.toLowerCase() === 'k') { event.preventDefault(); commandPaletteOpen = true; return; }
     const target = event.target as HTMLElement | null;
     if (event.key === 'Escape') {
+      if (welcomeOpen) { closeWelcome(); return; }
       if (exitExperienceConfirm) { exitExperienceConfirm = false; return; }
       if (resetConfirm) { resetConfirm = false; return; }
       if (entityDetail) { closeEntityDetail(); return; }
@@ -809,7 +810,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
     {/if}
   </div>
 </div>
-{#if welcomeOpen}<div class="welcome-shade"><div class="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title" tabindex="-1"><span>◈ AIR COMMAND · ORIENTATION</span><h1 id="welcome-title">WELCOME TO AIR COMMAND</h1><p>Choose a mode to begin:</p><button onclick={startDemo}>▶ GUIDED DEMO <small>See the system walkthrough</small></button><button onclick={startSimulation}>▷ TRAINING <small>Run a historical mission</small></button><button onclick={startProbabilisticSimulation}>◈ SIM <small>Test probabilistic outcomes</small></button><button class="explore" onclick={closeWelcome}>↻ EXPLORE <small>Skip and use the console directly</small></button></div></div>{/if}
+{#if welcomeOpen}<div class="welcome-shade" role="presentation" onclick={(event) => { if (event.target === event.currentTarget) closeWelcome(); }}><div class="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title" tabindex="-1"><span>◈ AIR COMMAND · ORIENTATION</span><h1 id="welcome-title">WELCOME TO AIR COMMAND</h1><p>Choose a mode to begin:</p><button onclick={startDemo}>▶ GUIDED DEMO <small>See the system walkthrough</small></button><button onclick={startSimulation}>▷ TRAINING <small>Run a historical mission</small></button><button onclick={startProbabilisticSimulation}>◈ SIM <small>Test probabilistic outcomes</small></button><button class="explore" onclick={closeWelcome}>↻ EXPLORE <small>Skip and use the console directly</small></button></div></div>{/if}
 {#if comprehensiveDemoOpen}<div class="lock-bar"><span>SYSTEM LOCKED · PRESS ESC TO EXIT</span></div>{/if}
 {#if pending?.pendingDecision && !railMode && !simulationOpen && !probabilisticSimOpen}
   <ModalLayer label={modalLabels.decision} zIndex={modalZ('decision')} visible={isModalVisible('decision')} onMinimize={() => minimizeModal('decision')}><DecisionPrompt
