@@ -7,3 +7,8 @@
 - 13-after-action-review.png: Initial training driver selected disabled/stale prompt controls and timed out. Re-captured with enabled decision choices at 4×; final image shows two decisions, recovery, and BDA.
 
 All 15 final image files are present. The above capture failures were recovered and do not indicate missing final screenshots.
+
+- Final refresh after canvas symbol rendering: one combined capture attempt tried to switch to COA while the mission briefing modal was still open. The modal correctly intercepted input; recovered by closing it in the initial run and then capturing COA/RED VIEW/WEAPONS from a fresh console context.
+- Final refresh: the 3D focus dialog remained open when the same-page script moved to Metrics. The 3D view was captured successfully, then Tactical Picture, Metrics, and IACCS were captured from a separate clean console context.
+
+Final files reflect the fixed canvas-rendered symbol implementation. No final screenshot is missing.
