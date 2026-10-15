@@ -93,6 +93,46 @@
   let lastSimulationTrailFeatureSignature = '';
   const deriveTrailPaths = createTrailPathDeriver();
 
+  const labelState = $derived.by(() => {
+    const activeMissions = system.activeMissions.filter((mission) => !['COMPLETE', 'ABORTED'].includes(mission.phase));
+    const selectedFeatureId = selectedMapCard?.id ?? null;
+    const selectedAircraft = selectedMapCard?.kind === 'aircraft'
+      ? system.aircraft.find((item) => item.id === selectedFeatureId)
+      : null;
+    return {
+      activeExperience: system.activeExperience,
+      selectedCoaId: system.selectedCoaId,
+      selectedId: selectedFeatureId,
+      selectedBaseId: system.selectedBaseId,
+      activeMissionIds: new Set(activeMissions.map((mission) => mission.missionId)),
+      activeMissionAircraft: new Set(activeMissions.flatMap((mission) => mission.aircraftIds)),
+      routeThreatIds: new Set(system.focusMode?.routeThreatIds ?? []),
+      selectedAircraftBase: selectedAircraft?.base.toLowerCase() ?? null,
+    };
+  });
+
+  function computeLabelTier(feature: { id?: string; code?: string; type?: string; family?: string; status?: string; priority?: number; spoofed?: boolean; selected?: boolean }, state: typeof labelState): number {
+    const id = feature.id ?? '';
+    const type = feature.family ?? feature.type ?? '';
+    if (type === 'warning' || feature.spoofed) return 0;
+    if (id === state.selectedId || id === state.selectedBaseId || feature.selected) return 10;
+    if (type === 'mission' && state.activeMissionIds.has(id)) return 20;
+    if (type === 'aircraft' && state.activeMissionAircraft.has(id)) return 30;
+    if (type === 'mission' && feature.priority === 1) return 40;
+    if (type === 'threat' && state.routeThreatIds.has(id)) return 50;
+    if (type === 'base' && state.selectedAircraftBase !== null && [id, feature.code?.toLowerCase()].includes(state.selectedAircraftBase)) return 60;
+    if (type === 'mission' && feature.priority === 2) return 70;
+    if (type === 'mission' && feature.priority === 3) return 80;
+    if (type === 'ground') return 90;
+    return 100;
+  }
+
+  function labelProperties(type: string, properties: Record<string, unknown>): Record<string, unknown> {
+    return { ...properties, labelType: type, tier: computeLabelTier({ ...properties, type } as Parameters<typeof computeLabelTier>[0], labelState) };
+  }
+
+  const tieredLabel = (label: unknown) => ['step', ['zoom'], '', 4, ['case', ['<', ['get', 'tier'], 20], label, ''], 6, ['case', ['<', ['get', 'tier'], 60], label, ''], 8, label] as maplibregl.ExpressionSpecification;
+
   $effect(() => {
     const aircraft = system.aircraft;
     const key = JSON.stringify(aircraft.map((ac) => [ac.id, ac.status, ac.position.lng, ac.position.lat]));
@@ -265,18 +305,18 @@
       paint: { 'circle-color': C.cyan, 'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'], 2, 11, 50, 18, 200, 24], 'circle-opacity': 0.2 },
     });
     if (!map.getLayer('aircraft-cluster-count')) map.addLayer({
-      id: 'aircraft-cluster-count', type: 'symbol', source: 'aircraft-gl', minzoom: 3, maxzoom: 5, filter: ['has', 'point_count'],
-      layout: { 'text-field': ['get', 'point_count'], 'text-font': ['Noto Sans Regular'], 'text-size': 14, 'text-allow-overlap': true },
+      id: 'aircraft-cluster-count', type: 'symbol', source: 'aircraft-gl', filter: ['has', 'point_count'],
+      layout: { 'text-field': ['step', ['zoom'], '', 3, ['to-string', ['get', 'point_count']]], 'symbol-sort-key': 100, 'text-font': ['Noto Sans Regular'], 'text-size': 14, 'text-allow-overlap': true },
       paint: { 'text-color': C.text, 'text-halo-color': C.base, 'text-halo-width': 1 },
     });
     if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
       id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl', minzoom: 5, filter: ['!', ['has', 'point_count']],
-      layout: { 'icon-image': ['step', ['zoom'], ['match', ['get', 'status'], 'FMC', 'aircraft-triangle-FMC', 'PMC', 'aircraft-triangle-PMC', 'aircraft-triangle-NMC'], 8, ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC']], 'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 7, 0.55, 8, 0.75, 11, 1], 'icon-rotate': ['coalesce', ['get', 'heading'], 0], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+      layout: { 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'icon-image': ['step', ['zoom'], ['match', ['get', 'status'], 'FMC', 'aircraft-triangle-FMC', 'PMC', 'aircraft-triangle-PMC', 'aircraft-triangle-NMC'], 8, ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC']], 'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 7, 0.55, 8, 0.75, 11, 1], 'icon-rotate': ['coalesce', ['get', 'heading'], 0], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
       paint: { 'icon-opacity': 1 },
     });
     if (!map.getLayer('aircraft-gl-labels')) map.addLayer({
-      id: 'aircraft-gl-labels', type: 'symbol', source: 'aircraft-gl', minzoom: 8, filter: ['!', ['has', 'point_count']],
-      layout: { 'text-field': ['get', 'tailNumber'], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.7], 'text-anchor': 'top', 'text-allow-overlap': true, 'text-ignore-placement': true },
+      id: 'aircraft-gl-labels', type: 'symbol', source: 'aircraft-gl', filter: ['!', ['has', 'point_count']],
+      layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.7], 'text-anchor': 'top', 'text-allow-overlap': false, 'text-ignore-placement': false },
       paint: { 'text-color': C.cyan, 'text-halo-color': C.base, 'text-halo-width': 2 },
     });
     if (!aircraftLayerClickAttached) {
@@ -297,13 +337,13 @@
     const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
     for (const id of ['bases-gl', 'missions-gl', 'assets-gl']) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: empty });
     if (!map.getLayer('bases-gl-symbols')) map.addLayer({ id: 'bases-gl-symbols', type: 'circle', source: 'bases-gl', minzoom: 3, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 7], 'circle-color': C.cyan, 'circle-opacity': ['get', 'opacity'], 'circle-stroke-color': C.base, 'circle-stroke-width': 1.5 } });
-    if (!map.getLayer('bases-gl-labels')) map.addLayer({ id: 'bases-gl-labels', type: 'symbol', source: 'bases-gl', minzoom: 5, layout: { 'text-field': ['get', 'code'], 'text-font': ['Noto Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.2], 'text-allow-overlap': true }, paint: { 'text-color': C.cyan, 'text-opacity': ['get', 'opacity'], 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
+    if (!map.getLayer('bases-gl-labels')) map.addLayer({ id: 'bases-gl-labels', type: 'symbol', source: 'bases-gl', layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.2], 'text-allow-overlap': false }, paint: { 'text-color': C.cyan, 'text-opacity': ['get', 'opacity'], 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
     if (!map.getLayer('missions-gl-symbols')) map.addLayer({ id: 'missions-gl-symbols', type: 'circle', source: 'missions-gl', minzoom: 5, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 4, 9, 8], 'circle-color': ['match', ['get', 'priority'], 1, C.red, 2, C.amber, C.muted], 'circle-stroke-color': C.base, 'circle-stroke-width': 1.5 } });
-    if (!map.getLayer('missions-gl-labels')) map.addLayer({ id: 'missions-gl-labels', type: 'symbol', source: 'missions-gl', minzoom: 5, layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.3], 'text-allow-overlap': true }, paint: { 'text-color': C.amber, 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
+    if (!map.getLayer('missions-gl-labels')) map.addLayer({ id: 'missions-gl-labels', type: 'symbol', source: 'missions-gl', layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.3], 'text-allow-overlap': false }, paint: { 'text-color': C.amber, 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
     for (const [id, family, minzoom, color] of [['ground-assets-symbols', 'ground', 7, C.green], ['enemy-assets-symbols', 'enemy', 6, C.red]] as const) {
       if (!map.getLayer(id)) map.addLayer({ id, type: 'circle', source: 'assets-gl', minzoom, filter: ['==', ['get', 'family'], family], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], minzoom, 3, 9, 6], 'circle-color': color, 'circle-stroke-color': C.base, 'circle-stroke-width': 1, 'circle-opacity': ['get', 'opacity'] } });
       const labelsId = id.replace('symbols', 'labels');
-      if (!map.getLayer(labelsId)) map.addLayer({ id: labelsId, type: 'symbol', source: 'assets-gl', minzoom: family === 'ground' ? 8 : 8, filter: ['==', ['get', 'family'], family], layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 8, 'text-offset': [0, 1.2], 'text-allow-overlap': true }, paint: { 'text-color': color, 'text-halo-color': C.base, 'text-halo-width': 1.3 } });
+      if (!map.getLayer(labelsId)) map.addLayer({ id: labelsId, type: 'symbol', source: 'assets-gl', filter: ['==', ['get', 'family'], family], layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 8, 'text-offset': [0, 1.2], 'text-allow-overlap': false }, paint: { 'text-color': color, 'text-halo-color': C.base, 'text-halo-width': 1.3 } });
     }
     for (const layerId of ['bases-gl-symbols', 'missions-gl-symbols', 'ground-assets-symbols', 'enemy-assets-symbols']) {
       map.on('mouseenter', layerId, () => { if (map) map.getCanvas().style.cursor = 'pointer'; });
@@ -388,6 +428,7 @@
     set('bases-gl-labels', active ? byId([]) : null);
     set('missions-gl-symbols', active ? byId(targetIds) : null);
     set('missions-gl-labels', active ? byId(targetIds) : null);
+    set('threat-center-labels', active ? byId(threatIds) : null);
     set('ground-assets-symbols', active ? combine(['==', ['get', 'family'], 'ground'], byId(groundIds)) : ['==', ['get', 'family'], 'ground']);
     set('ground-assets-labels', active ? combine(['==', ['get', 'family'], 'ground'], byId(groundIds)) : ['==', ['get', 'family'], 'ground']);
     set('enemy-assets-symbols', active ? combine(['==', ['get', 'family'], 'enemy'], byId(enemyIds)) : ['==', ['get', 'family'], 'enemy']);
@@ -611,7 +652,7 @@
       m.addSource('aircraft-trails', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addSource('focus-aircraft', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'focus-aircraft-mark', type: 'circle', source: 'focus-aircraft', paint: { 'circle-radius': 8, 'circle-color': ['match', ['get', 'status'], 'FMC', C.green, 'PMC', C.amber, C.muted], 'circle-opacity': ['get', 'opacity'], 'circle-opacity-transition': { duration: 300 }, 'circle-stroke-color': C.text, 'circle-stroke-width': 1.5 } });
-      m.addLayer({ id: 'focus-aircraft-label', type: 'symbol', source: 'focus-aircraft', layout: { 'text-field': ['get', 'tailNumber'], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.5], 'text-allow-overlap': true }, paint: { 'text-color': C.cyan, 'text-opacity': ['get', 'opacity'], 'text-opacity-transition': { duration: 300 }, 'text-halo-color': C.base, 'text-halo-width': 2 } });
+      m.addLayer({ id: 'focus-aircraft-label', type: 'symbol', source: 'focus-aircraft', layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.5], 'text-allow-overlap': false }, paint: { 'text-color': C.cyan, 'text-opacity': ['get', 'opacity'], 'text-opacity-transition': { duration: 300 }, 'text-halo-color': C.base, 'text-halo-width': 2 } });
       m.addSource('focus-route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'focus-route-line', type: 'line', source: 'focus-route', paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-opacity': ['get', 'opacity'], 'line-opacity-transition': { duration: 300 }, 'line-dasharray': [1, 0] } });
       m.addLayer({ id: 'aircraft-trails-line', type: 'line', source: 'aircraft-trails', layout: { visibility: showTrails ? 'visible' : 'none' }, paint: { 'line-color': ['match', ['get', 'status'], 'FMC', C.green, 'PMC', C.amber, C.muted], 'line-width': 2, 'line-opacity': ['get', 'opacity'] } });
@@ -718,6 +759,7 @@
       'threat-outline-inner',
       'threat-spoofed-outline',
       'threat-spoofed-x',
+      'threat-center-labels',
     ];
     for (const lid of threatLayers) {
       if (map.getLayer(lid)) map.setLayoutProperty(lid, 'visibility', vis);
@@ -778,11 +820,11 @@
     ensureOperationalPointLayers();
     const aircraftSource = map.getSource('aircraft-gl') as maplibregl.GeoJSONSource | undefined;
     if (aircraftSource) {
-      aircraftSource.setData({ type: 'FeatureCollection', features: aircraft.map((ac) => ({ type: 'Feature', properties: { id: ac.id, tailNumber: ac.tailNumber, status: ac.status, type: ac.type, fuel: ac.fuel, base: ac.base.toUpperCase() }, geometry: { type: 'Point', coordinates: [ac.position.lng, ac.position.lat] } })) });
+      aircraftSource.setData({ type: 'FeatureCollection', features: aircraft.map((ac) => ({ type: 'Feature', properties: labelProperties('aircraft', { id: ac.id, label: ac.tailNumber, tailNumber: ac.tailNumber, status: ac.status, type: ac.type, fuel: ac.fuel, base: ac.base.toUpperCase() }), geometry: { type: 'Point', coordinates: [ac.position.lng, ac.position.lat] } })) });
       map.setLayoutProperty('aircraft-gl-symbols', 'visibility', 'visible');
     }
     const focusAircraftSource = map.getSource('focus-aircraft') as maplibregl.GeoJSONSource | undefined;
-    focusAircraftSource?.setData({ type: 'FeatureCollection', features: focus?.active ? system.aircraft.filter((item) => focus.assignedAircraftIds.includes(item.id)).map((item) => ({ type: 'Feature' as const, properties: { id: item.id, tailNumber: item.tailNumber, status: item.status, opacity: focus.visibleAircraftIds.includes(item.id) ? 1 : 0 }, geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : [] });
+    focusAircraftSource?.setData({ type: 'FeatureCollection', features: focus?.active ? system.aircraft.filter((item) => focus.assignedAircraftIds.includes(item.id)).map((item) => ({ type: 'Feature' as const, properties: labelProperties('aircraft', { id: item.id, label: item.tailNumber, tailNumber: item.tailNumber, status: item.status, opacity: focus.visibleAircraftIds.includes(item.id) ? 1 : 0 }), geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : [] });
     const focusRouteFeatures: GeoJSON.Feature[] = [];
     if (focus?.active && focus.missionId) {
       const routeMission = system.missions.find((item) => item.id === focus.missionId);
@@ -805,7 +847,7 @@
     }
     (map.getSource('focus-route') as maplibregl.GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: focusRouteFeatures });
     const baseSource = map.getSource('bases-gl') as maplibregl.GeoJSONSource;
-    baseSource.setData({ type: 'FeatureCollection', features: IAF_BASES.map((base) => ({ type: 'Feature', properties: { id: base.id, code: base.code, label: base.name, elevation: base.elevation, selected: base.id === selBase, opacity: 1 }, geometry: { type: 'Point', coordinates: [base.lng, base.lat] } })) });
+    baseSource.setData({ type: 'FeatureCollection', features: IAF_BASES.map((base) => ({ type: 'Feature', properties: labelProperties('base', { id: base.id, code: base.code, label: base.code, elevation: base.elevation, selected: base.id === selBase, opacity: 1 }), geometry: { type: 'Point', coordinates: [base.lng, base.lat] } })) });
 
     // Clean previous threat layers & source
     const threatLayers = [
@@ -864,7 +906,7 @@
       const isSpoofed = spoofedTrackId === t.id;
       threatCenterFeatures.push({
         type: 'Feature',
-        properties: { id: t.id, type: t.type, radius: t.radius, probability: t.probability, confidence: t.confidence, spoofed: isSpoofed },
+        properties: labelProperties('threat', { id: t.id, type: t.type, label: `${t.type.toUpperCase()} ${Math.round(t.probability * 100)}%`, radius: t.radius, probability: t.probability, confidence: t.confidence, spoofed: isSpoofed }),
         geometry: { type: 'Point', coordinates: [t.position.lng, t.position.lat] },
       });
 
@@ -901,6 +943,12 @@
 
     setGeoJSONSource('threat-zones', { type: 'FeatureCollection', features: threatFeatures });
     setGeoJSONSource('threat-centers', { type: 'FeatureCollection', features: threatCenterFeatures });
+
+    map.addLayer({
+      id: 'threat-center-labels', type: 'symbol', source: 'threat-centers',
+      layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.2], 'text-allow-overlap': false },
+      paint: { 'text-color': C.red, 'text-halo-color': C.base, 'text-halo-width': 1.5 },
+    });
 
     const threatVis = showThreats ? 'visible' : 'none';
 
@@ -978,13 +1026,14 @@
       id: 'threat-spoofed-x',
       type: 'symbol',
       source: 'threat-centers',
-      minzoom: 8,
       filter: ['==', ['get', 'spoofed'], true],
       layout: { 
         visibility: threatVis,
-        'text-field': '✕',
+        'text-field': tieredLabel('✕'),
+        'symbol-sort-key': ['coalesce', ['get', 'tier'], 100],
         'text-size': 14,
         'text-anchor': 'center',
+        'text-allow-overlap': false,
       },
       paint: {
         'text-color': C.red,
@@ -1051,10 +1100,10 @@
       }
     }
 
-    setGeoJSONSource('missions-gl', { type: 'FeatureCollection', features: missions.map((item) => ({ type: 'Feature', properties: { id: item.id, label: item.name, priority: item.priority, risk: item.riskLevel, color: item.priority === 1 ? C.red : item.priority === 2 ? C.amber : C.muted }, geometry: { type: 'Point', coordinates: [item.target.lng, item.target.lat] } })) });
+    setGeoJSONSource('missions-gl', { type: 'FeatureCollection', features: missions.map((item) => ({ type: 'Feature', properties: labelProperties('mission', { id: item.id, label: item.name, priority: item.priority, status: labelState.activeMissionIds.has(item.id) ? 'ACTIVE' : item.status, risk: item.riskLevel, color: item.priority === 1 ? C.red : item.priority === 2 ? C.amber : C.muted }), geometry: { type: 'Point', coordinates: [item.target.lng, item.target.lat] } })) });
     setGeoJSONSource('assets-gl', { type: 'FeatureCollection', features: [
-      ...(showGround ? GROUND_ASSETS.map((item) => ({ type: 'Feature' as const, properties: { id: item.id, family: 'ground', label: item.designation, type: item.type, status: item.status, color: C.green, opacity: !area || inArea([item.position]) ? 1 : .24, armament: item.armament, rangeKm: item.range_km }, geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : []),
-      ...(showEnemy ? ENEMY_ASSETS.map((item) => ({ type: 'Feature' as const, properties: { id: item.id, family: 'enemy', label: item.designation, type: item.type, behaviour: item.behaviour, color: C.red, opacity: !area || inArea([item.position]) ? 1 : .24, rangeKm: item.engagementRange_km, probabilityKill: item.probabilityKill }, geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : []),
+      ...(showGround ? GROUND_ASSETS.map((item) => ({ type: 'Feature' as const, properties: labelProperties('ground', { id: item.id, family: 'ground', label: item.designation, type: item.type, status: item.status, color: C.green, opacity: !area || inArea([item.position]) ? 1 : .24, armament: item.armament, rangeKm: item.range_km }), geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : []),
+      ...(showEnemy ? ENEMY_ASSETS.map((item) => ({ type: 'Feature' as const, properties: labelProperties('enemy', { id: item.id, family: 'enemy', label: item.designation, type: item.type, behaviour: item.behaviour, color: C.red, opacity: !area || inArea([item.position]) ? 1 : .24, rangeKm: item.engagementRange_km, probabilityKill: item.probabilityKill }), geometry: { type: 'Point' as const, coordinates: [item.position.lng, item.position.lat] as [number, number] } })) : []),
     ] });
     map.setLayoutProperty('ground-assets-symbols', 'visibility', 'visible');
     map.setLayoutProperty('enemy-assets-symbols', 'visibility', 'visible');
@@ -1089,8 +1138,8 @@
     impactSource?.setData({ type: 'FeatureCollection', features: visibleImpacts.map((impact) => ({ type: 'Feature' as const, properties: { progress: impact.progress }, geometry: { type: 'Polygon' as const, coordinates: [circlePolygon(impact.coordinates, Math.max(.05, impact.progress * 2))] } })) });
     const assetSource = map.getSource('assets-gl') as maplibregl.GeoJSONSource | undefined;
     if (assetSource && Object.keys(frame.assets).length) assetSource.setData({ type: 'FeatureCollection', features: [
-      ...(showGround ? GROUND_ASSETS.map((asset) => { const pos = frame.assets[asset.id] ?? asset.position; return { type: 'Feature' as const, properties: { id: asset.id, family: 'ground', label: asset.designation, type: asset.type, status: asset.status, color: C.green, opacity: 1, armament: asset.armament, rangeKm: asset.range_km }, geometry: { type: 'Point' as const, coordinates: [pos.lng, pos.lat] as [number, number] } }; }) : []),
-      ...(showEnemy ? ENEMY_ASSETS.map((asset) => ({ type: 'Feature' as const, properties: { id: asset.id, family: 'enemy', label: asset.designation, type: asset.type, behaviour: asset.behaviour, color: C.red, opacity: 1, rangeKm: asset.engagementRange_km, probabilityKill: asset.probabilityKill }, geometry: { type: 'Point' as const, coordinates: [asset.position.lng, asset.position.lat] as [number, number] } })) : []),
+      ...(showGround ? GROUND_ASSETS.map((asset) => { const pos = frame.assets[asset.id] ?? asset.position; return { type: 'Feature' as const, properties: labelProperties('ground', { id: asset.id, family: 'ground', label: asset.designation, type: asset.type, status: asset.status, color: C.green, opacity: 1, armament: asset.armament, rangeKm: asset.range_km }), geometry: { type: 'Point' as const, coordinates: [pos.lng, pos.lat] as [number, number] } }; }) : []),
+      ...(showEnemy ? ENEMY_ASSETS.map((asset) => ({ type: 'Feature' as const, properties: labelProperties('enemy', { id: asset.id, family: 'enemy', label: asset.designation, type: asset.type, behaviour: asset.behaviour, color: C.red, opacity: 1, rangeKm: asset.engagementRange_km, probabilityKill: asset.probabilityKill }), geometry: { type: 'Point' as const, coordinates: [asset.position.lng, asset.position.lat] as [number, number] } })) : []),
     ] });
     const flashSource = map.getSource('simulation-impact-flashes') as maplibregl.GeoJSONSource | undefined;
     flashSource?.setData({ type: 'FeatureCollection', features: visibleImpacts.filter((impact) => impact.flash).map((impact) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: impact.coordinates } })) });
