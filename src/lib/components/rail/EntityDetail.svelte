@@ -1,6 +1,7 @@
 <script lang="ts">
   import { system } from '../../stores/systemStore.svelte';
   import { IAF_BASES } from '../../data/bases';
+  import { GROUND_ASSETS } from '../../data/groundAssets';
   import { WEAPONS } from '../../data/weapons';
   import { MODEL_MAP } from '../../three/modelAssets';
   import ModelViewer3D from './ModelViewer3D.svelte';
@@ -21,7 +22,8 @@
     { label: 'KILL PROBABILITY', value: threat.probability, weight: threat.probability },
     { label: 'CONFIDENCE', value: threat.confidence, weight: threat.confidence },
   ].sort((a, b) => b.weight - a.weight) : []);
-  const groundModel = $derived(entityType === 'ground' || entityType === 'enemy' ? MODEL_MAP['T-90'] : null);
+  const groundAsset = $derived(GROUND_ASSETS.find((item) => item.id === entityId) ?? null);
+  const hasT90Model = $derived(groundAsset?.id.startsWith('t90-') ?? false);
   const coords = (position: { lat: number; lng: number }) => `${position.lat.toFixed(3)}°N · ${position.lng.toFixed(3)}°E`;
   const verbal = (value: number) => value >= 80 ? 'HIGH' : value >= 60 ? 'MEDIUM' : 'LOW';
 </script>
@@ -49,9 +51,9 @@
     <h2>{mission.name}</h2><span class="badge">P{mission.priority} · {mission.status}</span><h3>TARGET</h3><dl><div><dt>TYPE</dt><dd>{mission.targetType}</dd></div><div><dt>COORDINATES</dt><dd>{coords(mission.target)}</dd></div><div><dt>RISK</dt><dd>{mission.riskLevel}%</dd></div><div><dt>COLLATERAL</dt><dd>REFER TO BRIEFING</dd></div></dl>
     <h3>ASSIGNED AIRCRAFT · {assignedAircraft.length}</h3><ul>{#each assignedAircraft as item (item.id)}<li><button class="link" title="Open aircraft detail" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:entity-detail', { detail: { type: 'aircraft', id: item.id } }))}>{item.tailNumber}</button><span>{item.type}</span><em>{item.status}</em></li>{/each}</ul>
     {#if assignedAircraft[0]}<ArcViewer entityType="aircraft" entityId={assignedAircraft[0].tailNumber} missionId={mission.id} />{/if}
-  {:else if groundModel}
-    {#if !modelFailed}<ModelViewer3D modelPath={groundModel} designation="T-90 Bhishma" entityType="ground" trajectory={null} fuel="—" eta="—" onLoadError={() => modelFailed = true} />{:else}<div class="base-icon" aria-label="Ground asset model unavailable">◈</div>{/if}
-    <h2>{entityId}</h2><span class="badge">{entityType.toUpperCase()} ASSET</span><h3>PLATFORM SPECS</h3><dl><div><dt>WEIGHT</dt><dd>46.5 TONNES</dd></div><div><dt>ARMAMENT</dt><dd>125 MM MAIN GUN</dd></div><div><dt>RANGE</dt><dd>500 KM</dd></div></dl>
+  {:else if groundAsset}
+    {#if hasT90Model && !modelFailed}<ModelViewer3D modelPath={MODEL_MAP['T-90']} designation={groundAsset.designation} entityType="ground" trajectory={null} fuel="—" eta="—" onLoadError={() => modelFailed = true} />{:else if hasT90Model}<div class="base-icon" aria-label="Ground asset model unavailable">◈</div>{:else}<div class="base-icon" aria-label="No local 3D model for this asset">⌖</div>{/if}
+    <h2>{groundAsset.designation}</h2><span class="badge">{groundAsset.type.toUpperCase()} · {groundAsset.status}</span><h3>PLATFORM SPECS</h3><dl><div><dt>DETAILS</dt><dd>{groundAsset.specs}</dd></div><div><dt>ARMAMENT</dt><dd>{groundAsset.armament}</dd></div><div><dt>RANGE</dt><dd>{groundAsset.range_km} KM</dd></div><div><dt>POSITION</dt><dd>{groundAsset.base}</dd></div></dl>
   {:else}
     <h2>{entityId || entityType.toUpperCase()}</h2><span class="badge">{entityType.toUpperCase()}</span><p class="muted">Select a supported operational track for its detailed profile.</p>
   {/if}

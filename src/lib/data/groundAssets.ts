@@ -80,4 +80,15 @@ export const GROUND_ASSETS: GroundAsset[] = [
     armament: 'COMMAND GUIDED SAM',
     range_km: 45,
   },
+  {
+    id: 's400-exercise-01',
+    designation: 'S-400 TRIUMF · NOTIONAL',
+    type: 'sam',
+    position: { lat: 34.32, lng: 78.02 },
+    base: 'EXERCISE-NOTIONAL',
+    status: 'STANDBY',
+    specs: 'Long-range ground-based SAM · notional exercise position',
+    armament: 'S-400 SURFACE-TO-AIR MISSILES',
+    range_km: 400,
+  },
 ];
