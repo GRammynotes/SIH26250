@@ -2,7 +2,7 @@ export type VoiceTier = 'WARNING' | 'CAUTION' | 'ADVISORY';
 export type VoiceOwner = 'system' | 'demo' | 'training' | 'simulation' | 'mission';
 export type VoiceCharacter = 'commander' | 'agent';
 export type VoiceFocusTarget = { selector: string; duration: number };
-type QueuedLine = { text: string; caption: string; tier: VoiceTier; source: string; owner: VoiceOwner; focus?: VoiceFocusTarget; speaker?: VoiceCharacter };
+type QueuedLine = { text: string; caption: string; tier: VoiceTier; source: string; owner: VoiceOwner; focus?: VoiceFocusTarget; speaker?: VoiceCharacter; captionId?: number };
 
 let enabled = true;
 let narrationSpeed: 1 | 2 | 4 = 1;
@@ -25,13 +25,13 @@ function publishVoiceState(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('aircommand:voice-state', { detail: { enabled, owner: activeOwner, mutedTiers: [...mutedTiers] } }));
 }
 
-function cancelCurrent(requeue: boolean): void {
+function cancelCurrent(): void {
   const interrupted = speakingLine;
   generation += 1;
   speaking = false;
   speakingLine = null;
   if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
-  if (requeue && interrupted?.owner === activeOwner && !mutedTiers.has(interrupted.tier) && enabled) insertByPriority(interrupted);
+  if (interrupted?.captionId !== undefined && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('aircommand:caption-end', { detail: interrupted.captionId }));
 }
 
 export function setVoiceOwner(owner: VoiceOwner): void {
@@ -39,7 +39,7 @@ export function setVoiceOwner(owner: VoiceOwner): void {
   const previous = activeOwner;
   activeOwner = owner;
   queue = [];
-  cancelCurrent(false);
+  cancelCurrent();
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('aircommand:caption-clear'));
     window.dispatchEvent(new CustomEvent('aircommand:voice-owner', { detail: { previous, owner } }));
@@ -49,13 +49,13 @@ export function setVoiceOwner(owner: VoiceOwner): void {
 
 export function stopVoice(): void {
   queue = [];
-  cancelCurrent(false);
+  cancelCurrent();
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('aircommand:caption-clear'));
 }
 
 export function stopVoiceForOwner(owner: string): void {
   queue = queue.filter((line) => line.owner !== owner);
-  if (speakingLine?.owner === owner) cancelCurrent(false);
+  if (speakingLine?.owner === owner) cancelCurrent();
   void drain();
 }
 
@@ -63,7 +63,7 @@ export function setVoiceEnabled(value: boolean): void {
   enabled = value;
   if (!enabled) {
     queue = [];
-    cancelCurrent(false);
+    cancelCurrent();
   } else {
     void drain();
   }
@@ -74,7 +74,7 @@ export function setVoiceTierMuted(tier: VoiceTier, muted: boolean): void {
   if (muted) mutedTiers.add(tier); else mutedTiers.delete(tier);
   if (muted) {
     queue = queue.filter((line) => line.tier !== tier);
-    if (speakingLine?.tier === tier) cancelCurrent(false);
+    if (speakingLine?.tier === tier) cancelCurrent();
   }
   publishVoiceState();
   void drain();
@@ -142,15 +142,19 @@ function accept(line: QueuedLine): void {
   if (line.owner !== activeOwner) return;
   const now = Date.now();
   for (const [key, timestamp] of lastAccepted) if (now - timestamp > 2000) lastAccepted.delete(key);
-  const dedupeKey = `${line.owner}:${line.tier}:${line.text}`;
+  const dedupeKey = `${line.owner}:${line.source}:${line.tier}:${line.text}`;
   const previous = lastAccepted.get(dedupeKey);
-  if (previous !== undefined && now - previous < 1500) return;
+  if (previous !== undefined && now - previous < 4000) return;
+  if (speakingLine?.owner === line.owner && speakingLine.text === line.text) return;
+  if (queue.some((queued) => queued.owner === line.owner && queued.text === line.text)) return;
   lastAccepted.set(dedupeKey, now);
   if (lastAccepted.size > MAX_DEDUPE_ENTRIES) lastAccepted.delete(lastAccepted.keys().next().value!);
-  window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { id: ++nextCaptionId, source: line.source, text: line.caption, owner: line.owner } }));
-  if (!enabled || mutedTiers.has(line.tier)) return;
+  if (!enabled || mutedTiers.has(line.tier)) {
+    window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { id: ++nextCaptionId, source: line.source, text: line.caption, owner: line.owner } }));
+    return;
+  }
 
-  if ((line.tier === 'WARNING' && speaking) || (line.tier === 'CAUTION' && speakingLine?.tier === 'ADVISORY')) cancelCurrent(true);
+  if ((line.tier === 'WARNING' && speaking) || (line.tier === 'CAUTION' && speakingLine?.tier === 'ADVISORY')) cancelCurrent();
   if (line.tier === 'ADVISORY' && queue.filter((item) => item.tier === 'ADVISORY').length >= 5) {
     const oldest = queue.findIndex((item) => item.tier === 'ADVISORY');
     if (oldest >= 0) queue.splice(oldest, 1);
@@ -170,6 +174,9 @@ async function drain(): Promise<void> {
     speakingLine = item;
     await playTone(item.speaker);
     if (token !== generation || !enabled || item.owner !== activeOwner) return;
+    const captionId = ++nextCaptionId;
+    speakingLine = { ...item, captionId };
+    window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { id: captionId, source: item.source, text: item.caption, owner: item.owner, duration: 0 } }));
     if (!('speechSynthesis' in window)) { finishLine(token); return; }
     const utterance = new SpeechSynthesisUtterance(item.text);
     if (item.focus) window.dispatchEvent(new CustomEvent('aircommand:focus', { detail: { ...item.focus, text: item.text } }));
@@ -195,6 +202,7 @@ async function drain(): Promise<void> {
 
 function finishLine(token: number): void {
   if (token !== generation) return;
+  if (speakingLine?.captionId !== undefined) window.dispatchEvent(new CustomEvent('aircommand:caption-end', { detail: speakingLine.captionId }));
   speaking = false;
   speakingLine = null;
   void drain();

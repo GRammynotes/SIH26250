@@ -81,7 +81,8 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
 
   async function sequenceStepFocus(step: NonNullable<typeof currentStep>, markers: NarrativeMarker[]) {
     const token = ++revealSequenceToken;
-    const startedAt = performance.now();
+    let playedMs = 0;
+    let lastTick = performance.now();
     const focus = step.focusIds;
     if (!focus && !markers.length) return;
     const missionId = system.focusMode?.missionId ?? system.scenarioMissions[0]?.id ?? '';
@@ -90,10 +91,17 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
     const targetId = focus?.target ? missionId : markers.find((marker) => marker.kind === 'target')?.id ?? '';
     const aircraftIds = [...(focus?.aircraft ?? []).map((id) => id === '$assigned' ? assigned?.tailNumber ?? '' : id), ...markers.filter((marker) => marker.kind === 'aircraft').map((marker) => marker.id)].filter(Boolean);
     const threatIds = [...(focus?.threats ?? []).flatMap((id) => id === '$route' ? system.focusMode?.routeThreatIds ?? [] : [id]), ...markers.filter((marker) => marker.kind === 'threat').map((marker) => marker.id)];
-    const stillCurrent = () => token === revealSequenceToken && isPlaying && !isPaused && sessionIsCurrent();
+    const stillCurrent = () => token === revealSequenceToken && isPlaying && sessionIsCurrent();
     const waitUntil = async (offset: number) => {
-      const remaining = startedAt + offset - performance.now();
-      if (remaining > 0) await system.waitForExperience(sessionToken, remaining);
+      while (playedMs < offset && stillCurrent()) {
+        const now = performance.now();
+        if (!isPaused && simSpeed > 0) playedMs += (now - lastTick) * simSpeed;
+        lastTick = now;
+        const remaining = offset - playedMs;
+        const delay = isPaused || simSpeed === 0 ? 100 : Math.max(16, Math.min(100, remaining / simSpeed));
+        if (!await system.waitForExperience(sessionToken, delay)) return false;
+      }
+      return playedMs >= offset;
     };
     if (!stillCurrent()) return;
     if (targetId) system.revealElement('target', targetId);
@@ -102,7 +110,7 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
       await waitUntil(2000);
       if (!stillCurrent()) return;
       system.revealElement('aircraft', aircraftIds[0]);
-      for (const id of aircraftIds.slice(1)) { if (!await system.waitForExperience(sessionToken, 1500) || !stillCurrent()) return; system.revealElement('aircraft', id); }
+      for (const id of aircraftIds.slice(1)) { if (!stillCurrent()) return; system.revealElement('aircraft', id); }
     }
     if ((focus?.layers ?? []).includes('route')) {
       await waitUntil(4000);
@@ -113,7 +121,7 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
     if ((focus?.layers ?? []).includes('egress')) system.revealElement('egress');
     if (threatIds.length) {
       await waitUntil(6000);
-      for (const id of threatIds) { if (!stillCurrent()) return; system.revealElement('threat', id); if (!await system.waitForExperience(sessionToken, 200)) return; }
+      for (const id of threatIds) { if (!stillCurrent()) return; system.revealElement('threat', id); }
     }
     if (assigned && (aircraftIds.length || (focus?.layers ?? []).includes('route'))) {
       await waitUntil(8000);
@@ -169,9 +177,7 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
       clearTimeout(stepTimer);
       clearTimeout(actionTimer);
       narrateUtterance('DEMO PAUSED', { source: 'DEMO', owner: 'demo', tier: 'ADVISORY' });
-    } else {
-      executeStep();
-    }
+    } else scheduleNextStep();
   }
 
   // Stop demo

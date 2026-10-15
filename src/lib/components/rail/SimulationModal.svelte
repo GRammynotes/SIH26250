@@ -28,36 +28,44 @@
     if (!sessionIsCurrent()) return;
     window.dispatchEvent(new CustomEvent('aircommand:arc-viewer-clear'));
     const narrative = parseMapNarrative(text);
-    turns = [...turns, { speaker, text: narrative.text }].slice(-30);
+    turns = [...turns, { speaker, text: narrative.text }].slice(-6);
     const tier = /threat alert|spoofed track|sam lock|mission abort/i.test(narrative.text) ? 'WARNING' : /decision required|weapon release|mission launched|battle damage assessment|bda complete/i.test(narrative.text) ? 'CAUTION' : 'ADVISORY';
     narrateUtterance(narrative.text, { source: speaker, owner: 'training', speaker: speaker === 'COMMANDER' ? 'commander' : 'agent', tier });
   }
   const wait = (ms: number) => system.waitForExperience(sessionToken, ms);
   async function sequencedReveal(missionId: string, missionName: string, aircraft: typeof system.scenarioAircraft, threatIds: string[], startAt: number) {
     const current = () => sessionIsCurrent() && system.focusMode?.active && system.focusMode.missionId === missionId;
-    const waitFor = async (offset: number) => { const remaining = startAt + offset - performance.now(); return remaining <= 0 || await wait(remaining); };
-    await waitFor(2000);
+    let playedMs = 0;
+    let lastTick = startAt;
+    const waitFor = async (offset: number) => {
+      while (playedMs < offset && sessionIsCurrent()) {
+        const now = performance.now();
+        if (!paused && simSpeed > 0) playedMs += (now - lastTick) * simSpeed;
+        lastTick = now;
+        const remaining = offset - playedMs;
+        const delay = paused || simSpeed === 0 ? 100 : Math.max(16, Math.min(100, remaining / simSpeed));
+        if (!await wait(delay)) return false;
+      }
+      return playedMs >= offset;
+    };
+    await waitFor(900);
     if (!current()) return;
     const firstAircraft = aircraft[0];
     system.revealElement('aircraft', firstAircraft.tailNumber);
     say('OPS AGENT', `Aircraft ${firstAircraft.tailNumber} is assigned to ${missionName}.`);
-    if (!await waitFor(4000)) return;
+    if (!await waitFor(1900)) return;
     if (!current()) return;
     system.revealElement('route');
-    say('OPS AGENT', `The trajectory to ${missionName} is now shown. Route risk is assessed against the current threat picture.`);
-    if (!await waitFor(6000)) return;
+    say('OPS AGENT', `Route to ${missionName} shown.`);
+    if (!await waitFor(3000)) return;
     for (const id of threatIds) {
       if (!current()) return;
       system.revealElement('threat', id);
-      if (!await wait(200)) return;
+      if (!await wait(100)) return;
     }
-    if (!await waitFor(8000)) return;
+    if (!await waitFor(3900)) return;
     if (!current()) return;
-    say('OPS AGENT', `Review the aircraft trajectory for ${firstAircraft.tailNumber}.`);
-    window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: 'aircraft', entityId: firstAircraft.tailNumber, missionId } }));
-    if (!await waitFor(Math.max(10000, 8000 + threatIds.length * 200 + 800))) return;
-    if (!current()) return;
-    say('OPS AGENT', `Course of action generated. ${aircraft.length} available aircraft are assigned for this training run. AUTO is ${autoDecision ? 'on' : 'off'}; decision points pause for your review when AUTO is off.`);
+    say('OPS AGENT', `${threatIds.length} route threats shown. Commander, review the options and choose a course of action.`);
     busy = false;
     advanceToDecision();
   }
@@ -84,16 +92,14 @@
     const sequenceStart = performance.now();
     system.enterFocusMode(mission.id);
     system.revealElement('target', mission.id);
-    say('SYSTEM', 'TRAINING MODE. This runs a historical IAF mission with scripted decision points. You act as commander. Pick branches. See how choices change the outcome. Purpose: practice decision-making under operational pressure.');
-    say('SYSTEM', `HISTORICAL TRAINING CASE · ${history.reference} · ${history.date}. Simulation values are illustrative.`);
-    say('OPS AGENT', history.narrative);
+    say('SYSTEM', `Commander, guide this historical ${history.reference} case. Follow the aircraft, route and threats, then choose a branch to shape the outcome.`);
     void sequencedReveal(mission.id, mission.name, aircraft, system.focusMode?.routeThreatIds ?? [], sequenceStart);
   }
   function advanceToDecision() {
     if (!sessionIsCurrent() || paused || !active || active.phase === 'COMPLETE' || active.phase === 'ABORTED') return;
     if (runner) clearTimeout(runner);
     busy = true;
-    say('OPS AGENT', `${active.phase}: advancing the exercise timeline and monitoring fuel, threat geometry, and mission status.`);
+    say('OPS AGENT', `${active.phase}: checking fuel, weapons and route threats.`);
     runner = setTimeout(() => {
       if (!system.isExperienceSession(sessionToken)) return;
       system.advanceSimulationClock(0.5);
@@ -107,7 +113,7 @@
         if (exitTimer) clearTimeout(exitTimer);
         exitTimer = setTimeout(() => { if (sessionIsCurrent()) onClose?.(); }, 5000);
       }
-    }, scaledDelay(6000));
+    }, scaledDelay(2600));
   }
   function weightedBranch(branches: DecisionBranch[]) {
     return branches.find((branch) => /recommended|optimal/i.test(branch.tag)) ?? branches.find((branch) => branch.outcome === 'success') ?? branches[0];
@@ -146,7 +152,7 @@
         if (!sessionIsCurrent()) return;
         const latest = system.activeMissions.find((mission) => mission.missionId === simMissionId);
         if (latest?.pendingDecision) choose(weightedBranch(latest.pendingDecision.branches).id);
-      }, scaledDelay(6000));
+      }, scaledDelay(4000));
     }
     return () => { if (decisionTimer) clearTimeout(decisionTimer); };
   });
@@ -177,7 +183,7 @@
         </section>
         <aside class="state" role="group" aria-label="Live exercise state"><span>LIVE EXERCISE STATE</span><b>{active?.phase ?? 'BRIEFING'}</b><div class="state-row">SCENARIO <strong>{system.activeScenarioFilter?.replaceAll('_', ' ').toUpperCase() ?? 'GLOBAL'}</strong></div><div class="state-row">AIRCRAFT <strong>{active?.aircraftIds.length ?? '—'}</strong></div><div class="state-row">THREATS <strong>{system.scenarioThreats.length}</strong></div><button onclick={togglePause}>{paused ? '▶ RESUME' : 'Ⅱ PAUSE'}</button><button onclick={advanceToDecision} disabled={!active || !!pending}>ADVANCE EXERCISE</button></aside>
       </div>
-      <footer><span>◈ SYSTEM-GUIDED · DECISIONS ARE REVERSIBLE WITHIN THIS TRAINING SESSION</span><button onclick={togglePause}>{paused ? '▶ RESUME' : 'Ⅱ PAUSE'}</button><button onclick={() => onClose?.()}>CLOSE EXERCISE</button></footer>
+      <footer><span>◈ SYSTEM-GUIDED · DECISIONS ARE REVERSIBLE WITHIN THIS TRAINING SESSION</span></footer>
   </section>
 {/if}
 
