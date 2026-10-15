@@ -2,9 +2,16 @@
   import { system } from '../../stores/systemStore.svelte';
   import { SCENARIO_LABELS, SCENARIO_AREAS } from '../../engine/scenario';
 
-  const assets = $derived(system.scenarioAircraft);
-  const missions = $derived(system.scenarioMissions.slice(0, 4));
-  const threats = $derived(system.scenarioThreats);
+  const selectedCoa = $derived(system.coas.find((coa) => coa.id === system.selectedCoaId) ?? null);
+  const contextMissionIds = $derived(selectedCoa ? Object.keys(selectedCoa.assignments) : system.scenarioMissions.map((mission) => mission.id));
+  const missions = $derived(contextMissionIds.map((id) => system.scenarioMissions.find((mission) => mission.id === id) ?? system.missions.find((mission) => mission.id === id)).filter((mission) => mission !== undefined).slice(0, 4));
+  const assignedIds = $derived(selectedCoa ? [...new Set(Object.values(selectedCoa.assignments).flat())] : []);
+  const assets = $derived(selectedCoa ? system.aircraft.filter((aircraft) => assignedIds.includes(aircraft.id)) : system.scenarioAircraft);
+  const threats = $derived.by(() => {
+    if (!selectedCoa && !system.activeScenarioFilter) return system.scenarioThreats;
+    const operationThreats = system.scenarioThreats.filter((threat) => missions.some((mission) => Math.hypot((threat.position.lat - mission.target.lat) * 111, (threat.position.lng - mission.target.lng) * 91) <= threat.radius + 60));
+    return operationThreats.slice(0, 4);
+  });
   const airspaceCount = $derived(system.activeScenarioFilter
     ? system.airspaceZones.filter((zone) => zone.polygon.some((p) => areaContains(p.lng, p.lat))).length
     : system.airspaceZones.length);
@@ -19,7 +26,9 @@
     radar: threats.filter((t) => t.type === 'RADAR' || t.type === 'SAM').length,
   });
   const area = $derived(system.activeScenarioFilter ? SCENARIO_AREAS[system.activeScenarioFilter] : null);
-  const title = $derived(system.activeScenarioFilter ? SCENARIO_LABELS[system.activeScenarioFilter] : 'GLOBAL AIR PICTURE');
+  const title = $derived(selectedCoa ? 'COA ANALYSIS PICTURE' : system.activeScenarioFilter ? `${SCENARIO_LABELS[system.activeScenarioFilter]} PICTURE` : 'GLOBAL AIR PICTURE');
+  const riskLabel = (score: number) => score >= 70 ? 'ELEVATED' : score >= 40 ? 'MODERATE' : 'LOW';
+  const coaCoverage = $derived(selectedCoa ? Object.keys(selectedCoa.assignments).length : 0);
 
   function areaContains(lng: number, lat: number): boolean {
     if (!area) return true;
@@ -39,16 +48,19 @@
     <div class="sector">{#if area}AO GRID {area[0][1].toFixed(2)}N/{area[0][0].toFixed(2)}E — {area[1][1].toFixed(2)}N/{area[1][0].toFixed(2)}E{:else}THEATER GRID 78 · SECTOR NORTH{/if}</div>
   </header>
 
+  {#if selectedCoa}<div class="coa-summary"><span>SUCCESS</span><b>{Math.round(selectedCoa.successProbability)}%</b><span>RISK POSTURE</span><b class:risk-high={selectedCoa.riskScore >= 70} class:risk-low={selectedCoa.riskScore < 40}>{riskLabel(selectedCoa.riskScore)}</b><span>MISSION COVERAGE</span><b>{coaCoverage} / {system.scenarioMissions.length}</b><span>ASSIGNED AIRCRAFT</span><b>{assets.length}</b></div>{/if}
+
   <div class="force-line" aria-label="Aircraft available {counts.fmc} FMC, {counts.pmc} PMC, {counts.nmc} NMC">
-    <span class="section-label">BLUE FORCE</span><span class="force-total">{assets.length} AC</span>
+    <span class="section-label">FORCE DISPOSITION</span><span class="force-total">{assets.length} AC</span>
     <div class="readiness"><span class="fmc" style="width:{assets.length ? counts.fmc / assets.length * 100 : 0}%"></span><span class="pmc" style="width:{assets.length ? counts.pmc / assets.length * 100 : 0}%"></span><span class="nmc" style="width:{assets.length ? counts.nmc / assets.length * 100 : 0}%"></span></div>
     <div class="force-counts"><span>FMC {counts.fmc}</span><span>PMC {counts.pmc}</span><span>NMC {counts.nmc}</span></div>
   </div>
 
-  <div class="threat-line"><span class="section-label">RED PICTURE</span><span class="red-count">{threats.length} TRACKS</span><span class="red-types">AIR {counts.air} · SAM / RADAR {counts.radar}</span></div>
+  <div class="threat-line"><span class="section-label">{selectedCoa || system.activeScenarioFilter ? 'ROUTE THREATS' : 'RED PICTURE'}</span><span class="red-count">{threats.length} TRACKS</span><span class="red-types">AIR {counts.air} · SAM / RADAR {counts.radar}</span></div>
+  {#if (selectedCoa || system.activeScenarioFilter) && threats.length}<div class="threat-list">{#each threats.slice(0, 2) as threat (threat.id)}<div><span>⚠ {threat.type}</span><b>{Math.round(threat.radius)} KM</b><small>{threat.probability > .65 ? 'ELEVATED' : threat.probability > .35 ? 'MODERATE' : 'LOW'}</small></div>{/each}</div>{/if}
 
   <div class="targets">
-    <div class="section-head"><span class="section-label">TASKED TARGETS</span><span>{missions.length.toString().padStart(2, '0')} / {system.scenarioMissions.length.toString().padStart(2, '0')}</span></div>
+    <div class="section-head"><span class="section-label">{selectedCoa ? 'COA ASSIGNMENTS' : 'MISSION TARGETS'}</span><span>{missions.length.toString().padStart(2, '0')} / {contextMissionIds.length.toString().padStart(2, '0')}</span></div>
     {#each missions as mission (mission.id)}
       <div class="target-row">
         <span class="priority">P{mission.priority}</span>
@@ -83,6 +95,8 @@
   .target-meta { min-width:0; }.target-meta button,.target-meta span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.target-meta button { padding:0; border:0; background:transparent; color:var(--text-secondary); font:8px var(--font-mono); letter-spacing:.04em; cursor:pointer; text-align:left; }.target-meta button:hover { text-decoration:underline; }.target-meta span { margin-top:3px; color:var(--text-muted); font-size:6px; }
   .range { color:var(--accent-cyan); font-size:9px; text-align:right; }.range small { display:block; color:var(--text-muted); font-size:6px; }
   .empty { padding:10px; color:var(--text-muted); font-size:8px; }
+  .coa-summary{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:8px 11px;border-bottom:1px solid var(--border-subtle);font-size:7px;color:var(--text-muted)}.coa-summary b{color:var(--accent-cyan);text-align:right}.coa-summary .risk-high{color:var(--accent-red)}.coa-summary .risk-low{color:var(--accent-green)}
+  .threat-list{padding:4px 10px 7px;border-bottom:1px solid var(--border-subtle)}.threat-list>div{display:grid;grid-template-columns:1fr auto;gap:3px;padding:4px 0;color:var(--accent-red);font-size:7px}.threat-list small{grid-column:1/-1;color:var(--text-muted);font-size:6px}.threat-list b{color:var(--text-secondary);font-weight:400}
   footer { padding:6px 10px; border-top:1px solid var(--border-subtle); color:var(--text-muted); font-size:6px; letter-spacing:.07em; }.sync { color:var(--accent-green); }
   @keyframes blink { 50% { opacity:.45; } }
   @media (max-width:1100px) { .readout { width:min(190px,calc(100% - 24px)); left:8px; top:38px; } }
