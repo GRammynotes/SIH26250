@@ -1,6 +1,7 @@
 import { system } from '../stores/systemStore.svelte';
-import { phaseDuration, progressFraction, interpolatePosition } from './missionExecutor';
+import { phaseDuration, progressFraction } from './missionExecutor';
 import { GROUND_ASSETS } from '../data/groundAssets';
+import { greatCircleCoordinates, pointAlongPath } from './trajectory';
 
 export interface AnimatedTrack { lat: number; lng: number; heading: number; scale: number; trail: [number, number][] }
 export interface SimulationFrame {
@@ -16,7 +17,8 @@ export function getSimulationFrame(): SimulationFrame { return simulationFrame; 
 const missionOrigins = new Map<string, Record<string, { lat: number; lng: number }>>();
 const missionReleaseStart = new Map<string, number>();
 const recentImpacts = new Map<string, { at: number; lat: number; lng: number }>();
-const trails = new Map<string, [number, number][]>();
+const trails = new Map<string, Array<{ coordinates: [number, number]; at: number }>>();
+const missionPaths = new Map<string, [number, number][]>();
 let raf = 0;
 let lastUpdate = 0;
 
@@ -28,13 +30,13 @@ function bearing(from: [number, number], to: [number, number]): number {
 
 function update(now: number) {
   if (!system.activeScenarioFilter && !system.activeMissions.some((mission) => mission.phase !== 'COMPLETE' && mission.phase !== 'ABORTED')) {
-    trails.clear(); missionOrigins.clear(); missionReleaseStart.clear(); recentImpacts.clear();
+    trails.clear(); missionOrigins.clear(); missionPaths.clear(); missionReleaseStart.clear(); recentImpacts.clear();
     if (Object.keys(simulationFrame.aircraft).length || simulationFrame.missiles.length || simulationFrame.impacts.length) simulationFrame = { aircraft: {}, assets: {}, missiles: [], impacts: [], threats: {} };
     raf = 0;
     return;
   }
   raf = requestAnimationFrame(update);
-  if (now - lastUpdate < 80) return;
+  if (now - lastUpdate < 1000 / 30) return;
   lastUpdate = now;
   const wallNow = Date.now();
   const aircraft: SimulationFrame['aircraft'] = {};
@@ -52,14 +54,20 @@ function update(now: number) {
     for (const id of mission.aircraftIds) {
       const origin = origins[id];
       if (!origin) continue;
-      const pos = interpolatePosition(origin, mission.target, fraction);
+      const pathKey = `${mission.id}:${id}`;
+      const path = missionPaths.get(pathKey) ?? greatCircleCoordinates(origin, mission.target, 96);
+      if (!missionPaths.has(pathKey)) missionPaths.set(pathKey, path);
+      const [lng, lat] = pointAlongPath(path, fraction);
+      const pos = { lng, lat };
       const prior = trails.get(id) ?? [];
       const coords: [number, number] = [pos.lng, pos.lat];
-      if (!prior.length || Math.hypot(prior[prior.length - 1][0] - coords[0], prior[prior.length - 1][1] - coords[1]) > 0.0002) prior.push(coords);
-      trails.set(id, prior.slice(-8));
+      const last = prior[prior.length - 1]?.coordinates;
+      if (!last || Math.hypot(last[0] - coords[0], last[1] - coords[1]) > 0.00002) prior.push({ coordinates: coords, at: wallNow });
+      const recentTrail = prior.filter((point) => wallNow - point.at <= 3000);
+      trails.set(id, recentTrail);
       const reverse = mission.phase === 'EGRESS' || mission.phase === 'RTB';
-      const next = interpolatePosition(origin, mission.target, Math.max(0, Math.min(1, fraction + (reverse ? -0.001 : 0.001))));
-      aircraft[id] = { lat: pos.lat, lng: pos.lng, heading: bearing(coords, [next.lng, next.lat]), scale: mission.phase === 'RELEASE' ? 1.3 : 1, trail: trails.get(id)! };
+      const next = pointAlongPath(path, Math.max(0, Math.min(1, fraction + (reverse ? -0.001 : 0.001))));
+      aircraft[id] = { lat: pos.lat, lng: pos.lng, heading: bearing(coords, next), scale: mission.phase === 'RELEASE' ? 1.3 : 1, trail: recentTrail.map((point) => point.coordinates) };
     }
     if (mission.phase === 'RELEASE') {
       const began = missionReleaseStart.get(mission.id) ?? wallNow;
@@ -67,9 +75,10 @@ function update(now: number) {
       const progress = Math.min(1, (wallNow - began) / 2000);
       for (const id of mission.aircraftIds) {
         const origin = origins[id]; if (!origin) continue;
-        const start = interpolatePosition(origin, mission.target, 0.95);
-        const point = interpolatePosition(start, mission.target, progress);
-        if (progress < 1) missiles.push({ id: `missile-${mission.id}-${id}`, coordinates: [point.lng, point.lat], trail: [[start.lng, start.lat], [point.lng, point.lat]] });
+        const path = missionPaths.get(`${mission.id}:${id}`) ?? greatCircleCoordinates(origin, mission.target, 96);
+        const start = pointAlongPath(path, .95);
+        const point = pointAlongPath(path.slice(Math.floor(path.length * .95)), progress);
+        if (progress < 1) missiles.push({ id: `missile-${mission.id}-${id}`, coordinates: point, trail: [start, point] });
       }
       if (progress >= 1 && !recentImpacts.has(mission.id)) recentImpacts.set(mission.id, { at: wallNow, lat: mission.target.lat, lng: mission.target.lng });
     } else missionReleaseStart.delete(mission.id);

@@ -70,6 +70,7 @@
   let showAirspace = $state(true);
   let showWeather = $state(true);
   let showEnemy = $state(true);
+  let showRadarOverlay = $state(false);
   let overviewAircraft = $derived(system.activeScenarioFilter ? system.scenarioAircraft : system.aircraft);
   let overviewFmcCount = $derived(overviewAircraft.filter((item) => item.status === 'FMC').length);
 
@@ -92,6 +93,9 @@
   let lastAircraftPositionKey = '';
   let lastTrailFeatureSignature = '';
   let lastSimulationTrailFeatureSignature = '';
+  let radarOverlayTimer: ReturnType<typeof setInterval> | undefined;
+  const velocityLeaderStarted = new Map<string, number>();
+  const velocityLeaderPositions = new Map<string, [number, number]>();
   const deriveTrailPaths = createTrailPathDeriver();
 
   const labelState = $derived.by(() => {
@@ -394,6 +398,37 @@
     return coords;
   }
 
+  function updateRadarInstrument() {
+    if (!map || !map.isStyleLoaded()) return;
+    const instrument = map.getSource('radar-instrument') as maplibregl.GeoJSONSource | undefined;
+    const sweep = map.getSource('radar-instrument-sweep') as maplibregl.GeoJSONSource | undefined;
+    if (!instrument || !sweep) return;
+    if (!showRadarOverlay) {
+      instrument.setData({ type: 'FeatureCollection', features: [] });
+      sweep.setData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+    const center = map.getCenter();
+    const spanKm = 200;
+    const centerPoint: [number, number] = [center.lng, center.lat];
+    const features: GeoJSON.Feature[] = [
+      ...[50, 100, 150, 200].map((range) => ({ type: 'Feature' as const, properties: { kind: 'ring', range }, geometry: { type: 'LineString' as const, coordinates: circlePolygon(centerPoint, range) } })),
+      ...Array.from({ length: 12 }, (_, index) => {
+        const bearing = index * 30;
+        const radians = bearing * Math.PI / 180;
+        const lat = center.lat + Math.cos(radians) * spanKm / 110.574;
+        const lng = center.lng + Math.sin(radians) * spanKm / (111.32 * Math.max(.1, Math.cos(center.lat * Math.PI / 180)));
+        return { type: 'Feature' as const, properties: { kind: 'bearing', bearing }, geometry: { type: 'LineString' as const, coordinates: [centerPoint, [lng, lat]] } };
+      }),
+    ];
+    const angle = (Date.now() % 4000) / 4000 * 2 * Math.PI;
+    const end: [number, number] = [center.lng + Math.sin(angle) * spanKm / (111.32 * Math.max(.1, Math.cos(center.lat * Math.PI / 180))), center.lat + Math.cos(angle) * spanKm / 110.574];
+    instrument.setData({ type: 'FeatureCollection', features });
+    sweep.setData({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [centerPoint, end] } }] });
+  }
+
+  function toggleRadarOverlay() { showRadarOverlay = !showRadarOverlay; updateRadarInstrument(); }
+
   function threatPolygons(threat: import('../../types').Threat) {
     const { lat, lng } = threat.position;
     const key = `${threat.id}-${threat.radius}-${lat}-${lng}`;
@@ -443,6 +478,7 @@
     set('aircraft-gl-labels', active ? combine(notCluster, byId(aircraftIds)) : notCluster);
     set('aircraft-trails-line', active ? byId(aircraftIds) : null);
     set('simulation-trails-line', active ? byId(aircraftIds) : null);
+    set('simulation-velocity-leaders', active ? byId(aircraftIds) : null);
     set('bases-gl-symbols', active ? byId([]) : null);
     set('bases-gl-labels', active ? byId([]) : null);
     set('missions-gl-symbols', active ? byId(targetIds) : null);
@@ -618,6 +654,7 @@
         const center = map.getCenter();
         mapCenterLabel = `${Math.abs(center.lat).toFixed(1)}°${center.lat >= 0 ? 'N' : 'S'} / ${Math.abs(center.lng).toFixed(1)}°${center.lng >= 0 ? 'E' : 'W'}`;
       }
+      if (showRadarOverlay) updateRadarInstrument();
       if (map && map.isStyleLoaded() && terrain3dEnabled) {
         map.setTerrain(null); terrainPaused = true;
         if (terrainResumeTimer) clearTimeout(terrainResumeTimer);
@@ -637,6 +674,7 @@
       const hillshadeVisibility = showTerrain && zoom >= 8 && (!system.focusMode?.active || system.focusMode.revealedLayers.includes('terrain')) ? 'visible' : 'none';
       if (map.getLayer('hillshade-base')) map.setLayoutProperty('hillshade-base', 'visibility', hillshadeVisibility);
       if (map.getLayer('hillshade-detail')) map.setLayoutProperty('hillshade-detail', 'visibility', hillshadeVisibility);
+      if (showRadarOverlay) updateRadarInstrument();
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
@@ -684,6 +722,8 @@
       m.addSource('matrix-highlight', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addSource('simulation-trails', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'simulation-trails-line', type: 'line', source: 'simulation-trails', paint: { 'line-color': C.cyan, 'line-width': 2, 'line-opacity': ['get', 'opacity'], 'line-dasharray': [2, 1] } });
+      m.addSource('simulation-velocity-leaders', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'simulation-velocity-leaders', type: 'line', source: 'simulation-velocity-leaders', paint: { 'line-color': ['match', ['get', 'status'], 'FMC', C.green, 'PMC', C.amber, C.red], 'line-width': 1.5, 'line-opacity': ['get', 'opacity'] } });
       m.addSource('simulation-missiles', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'simulation-missile-trail', type: 'line', source: 'simulation-missiles', filter: ['==', ['geometry-type'], 'LineString'], paint: { 'line-color': C.red, 'line-width': 2.5, 'line-opacity': .9 } });
       m.addLayer({ id: 'simulation-missile-point', type: 'circle', source: 'simulation-missiles', filter: ['==', ['geometry-type'], 'Point'], paint: { 'circle-radius': 5, 'circle-color': C.red, 'circle-stroke-color': C.text, 'circle-stroke-width': 1.5 } });
@@ -702,10 +742,17 @@
       m.addLayer({ id: 'simulation-radar-sweep-line', type: 'line', source: 'simulation-radar-sweep', paint: { 'line-color': C.amber, 'line-width': 1.5, 'line-opacity': .7, 'line-dasharray': [2, 1] } });
       m.addSource('simulation-threat-pulse', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'simulation-threat-pulse-line', type: 'line', source: 'simulation-threat-pulse', paint: { 'line-color': C.red, 'line-width': 2, 'line-opacity': ['get', 'opacity'] } });
+      m.addSource('radar-instrument', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'radar-instrument-rings', type: 'line', source: 'radar-instrument', filter: ['==', ['get', 'kind'], 'ring'], paint: { 'line-color': C.cyan, 'line-width': 1, 'line-opacity': .18, 'line-dasharray': [1.5, 2] } });
+      m.addLayer({ id: 'radar-instrument-bearings', type: 'line', source: 'radar-instrument', filter: ['==', ['get', 'kind'], 'bearing'], paint: { 'line-color': C.cyan, 'line-width': .7, 'line-opacity': .12 } });
+      m.addSource('radar-instrument-sweep', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({ id: 'radar-instrument-sweep-line', type: 'line', source: 'radar-instrument-sweep', paint: { 'line-color': C.cyan, 'line-width': 2, 'line-opacity': .15 } });
       m.addLayer({ id: 'matrix-highlight-fuel', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'fuel'], paint: { 'line-color': C.green, 'line-width': 1.5, 'line-dasharray': [2, 2], 'line-opacity': .85 } });
       m.addLayer({ id: 'matrix-highlight-wez', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'wez'], paint: { 'line-color': C.red, 'line-width': 1.5, 'line-dasharray': [1, 2], 'line-opacity': .95 } });
       m.addLayer({ id: 'matrix-highlight-route', type: 'line', source: 'matrix-highlight', filter: ['==', ['get', 'kind'], 'route'], paint: { 'line-color': C.cyan, 'line-width': 2.5, 'line-opacity': .95 } });
       m.fire('zoom');
+      if (radarOverlayTimer) clearInterval(radarOverlayTimer);
+      radarOverlayTimer = setInterval(updateRadarInstrument, 100);
       mapReady = true;
     });
 
@@ -725,6 +772,7 @@
       if (terrainResumeTimer) clearTimeout(terrainResumeTimer);
       for (const timer of trailClearTimers.values()) clearTimeout(timer);
       trailClearTimers.clear();
+      if (radarOverlayTimer) clearInterval(radarOverlayTimer);
       map?.remove();
       map = null;
     };
@@ -1146,6 +1194,26 @@
       trailSource?.setData({ type: 'FeatureCollection', features: simTrailFeatures });
       lastSimulationTrailFeatureSignature = simTrailSignature;
     }
+    const leaderSource = map.getSource('simulation-velocity-leaders') as maplibregl.GeoJSONSource | undefined;
+    if (leaderSource) {
+      const now = performance.now();
+      const leaders: GeoJSON.Feature[] = Object.entries(frame.aircraft).flatMap(([id, track]) => {
+        const position: [number, number] = [track.lng, track.lat];
+        const prior = velocityLeaderPositions.get(id);
+        if (!prior || Math.hypot(prior[0] - position[0], prior[1] - position[1]) > .00001) {
+          velocityLeaderPositions.set(id, position);
+          velocityLeaderStarted.set(id, now);
+        }
+        const opacity = Math.max(0, 1 - (now - (velocityLeaderStarted.get(id) ?? now)) / 1000);
+        if (opacity <= 0) return [];
+        const pixel = map!.project(position);
+        const radians = track.heading * Math.PI / 180;
+        const tip = map!.unproject([pixel.x + Math.sin(radians) * 60, pixel.y - Math.cos(radians) * 60]);
+        const aircraft = system.aircraft.find((item) => item.id === id);
+        return [{ type: 'Feature', properties: { id, status: aircraft?.status ?? 'FMC', opacity }, geometry: { type: 'LineString', coordinates: [position, [tip.lng, tip.lat]] } }];
+      });
+      leaderSource.setData({ type: 'FeatureCollection', features: leaders });
+    }
     const missileSource = map.getSource('simulation-missiles') as maplibregl.GeoJSONSource | undefined;
     const visibleMissiles = frame.missiles.filter((missile) => !focus?.active || missile.id.includes(focus.missionId ?? ''));
     missileSource?.setData({ type: 'FeatureCollection', features: visibleMissiles.flatMap((missile) => [{ type: 'Feature' as const, properties: { id: missile.id }, geometry: { type: 'LineString' as const, coordinates: missile.trail } }, { type: 'Feature' as const, properties: { id: missile.id }, geometry: { type: 'Point' as const, coordinates: missile.coordinates } }]) });
@@ -1304,7 +1372,7 @@
   <div class="coord tl mono">THEATER MAP · {mapCenterLabel}</div>
   <button class="theater-toggle" class:picture-hidden={!theaterMapVisible} aria-label={theaterMapVisible ? 'Hide tactical picture overlay' : 'Show tactical picture overlay'} title="Toggle tactical picture overlay" onclick={() => onToggleTheaterVisibility?.()}>{theaterMapVisible ? '◧' : '◱'}</button>
   <div class="coord tr mono">ZOOM {mapZoom.toFixed(1)} · MERCATOR</div>
-  <div class="trail-controls"><button aria-pressed={showTrails} onclick={toggleTrails}>◈ TRAILS {showTrails ? 'ON' : 'OFF'}</button><button onclick={clearTrails}>× CLEAR TRAILS</button></div>
+  <div class="trail-controls"><button aria-pressed={showTrails} onclick={toggleTrails}>◈ TRAILS {showTrails ? 'ON' : 'OFF'}</button><button aria-pressed={showRadarOverlay} onclick={toggleRadarOverlay}>◈ RADAR {showRadarOverlay ? 'ON' : 'OFF'}</button><button onclick={clearTrails}>× CLEAR TRAILS</button></div>
   <button class="fullscreen-btn" aria-label={fullscreen ? 'Exit map fullscreen' : 'Enter map fullscreen'} title={fullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen map'} onclick={() => onFullscreenClick?.()}>{fullscreen ? '⛶ EXIT FULLSCREEN' : '⛶ FULLSCREEN'}</button>
   <TerrainToggle />
   {#if mapTooltip}<aside class="map-hover-tooltip" style={`left:${Math.min(mapTooltip.x + 12, 600)}px;top:${Math.max(40, mapTooltip.y + 12)}px`}><b>{mapTooltip.title}</b><span>{mapTooltip.state}</span><small>[CLICK FOR DETAIL]</small></aside>{/if}
