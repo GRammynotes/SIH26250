@@ -37,7 +37,7 @@ The images below are captured from the local application at 1920×1080. They sho
 
 ![Deep strike scenario](docs/screenshots/submission/02-scenario-deep-strike.png)
 
-### 03 · Force roster
+### 03 · Force roster and PS category map
 
 ![Force roster](docs/screenshots/submission/03-force-roster.png)
 
@@ -141,4 +141,5 @@ All aircraft readiness, crew, weapons inventory, airspace, weather, threat track
 ## Demo recording materials
 
 See [the 35 shot list](docs/demo/SHOT_LIST.md) and [narration script](docs/demo/NARRATION.md). Both describe the application as an exercise prototype and distinguish simulated inputs from live integrations.
+
 
