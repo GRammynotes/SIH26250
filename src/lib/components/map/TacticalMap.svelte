@@ -110,6 +110,14 @@
       selectedAircraftBase: selectedAircraft?.base.toLowerCase() ?? null,
     };
   });
+  let selectionDimActive = $state(false);
+  $effect(() => {
+    const selected = selectedMapCard ? `${selectedMapCard.kind}:${selectedMapCard.id}` : system.selectedBaseId;
+    if (!selected) { selectionDimActive = false; return; }
+    selectionDimActive = true;
+    const timer = window.setTimeout(() => selectionDimActive = false, 3000);
+    return () => window.clearTimeout(timer);
+  });
 
   function computeLabelTier(feature: { id?: string; code?: string; type?: string; family?: string; status?: string; priority?: number; spoofed?: boolean; selected?: boolean }, state: typeof labelState): number {
     const id = feature.id ?? '';
@@ -132,6 +140,21 @@
   }
 
   const tieredLabel = (label: unknown) => ['step', ['zoom'], '', 4, ['case', ['<', ['get', 'tier'], 20], label, ''], 6, ['case', ['<', ['get', 'tier'], 60], label, ''], 8, label] as maplibregl.ExpressionSpecification;
+  const selectedTierLabel = (label: unknown) => ['step', ['zoom'], '', 3, ['case', ['==', ['get', 'tier'], 10], label, ''], 4, ['case', ['<', ['get', 'tier'], 20], label, ''], 6, ['case', ['<', ['get', 'tier'], 60], label, ''], 8, label] as maplibregl.ExpressionSpecification;
+  const labelTextColor: maplibregl.ExpressionSpecification = ['case', ['==', ['get', 'tier'], 0], '#ff2d7c', ['==', ['get', 'tier'], 10], '#00d4ff', '#cbd5e1'];
+  const labelTextSize: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 4, 10, 7, 11, 10, 13, 14, 15];
+  function labelTextOpacity(): maplibregl.ExpressionSpecification {
+    return ['case', ['==', ['get', 'tier'], 10], 1, ['*', ['interpolate', ['linear'], ['zoom'], 3, 0, 4, 1, 15, 1], selectionDimActive ? 0.4 : 1, ['coalesce', ['get', 'opacity'], 1]]];
+  }
+  const labelLayout = (field: unknown, size = labelTextSize) => ({ 'text-field': field, 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': size, 'text-padding': 6, 'text-optional': true, 'text-allow-overlap': false });
+  const labelPaint = (color: unknown = labelTextColor) => ({ 'text-color': color, 'text-opacity': labelTextOpacity(), 'text-halo-color': '#05080f', 'text-halo-width': 1.5, 'text-halo-blur': 0.5 });
+  $effect(() => {
+    const opacity = labelTextOpacity();
+    if (!mapReady || !map || !map.isStyleLoaded()) return;
+    for (const layerId of ['aircraft-gl-labels', 'bases-gl-labels', 'missions-gl-labels', 'ground-assets-labels', 'enemy-assets-labels', 'threat-center-labels', 'threat-spoofed-x', 'focus-aircraft-label', 'aircraft-cluster-count']) {
+      if (map.getLayer(layerId)) map.setPaintProperty(layerId, 'text-opacity', opacity);
+    }
+  });
 
   $effect(() => {
     const aircraft = system.aircraft;
@@ -306,8 +329,8 @@
     });
     if (!map.getLayer('aircraft-cluster-count')) map.addLayer({
       id: 'aircraft-cluster-count', type: 'symbol', source: 'aircraft-gl', filter: ['has', 'point_count'],
-      layout: { 'text-field': ['step', ['zoom'], '', 3, ['to-string', ['get', 'point_count']]], 'symbol-sort-key': 100, 'text-font': ['Noto Sans Regular'], 'text-size': 14, 'text-allow-overlap': true },
-      paint: { 'text-color': C.text, 'text-halo-color': C.base, 'text-halo-width': 1 },
+      layout: { ...labelLayout(['step', ['zoom'], '', 3, ['to-string', ['get', 'point_count']]]), 'symbol-sort-key': 100 },
+      paint: labelPaint(),
     });
     if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
       id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl', minzoom: 5, filter: ['!', ['has', 'point_count']],
@@ -316,8 +339,8 @@
     });
     if (!map.getLayer('aircraft-gl-labels')) map.addLayer({
       id: 'aircraft-gl-labels', type: 'symbol', source: 'aircraft-gl', filter: ['!', ['has', 'point_count']],
-      layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.7], 'text-anchor': 'top', 'text-allow-overlap': false, 'text-ignore-placement': false },
-      paint: { 'text-color': C.cyan, 'text-halo-color': C.base, 'text-halo-width': 2 },
+      layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.7], 'text-anchor': 'top', 'text-ignore-placement': false },
+      paint: labelPaint(),
     });
     if (!aircraftLayerClickAttached) {
       map.on('click', 'aircraft-gl-symbols', (event) => {
@@ -337,13 +360,13 @@
     const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
     for (const id of ['bases-gl', 'missions-gl', 'assets-gl']) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: empty });
     if (!map.getLayer('bases-gl-symbols')) map.addLayer({ id: 'bases-gl-symbols', type: 'circle', source: 'bases-gl', minzoom: 3, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 7], 'circle-color': C.cyan, 'circle-opacity': ['get', 'opacity'], 'circle-stroke-color': C.base, 'circle-stroke-width': 1.5 } });
-    if (!map.getLayer('bases-gl-labels')) map.addLayer({ id: 'bases-gl-labels', type: 'symbol', source: 'bases-gl', layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.2], 'text-allow-overlap': false }, paint: { 'text-color': C.cyan, 'text-opacity': ['get', 'opacity'], 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
+    if (!map.getLayer('bases-gl-labels')) map.addLayer({ id: 'bases-gl-labels', type: 'symbol', source: 'bases-gl', layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.2] }, paint: labelPaint() });
     if (!map.getLayer('missions-gl-symbols')) map.addLayer({ id: 'missions-gl-symbols', type: 'circle', source: 'missions-gl', minzoom: 5, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 4, 9, 8], 'circle-color': ['match', ['get', 'priority'], 1, C.red, 2, C.amber, C.muted], 'circle-stroke-color': C.base, 'circle-stroke-width': 1.5 } });
-    if (!map.getLayer('missions-gl-labels')) map.addLayer({ id: 'missions-gl-labels', type: 'symbol', source: 'missions-gl', layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.3], 'text-allow-overlap': false }, paint: { 'text-color': C.amber, 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
+    if (!map.getLayer('missions-gl-labels')) map.addLayer({ id: 'missions-gl-labels', type: 'symbol', source: 'missions-gl', layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.3] }, paint: labelPaint() });
     for (const [id, family, minzoom, color] of [['ground-assets-symbols', 'ground', 7, C.green], ['enemy-assets-symbols', 'enemy', 6, C.red]] as const) {
       if (!map.getLayer(id)) map.addLayer({ id, type: 'circle', source: 'assets-gl', minzoom, filter: ['==', ['get', 'family'], family], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], minzoom, 3, 9, 6], 'circle-color': color, 'circle-stroke-color': C.base, 'circle-stroke-width': 1, 'circle-opacity': ['get', 'opacity'] } });
       const labelsId = id.replace('symbols', 'labels');
-      if (!map.getLayer(labelsId)) map.addLayer({ id: labelsId, type: 'symbol', source: 'assets-gl', filter: ['==', ['get', 'family'], family], layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 8, 'text-offset': [0, 1.2], 'text-allow-overlap': false }, paint: { 'text-color': color, 'text-halo-color': C.base, 'text-halo-width': 1.3 } });
+      if (!map.getLayer(labelsId)) map.addLayer({ id: labelsId, type: 'symbol', source: 'assets-gl', filter: ['==', ['get', 'family'], family], layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.2] }, paint: labelPaint() });
     }
     for (const layerId of ['bases-gl-symbols', 'missions-gl-symbols', 'ground-assets-symbols', 'enemy-assets-symbols']) {
       map.on('mouseenter', layerId, () => { if (map) map.getCanvas().style.cursor = 'pointer'; });
@@ -652,7 +675,7 @@
       m.addSource('aircraft-trails', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addSource('focus-aircraft', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'focus-aircraft-mark', type: 'circle', source: 'focus-aircraft', paint: { 'circle-radius': 8, 'circle-color': ['match', ['get', 'status'], 'FMC', C.green, 'PMC', C.amber, C.muted], 'circle-opacity': ['get', 'opacity'], 'circle-opacity-transition': { duration: 300 }, 'circle-stroke-color': C.text, 'circle-stroke-width': 1.5 } });
-      m.addLayer({ id: 'focus-aircraft-label', type: 'symbol', source: 'focus-aircraft', layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.5], 'text-allow-overlap': false }, paint: { 'text-color': C.cyan, 'text-opacity': ['get', 'opacity'], 'text-opacity-transition': { duration: 300 }, 'text-halo-color': C.base, 'text-halo-width': 2 } });
+      m.addLayer({ id: 'focus-aircraft-label', type: 'symbol', source: 'focus-aircraft', layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.5] }, paint: { ...labelPaint(), 'text-opacity-transition': { duration: 300 } } });
       m.addSource('focus-route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'focus-route-line', type: 'line', source: 'focus-route', paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-opacity': ['get', 'opacity'], 'line-opacity-transition': { duration: 300 }, 'line-dasharray': [1, 0] } });
       m.addLayer({ id: 'aircraft-trails-line', type: 'line', source: 'aircraft-trails', layout: { visibility: showTrails ? 'visible' : 'none' }, paint: { 'line-color': ['match', ['get', 'status'], 'FMC', C.green, 'PMC', C.amber, C.muted], 'line-width': 2, 'line-opacity': ['get', 'opacity'] } });
@@ -946,8 +969,8 @@
 
     map.addLayer({
       id: 'threat-center-labels', type: 'symbol', source: 'threat-centers',
-      layout: { 'text-field': tieredLabel(['get', 'label']), 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.2], 'text-allow-overlap': false },
-      paint: { 'text-color': C.red, 'text-halo-color': C.base, 'text-halo-width': 1.5 },
+      layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.2] },
+      paint: labelPaint(),
     });
 
     const threatVis = showThreats ? 'visible' : 'none';
@@ -1029,16 +1052,10 @@
       filter: ['==', ['get', 'spoofed'], true],
       layout: { 
         visibility: threatVis,
-        'text-field': tieredLabel('✕'),
-        'symbol-sort-key': ['coalesce', ['get', 'tier'], 100],
-        'text-size': 14,
+        ...labelLayout(selectedTierLabel('✕')),
         'text-anchor': 'center',
-        'text-allow-overlap': false,
       },
-      paint: {
-        'text-color': C.red,
-        'text-opacity': 0.9,
-      },
+      paint: labelPaint(),
     });
 
     // Operational airspace and weather layers are recreated from the current store state.
