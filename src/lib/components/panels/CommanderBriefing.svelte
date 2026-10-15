@@ -143,14 +143,14 @@
   // Template mapping
   const templateMap: Record<string, string> = {
     'hardened-bunker': 'sindoor_deep',
-    'radar-site': 'sead_suppression',
+    'radar-site': 'sead_template',
     'troop-concentration': 'balakot',
     'c2-node': 'sindoor_deep',
     'bridge': 'sindoor_deep',
     'fuel-depot': 'sindoor_deep',
     'runway': 'sindoor_deep',
-    'ship': 'sead_suppression',
-    'aircraft': 'sead_suppression',
+    'ship': 'sead_template',
+    'aircraft': 'sead_template',
   };
 
   const historicalTemplate = $derived(
@@ -393,7 +393,7 @@
             <div class="precedent-box">
               <div class="prec-ref">
                 <span class="prec-tag">{historicalTemplate.reference}</span>
-                <span class="prec-date">{historicalTemplate.date} · CODENAME {historicalTemplate.codename}</span>
+                <span class="prec-date">{historicalTemplate.date ?? 'TRAINING TEMPLATE'} · CODENAME {historicalTemplate.codename}</span>
               </div>
               <p class="prec-narrative">{historicalTemplate.narrative}</p>
             </div>

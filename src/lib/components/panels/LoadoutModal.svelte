@@ -46,7 +46,7 @@
           {#if selectedStation}
             <section class="weapon-card" aria-label="Weapon specification">
               <header><strong>WEAPON</strong><strong>RANGE</strong><strong>CEP</strong><strong>WARHEAD</strong><strong>TARGET TYPES</strong></header>
-              <div><span>{stationWeapon.name}</span><span>{stationWeapon.rangeKm} km</span><span>{stationWeapon.cepMeters} m</span><span>{stationWeapon.warheadKg} kg</span><span>{stationWeapon.targetTypes.join(', ')}</span></div>
+              <div><span>{stationWeapon.name}</span><span>{stationWeapon.rangeKm} km</span><span>{stationWeapon.cepMeters ?? 'UNVERIFIED'}</span><span>{stationWeapon.warheadKg ?? 'UNVERIFIED'}</span><span>{stationWeapon.targetTypes.join(', ')}</span></div>
             </section>
           {/if}
         {:else}

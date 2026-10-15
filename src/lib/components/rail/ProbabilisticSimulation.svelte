@@ -20,7 +20,7 @@
   const scenarios = {
     balakot: [{ name: 'TARGET DESTROYED', chance: 72, consequence: 'Primary target effect achieved; package returns for full BDA correlation.' }, { name: 'TARGET DAMAGED', chance: 22, consequence: 'Partial effect; commander reviews re-attack options and collateral assessment.' }, { name: 'TARGET MISSED', chance: 6, consequence: 'No confirmed effect; preserve the force and reassess intelligence.' }],
     sindoor_deep: [{ name: 'TARGET DESTROYED', chance: 68, consequence: 'Standoff strike achieves the assessed effect; package remains outside the engagement zone.' }, { name: 'TARGET DAMAGED', chance: 25, consequence: 'Partial effect; refine targeting data before any follow-on.' }, { name: 'TARGET MISSED', chance: 7, consequence: 'No confirmed effect; review weapon updates and target coordinates.' }],
-    sead_suppression: [{ name: 'RADAR SUPPRESSED', chance: 64, consequence: 'Threat emission ceases and the follow-on corridor opens.' }, { name: 'RADAR DEGRADED', chance: 27, consequence: 'Coverage is reduced, but the radar may recover.' }, { name: 'RADAR RELOCATED', chance: 9, consequence: 'Last-known coordinates are empty; update the threat picture.' }],
+    sead_template: [{ name: 'RADAR SUPPRESSED', chance: 64, consequence: 'Threat emission ceases and the follow-on corridor opens.' }, { name: 'RADAR DEGRADED', chance: 27, consequence: 'Coverage is reduced, but the radar may recover.' }, { name: 'RADAR RELOCATED', chance: 9, consequence: 'Last-known coordinates are empty; update the threat picture.' }],
   } as const;
   const activeCase = $derived(HISTORICAL_MISSIONS[caseId]);
   const wait = (ms: number) => system.waitForExperience(sessionToken, ms);

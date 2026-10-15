@@ -11,8 +11,8 @@ export interface Weapon {
   minRangeKm: number;
   speedMach: number;
   weightKg: number;
-  warheadKg: number;
-  cepMeters: number;
+  warheadKg: number | null;
+  cepMeters: number | null;
   targetTypes: TargetType[];
   platforms: string[];
   standoff: boolean;
@@ -47,14 +47,14 @@ export const WEAPONS: Record<string, Weapon> = {
   'mica-rf': {
     id: 'mica-rf', name: 'MICA RF', domain: 'air-air', guidance: 'active-radar',
     rangeKm: 80, minRangeKm: 3, speedMach: 4.9, weightKg: 112, warheadKg: 12, cepMeters: 8,
-    targetTypes: ['aircraft'], platforms: ['Rafale', 'Mirage-2000'], standoff: false,
-    notes: 'Medium-range, fire-and-forget.',
+    targetTypes: ['aircraft'], platforms: ['Rafale'], standoff: false,
+    notes: 'IAF Mirage-2000 integration via upgrade is UNVERIFIED; MICA is publicly integrated on Rafale.',
   },
   'mica-ir': {
     id: 'mica-ir', name: 'MICA IR', domain: 'air-air', guidance: 'IR',
     rangeKm: 60, minRangeKm: 1, speedMach: 4.9, weightKg: 112, warheadKg: 12, cepMeters: 6,
-    targetTypes: ['aircraft'], platforms: ['Rafale', 'Mirage-2000'], standoff: false,
-    notes: 'Imaging IR seeker.',
+    targetTypes: ['aircraft'], platforms: ['Rafale'], standoff: false,
+    notes: 'Imaging IR seeker; IAF Mirage-2000 integration is UNVERIFIED.',
   },
   'meteor': {
     id: 'meteor', name: 'Meteor', domain: 'air-air', guidance: 'active-radar',
@@ -63,18 +63,18 @@ export const WEAPONS: Record<string, Weapon> = {
     notes: 'Ramjet. No-escape zone far exceeds conventional BVR.',
   },
   'brahmos-a': {
-    id: 'brahmos-a', name: 'BrahMos-A', domain: 'air-surface', guidance: 'INS-GPS-IIR',
+    id: 'brahmos-a', name: 'BrahMos-A', domain: 'air-surface', guidance: 'INS-GPS',
     rangeKm: 400, minRangeKm: 50, speedMach: 3, weightKg: 2500, warheadKg: 300, cepMeters: 5,
     targetTypes: ['hardened-bunker', 'c2-node', 'ship', 'runway', 'fuel-depot'],
     platforms: ['Su-30MKI'], standoff: true,
-    notes: 'Supersonic. Requires specially modified Su-30MKI.',
+    notes: 'Air-launched variant for specially modified Su-30MKI; terminal active-radar seeker.',
   },
   'brahmos-ng': {
-    id: 'brahmos-ng', name: 'BrahMos-NG', domain: 'air-surface', guidance: 'INS-GPS-IIR',
-    rangeKm: 400, minRangeKm: 30, speedMach: 3, weightKg: 1200, warheadKg: 200, cepMeters: 4,
+    id: 'brahmos-ng', name: 'BrahMos-NG', domain: 'air-surface', guidance: 'INS-GPS',
+    rangeKm: 400, minRangeKm: 30, speedMach: 3, weightKg: 550, warheadKg: null, cepMeters: null,
     targetTypes: ['hardened-bunker', 'c2-node', 'ship', 'runway', 'fuel-depot'],
-    platforms: ['Su-30MKI', 'Tejas', 'Rafale'], standoff: true,
-    notes: 'Lighter variant. In development. Four per Su-30MKI.',
+    platforms: ['Su-30MKI'], standoff: true,
+    notes: 'In development; approximately 550 kg class. Integration beyond Su-30MKI is UNVERIFIED.',
   },
   'scalp': {
     id: 'scalp', name: 'SCALP / Storm Shadow', domain: 'air-ground', guidance: 'INS-GPS-IIR',
@@ -88,7 +88,7 @@ export const WEAPONS: Record<string, Weapon> = {
     rangeKm: 60, minRangeKm: 5, speedMach: 0.9, weightKg: 1000, warheadKg: 500, cepMeters: 3,
     targetTypes: ['hardened-bunker', 'c2-node', 'bridge'],
     platforms: ['Mirage-2000'], standoff: false,
-    notes: 'Precision glide bomb. Used in Balakot (2019).',
+    notes: 'Precision glide bomb, 1000kg class.',
   },
   'spice-1000': {
     id: 'spice-1000', name: 'Spice-1000', domain: 'air-ground', guidance: 'INS-GPS-IIR',
@@ -102,7 +102,7 @@ export const WEAPONS: Record<string, Weapon> = {
     rangeKm: 150, minRangeKm: 20, speedMach: 2, weightKg: 600, warheadKg: 100, cepMeters: 10,
     targetTypes: ['radar-site'],
     platforms: ['Su-30MKI'], standoff: true,
-    notes: 'Anti-radiation. Homes on enemy radar emissions.',
+    notes: 'In development; induction status is UNVERIFIED. Homes on radar emissions.',
   },
   'hammer': {
     id: 'hammer', name: 'HAMMER', domain: 'air-ground', guidance: 'INS-GPS-IIR',
@@ -113,17 +113,17 @@ export const WEAPONS: Record<string, Weapon> = {
   },
   'rudram-2': {
     id: 'rudram-2', name: 'Rudram-2', domain: 'air-ground', guidance: 'anti-radiation',
-    rangeKm: 300, minRangeKm: 40, speedMach: 3, weightKg: 750, warheadKg: 120, cepMeters: 8,
+    rangeKm: 300, minRangeKm: 40, speedMach: 3, weightKg: 750, warheadKg: null, cepMeters: null,
     targetTypes: ['radar-site'],
     platforms: ['Su-30MKI', 'Tejas'], standoff: true,
-    notes: 'Extended-range anti-radiation missile. Improved seeker over Rudram-1.',
+    notes: 'In development; range publicly stated as 300 km. Not yet in service.',
   },
   'rudram-3': {
     id: 'rudram-3', name: 'Rudram-3', domain: 'air-ground', guidance: 'anti-radiation',
-    rangeKm: 550, minRangeKm: 60, speedMach: 3.5, weightKg: 900, warheadKg: 150, cepMeters: 10,
+    rangeKm: 550, minRangeKm: 60, speedMach: 3.5, weightKg: 900, warheadKg: null, cepMeters: null,
     targetTypes: ['radar-site'],
     platforms: ['Su-30MKI'], standoff: true,
-    notes: 'Longest-range Rudram variant. Targets deep-space and AWACS radars.',
+    notes: 'In development; range publicly stated as 550 km. Not yet in service.',
   },
   'astra-mk3': {
     id: 'astra-mk3', name: 'Astra Mk3', domain: 'air-air', guidance: 'active-radar',

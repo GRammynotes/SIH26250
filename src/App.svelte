@@ -491,14 +491,14 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
 
     const map: Record<string, string> = {
       'hardened-bunker': 'sindoor_deep',
-      'radar-site': 'sead_suppression',
+      'radar-site': 'sead_template',
       'troop-concentration': 'balakot',
       'c2-node': 'sindoor_deep',
       'bridge': 'sindoor_deep',
       'fuel-depot': 'sindoor_deep',
       'runway': 'sindoor_deep',
-      'ship': 'sead_suppression',
-      'aircraft': 'sead_suppression',
+      'ship': 'sead_template',
+      'aircraft': 'sead_template',
     };
     const templateId = map[mission.targetType] ?? 'sindoor_deep';
     system.startMission(missionId, ids, templateId);

@@ -98,7 +98,7 @@
   const outcomeOdds = $derived.by(() => {
     const odds = activeMission?.templateId === 'balakot'
       ? [{ label: 'TARGET DESTROYED', probability: 72, status: 'DESTROYED', consequence: 'Primary target effect achieved; strike package returns for full BDA correlation.' }, { label: 'TARGET DAMAGED', probability: 22, status: 'DAMAGED', consequence: 'Partial effect; re-attack planning and collateral review may be required.' }, { label: 'TARGET MISSED', probability: 6, status: 'MISSED', consequence: 'No confirmed effect; preserve the force and reassess intelligence.' }]
-      : activeMission?.templateId === 'sead_suppression'
+      : activeMission?.templateId === 'sead_template'
         ? [{ label: 'RADAR SUPPRESSED', probability: 64, status: 'DESTROYED', consequence: 'Threat emission ceases and the follow-on corridor opens.' }, { label: 'RADAR DEGRADED', probability: 27, status: 'DAMAGED', consequence: 'Coverage is reduced but the threat may recover.' }, { label: 'RADAR RELOCATED', probability: 9, status: 'MISSED', consequence: 'Last-known coordinates are empty; update the threat picture.' }]
         : [{ label: 'TARGET DESTROYED', probability: 68, status: 'DESTROYED', consequence: 'Standoff strike achieves the assessed effect with package outside the engagement zone.' }, { label: 'TARGET DAMAGED', probability: 25, status: 'DAMAGED', consequence: 'Partial effect; refine targeting data before any follow-on.' }, { label: 'TARGET MISSED', probability: 7, status: 'MISSED', consequence: 'No confirmed effect; review weapon updates and target coordinates.' }];
     return odds;

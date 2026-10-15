@@ -28,7 +28,7 @@ export interface DecisionPoint {
 export interface HistoricalMission {
   id: string;
   codename: string;
-  date: string;
+  date: string | null;
   reference: string;
   targetType: TargetType;
   target: Position;
@@ -44,7 +44,7 @@ export const HISTORICAL_MISSIONS: Record<string, HistoricalMission> = {
     reference: 'BALAKOT · OP BANDAR',
     targetType: 'troop-concentration',
     target: { lat: 34.45, lng: 73.35 },
-    narrative: 'Pre-dawn strike on a Jaish-e-Mohammed training camp in Balakot. Mirage-2000s released Spice-2000 PGMs. Plan was altered at the last minute due to updated intelligence — the strike window collapsed from 90 minutes to under 20.',
+    narrative: 'Pre-dawn Mirage-2000 strike on a Jaish-e-Mohammed facility in Balakot. Public reporting differs on the munition details; this training template models late intelligence changes and a compressed strike window without asserting a specific weapon release.',
     decisions: [
       {
         atPhase: 'INGRESS',
@@ -93,7 +93,7 @@ export const HISTORICAL_MISSIONS: Record<string, HistoricalMission> = {
           {
             id: 'release',
             label: 'RELEASE WEAPONS NOW',
-            description: 'Employ Spice-2000 pair. Meets the timeline. Radar may lock during egress.',
+            description: 'Release the approved precision-munition package. Meets the timeline. Radar may lock during egress.',
             tag: 'COMMIT',
             tagColor: 'var(--accent-green)',
             outcome: 'success',
@@ -183,20 +183,20 @@ export const HISTORICAL_MISSIONS: Record<string, HistoricalMission> = {
     ],
   },
 
-  sead_suppression: {
-    id: 'sead_suppression',
-    codename: 'WILD WEASEL',
-    date: '2024-11-12',
-    reference: 'SEAD · RADAR SUPPRESSION',
+  sead_template: {
+    id: 'sead_template',
+    codename: 'SEAD TRAINING',
+    date: null,
+    reference: 'HYPOTHETICAL · SEAD TRAINING TEMPLATE',
     targetType: 'radar-site',
     target: { lat: 33.90, lng: 74.20 },
-    narrative: 'Su-30MKI armed with Rudram anti-radiation missiles tasked to suppress an enemy acquisition radar ahead of a strike package. The radar operators must choose between radiating and being killed, or shutting down and letting the strike through.',
+    narrative: 'Hypothetical training template for managing radar emissions during a Suppression of Enemy Air Defences (SEAD) sequence. This is not a dated historical event or a claim about an actual operation.',
     decisions: [
       {
         atPhase: 'INGRESS',
-        context: 'T-25 MIN · EMISSION DETECT',
+        context: 'EXERCISE · EMISSION DETECT',
         title: 'RADAR EMISSION LOST',
-        message: 'The target radar went silent 90 seconds ago. Either it detected the SEAD package and shut down, or it is relocating. Last known position is 4 minutes old.',
+        message: 'Exercise inject: the target radar went silent 90 seconds ago. It may have shut down or relocated. Last known position is 4 minutes old.',
         branches: [
           {
             id: 'loiter',
@@ -205,7 +205,7 @@ export const HISTORICAL_MISSIONS: Record<string, HistoricalMission> = {
             tag: 'PATIENT',
             tagColor: 'var(--accent-cyan)',
             outcome: 'success',
-            consequence: 'Radar resumed 8 minutes later. Rudram released. Site destroyed.',
+            consequence: 'In this illustrative branch the radar resumes and the exercise package engages the emitter.',
             effect: { missionDelayMin: 8 },
           },
           {
@@ -215,7 +215,7 @@ export const HISTORICAL_MISSIONS: Record<string, HistoricalMission> = {
             tag: 'AGGRESSIVE',
             tagColor: 'var(--accent-amber)',
             outcome: 'partial',
-            consequence: 'Rudram struck empty position. Radar active 20 minutes later — threat persists.',
+            consequence: 'In this illustrative branch the recorded position is empty; update the threat picture before continuing.',
             effect: { addThreat: true },
           },
         ],
@@ -226,7 +226,7 @@ export const HISTORICAL_MISSIONS: Record<string, HistoricalMission> = {
   kargil_1999: {
     id: 'kargil_1999',
     codename: 'VIJAY',
-    date: '1999-06-13',
+    date: '1999-06-19–20',
     reference: 'OPERATION VIJAY · TIGER HILL',
     targetType: 'troop-concentration',
     target: { lat: 34.60, lng: 76.20 },
@@ -295,63 +295,63 @@ export const HISTORICAL_MISSIONS: Record<string, HistoricalMission> = {
     id: 'surgical_2016',
     codename: 'NANGA PARBAT',
     date: '2016-09-29',
-    reference: 'URI SURGICAL STRIKES',
+    reference: 'ARMY PARA-SF · CROSS-LoC RAID',
     targetType: 'troop-concentration',
     target: { lat: 34.15, lng: 73.80 },
-    narrative: 'Para-SF teams conducted cross-LoC raids on terrorist launch pads. Close air support provided by Mi-17 helicopters and artillery. The operation was a rapid, limited-duration strike.',
+    narrative: 'Army Para-SF conducted cross-LoC raids on terrorist launch pads on 29 September 2016. Official accounts describe an Army ground operation; this record does not claim an IAF strike or aircrew support. The decision points below are hypothetical joint-planning prompts, not a record of actions during the raid.',
     decisions: [
       {
         atPhase: 'INGRESS',
-        context: 'T-60 MIN · MOVEMENT DETECTED',
-        title: 'TARGET RELOCATION',
-        message: 'ISR indicates the primary launch pad has been abandoned. Personnel observed moving to secondary site 8 km away. Primary target still shows thermal signatures from recent occupation.',
+        context: 'EXERCISE · MOVEMENT DETECTED',
+        title: 'GROUND TEAM UPDATE',
+        message: 'Hypothetical training inject: the primary site appears inactive while movement is reported near a secondary site. Confirm the ground team’s report before updating the joint plan.',
         branches: [
           {
             id: 'relocate',
-            label: 'RETARGET TO SECONDARY',
-            description: 'Shift strike to the active site. Additional 20 minutes to establish overwatch.',
+            label: 'VERIFY SECONDARY SITE',
+            description: 'Request confirmation from the ground team before changing the exercise plan.',
             tag: 'RECOMMENDED',
             tagColor: 'var(--accent-green)',
             outcome: 'success',
-            consequence: 'Strike hit active target. Secondary site neutralized. Primary site empty as reported.',
+            consequence: 'Illustrative branch: the ground team confirms the secondary site and the joint plan is updated.',
             effect: { missionDelayMin: 20 },
           },
           {
             id: 'original',
-            label: 'STRIKE PRIMARY SITE',
-            description: 'Attack original coordinates. May hit empty bunkers but preserves timeline.',
+            label: 'HOLD PRIMARY PLAN',
+            description: 'Continue the exercise plan using the original ground-team report.',
             tag: 'RISK',
             tagColor: 'var(--accent-amber)',
             outcome: 'partial',
-            consequence: 'Primary site empty. Limited tactical value. Secondary site escaped.',
+            consequence: 'Illustrative branch: the report is stale and the exercise pauses for reassessment.',
             effect: { riskDelta: +5 },
           },
         ],
       },
       {
         atPhase: 'WEZ',
-        context: 'T-0 · EXFILTRATION',
-        title: 'ENEMY COUNTER-ATTACK',
-        message: 'Ground forces detected approaching extraction point. Estimated contact in 12 minutes. CAS assets can delay them but may expose position.',
+        context: 'EXERCISE · WITHDRAWAL',
+        title: 'WITHDRAWAL WINDOW',
+        message: 'Hypothetical training inject: the ground team reports increased pressure near its withdrawal route. Compare a coordinated support request with an immediate withdrawal.',
         branches: [
           {
-            id: 'cas',
-            label: 'REQUEST CAS SUPPORT',
-            description: 'Call in helicopter gunships to interdict approaching forces. Extracts in 15 minutes.',
+            id: 'coordinate',
+            label: 'COORDINATE SUPPORT',
+            description: 'Request joint-force coordination before the simulated withdrawal.',
             tag: 'SUPPORTED',
             tagColor: 'var(--accent-green)',
             outcome: 'success',
-            consequence: 'CAS neutralized counter-attack. Team extracted without casualties.',
+            consequence: 'Illustrative branch: coordination is completed and the ground team withdraws in the exercise.',
             effect: { missionDelayMin: 8 },
           },
           {
             id: 'rapid',
-            label: 'RAPID EXFILTRATION',
-            description: 'Immediate extraction without CAS. Speed over security. May be intercepted.',
+            label: 'WITHDRAW IMMEDIATELY',
+            description: 'Begin the simulated withdrawal before joint coordination is complete.',
             tag: 'HIGH RISK',
             tagColor: 'var(--accent-red)',
             outcome: 'partial',
-            consequence: 'Team extracted but took light fire. No casualties. Counter-attack resumed.',
+            consequence: 'Illustrative branch: the ground team withdraws sooner but the exercise records elevated risk.',
             effect: { riskDelta: +25 },
           },
         ],

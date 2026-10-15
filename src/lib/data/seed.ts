@@ -22,10 +22,8 @@ function generateAircraft(rand: Rand): Aircraft[] {
   const squadrons = [
     { baseId: 'ambala', type: 'Su-30MKI', count: 18, tailPrefix: 'SB', firstTail: 301, callsign: 'Tiger' },
     { baseId: 'hasimara', type: 'Rafale', count: 8, tailPrefix: 'RB', firstTail: 201, callsign: 'Falcon' },
-    { baseId: 'srinagar', type: 'Rafale', count: 10, tailPrefix: 'RS', firstTail: 401, callsign: 'Himalayan Eagle' },
-    { baseId: 'srinagar', type: 'MiG-29UPG', count: 8, tailPrefix: 'SI', firstTail: 501, callsign: 'Warrior' },
+    { baseId: 'jodhpur', type: 'MiG-29UPG', count: 8, tailPrefix: 'JI', firstTail: 501, callsign: 'Warrior' },
     { baseId: 'leh', type: 'Rafale', count: 6, tailPrefix: 'RC', firstTail: 301, callsign: 'Sky Guardian' },
-    { baseId: 'leh', type: 'MiG-29UPG', count: 6, tailPrefix: 'LI', firstTail: 601, callsign: 'Highlander' },
     { baseId: 'sulur', type: 'Tejas', count: 12, tailPrefix: 'TE', firstTail: 101, callsign: 'Garuda' },
   ] as const;
   let n = 1;

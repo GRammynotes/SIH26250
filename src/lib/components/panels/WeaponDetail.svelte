@@ -16,8 +16,8 @@
       <div><dt>MAX RANGE</dt><dd>{weapon.rangeKm} KM</dd></div>
       <div><dt>MIN RANGE</dt><dd>{weapon.minRangeKm} KM</dd></div>
       <div><dt>SPEED</dt><dd>MACH {weapon.speedMach}</dd></div>
-      <div><dt>WARHEAD</dt><dd>{weapon.warheadKg} KG</dd></div>
-      <div><dt>CEP</dt><dd>{weapon.cepMeters} M</dd></div>
+      <div><dt>WARHEAD</dt><dd>{weapon.warheadKg === null ? 'UNVERIFIED' : `${weapon.warheadKg} KG`}</dd></div>
+      <div><dt>CEP</dt><dd>{weapon.cepMeters === null ? 'UNVERIFIED' : `${weapon.cepMeters} M`}</dd></div>
       <div><dt>PLATFORMS</dt><dd>{weapon.platforms.join(' · ')}</dd></div>
     </dl>
     <p title={weapon.notes}>ⓘ <span>{weapon.notes.length > 40 ? `${weapon.notes.slice(0, 37)}…` : weapon.notes}</span></p>
