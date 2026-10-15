@@ -3,7 +3,7 @@
   import { OrbitControls } from '@threlte/extras';
   import { CatmullRomCurve3, Group, TubeGeometry, Vector3, type ColorRepresentation } from 'three';
 
-  let { modelInstance, trajectory, liveProgress = null, interactive = false, autoRotate = true, rotationOffset = 0 }: { modelInstance: Group; trajectory: 'ingress' | 'wez' | 'release' | 'egress' | null; liveProgress?: number | null; interactive?: boolean; autoRotate?: boolean; rotationOffset?: number } = $props();
+  let { modelInstance, trajectory, liveProgress = null, interactive = false, autoRotate = true, rotationOffset = 0, cameraDistance = 8 }: { modelInstance: Group; trajectory: 'ingress' | 'wez' | 'release' | 'egress' | null; liveProgress?: number | null; interactive?: boolean; autoRotate?: boolean; rotationOffset?: number; cameraDistance?: number } = $props();
   let modelGroup: Group | undefined = $state();
   let elapsed = 0;
   const points = [
@@ -47,7 +47,7 @@
   }, { autoInvalidate: false });
 </script>
 
-<T.PerspectiveCamera makeDefault position={[0, 2.5, 8]} fov={38} />
+<T.PerspectiveCamera makeDefault position={[0, 2.5, cameraDistance]} fov={38} />
 <T.AmbientLight intensity={0.3} />
 <T.DirectionalLight position={[5, 10, 5]} intensity={1.2} color="#ffb800" />
 <T.DirectionalLight position={[-5, 5, -5]} intensity={0.4} color="#00d4ff" />

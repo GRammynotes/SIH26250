@@ -73,7 +73,7 @@
   });
 </script>
 
-<section bind:this={overlayElement} class="overlay" role="dialog" aria-modal="true" aria-label={`${designation} 3D focus view`} onpointerdown={markInteraction} onwheel={markInteraction}>
+<section bind:this={overlayElement} class="overlay" style="position:fixed;inset:0;width:100vw;height:100dvh;" role="dialog" aria-modal="true" aria-label={`${designation} 3D focus view`} onpointerdown={markInteraction} onwheel={markInteraction}>
   <div class="frame" onclick={(event) => event.stopPropagation()} role="presentation">
     <header>
       <span>◈ ENTITY FOCUS · {entityType.toUpperCase()}</span>
@@ -83,7 +83,7 @@
       <div class="canvas-wrap" onpointerdown={markInteraction} onpointerup={markInteraction}>
         {#key resetKey}<Canvas {createRenderer} dpr={[1, 1.5]} renderMode="on-demand">
           <ModelFrameLimiter />
-          {#if modelInstance}<ModelScene {modelInstance} {trajectory} {liveProgress} interactive autoRotate={!interacting} {rotationOffset} />{/if}
+          {#if modelInstance}<ModelScene {modelInstance} {trajectory} {liveProgress} interactive autoRotate={!interacting} {rotationOffset} cameraDistance={5.8} />{/if}
         </Canvas>{/key}
         {#if !modelInstance && !loadFailed}<div class="loading">LOADING MODEL...</div>{/if}
         {#if loadFailed}<div class="fallback" role="status"><svg viewBox="0 0 160 90" aria-hidden="true"><path d="M8 48 62 39 75 9 86 7 83 37 119 34 145 21 151 24 135 43 152 54 149 59 119 51 83 54 88 80 80 83 63 56 8 53Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><path d="M20 66h120" stroke="currentColor" stroke-width="1" opacity=".45"/></svg><span>3D UNAVAILABLE · SVG FALLBACK</span></div>{/if}
@@ -100,7 +100,7 @@
 </section>
 
 <style>
-  .overlay{position:fixed;inset:0;z-index:700;display:grid;place-items:center;padding:7vh 8vw;background:rgba(5,8,15,.8);backdrop-filter:blur(4px);font-family:var(--font-mono);box-sizing:border-box}
+  .overlay{position:fixed;inset:0;z-index:700;display:grid;place-items:center;width:100vw;height:100dvh;padding:7vh 8vw;background:rgba(5,8,15,.8);backdrop-filter:blur(4px);font-family:var(--font-mono);box-sizing:border-box}
   .frame{width:min(1180px,84vw);height:min(690px,82vh);display:flex;flex-direction:column;border:1px solid var(--accent-cyan);background:var(--bg-panel);box-shadow:0 20px 70px rgba(0,0,0,.65)}
   header{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border-bottom:1px solid var(--border-subtle);color:var(--accent-cyan);font-size:9px;letter-spacing:.12em}.header-actions{display:flex;gap:5px}.header-actions button{border:1px solid var(--border-strong);background:transparent;color:var(--text-secondary);padding:5px 7px;font:8px var(--font-mono);cursor:pointer}.header-actions button:hover{color:var(--accent-cyan);border-color:var(--accent-cyan)}.header-actions .close{font-size:15px;line-height:8px}
   main{min-height:0;flex:1;display:grid;grid-template-columns:minmax(0,3fr) minmax(230px,1fr)}.canvas-wrap{position:relative;min-height:0;background:radial-gradient(ellipse at center,rgba(0,212,255,.07),transparent 64%);overflow:hidden}.canvas-wrap :global(canvas){background:transparent!important}.loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--accent-cyan);font-size:10px;letter-spacing:.12em}.gesture{position:absolute;bottom:12px;left:14px;color:var(--text-muted);font-size:7px;letter-spacing:.1em;pointer-events:none}
