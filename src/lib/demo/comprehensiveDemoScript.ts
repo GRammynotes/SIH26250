@@ -142,7 +142,7 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
     element: '[data-tour="coa-panel"]',
     side: 'left',
     title: 'WEAPONEERING-FIRST LOGIC',
-    narration: 'The optimizer enforces weapon-target compatibility. A Jaguar with Harpoon anti-ship missiles cannot engage a hardened bunker. A Mirage with Spice-2000 cannot hit a ship. Only compatible platform-weapon pairs are considered - this ensures operational realism.',
+    narration: 'The optimizer enforces platform, weapon, and target compatibility. Only compatible aircraft-weapon-target pairs are considered for assignment, so infeasible loadouts are excluded.',
     caption: 'WEAPONEERING - Weapon-target compatibility enforced',
     glossaryTerms: ['Standoff', 'Anti-radiation', 'BVRAAM', 'SRAAM'],
     duration: 12000,
