@@ -713,7 +713,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
                 <button class="rail-focus-lock" class:active={mapFocusLocked} aria-pressed={mapFocusLocked} onclick={() => setMapFocusLock(!mapFocusLocked)} title="Toggle map focus lock">{mapFocusLocked ? '🔒' : '🔓'}</button>
                 {#if !mapFocusLocked}<button aria-label="Re-focus map to the scenario area" title="Re-focus map" onclick={refocusMap}>⌖</button>{/if}
                 <div class="sim-speed" role="group" aria-label="Simulation speed">{#each [0, 1, 2, 4] as speed}<button class:active={system.simSpeed === speed} aria-pressed={system.simSpeed === speed} aria-label={speed === 0 ? 'Pause simulation' : `Set simulation speed to ${speed}x`} onclick={() => system.setSimSpeed(speed as 0 | 1 | 2 | 4)}>{speed === 0 ? 'Ⅱ' : `${speed}x`}</button>{/each}</div>
-                <button class="rail-close" aria-label="Exit experience" title="Exit experience" onclick={closeExperienceRail}>EXIT</button>
+                <button class="rail-close" aria-label="Exit experience" title="Exit experience" onclick={closeExperienceRail}>✕ EXIT</button>
               </div>
             </header>
             {#if arcViewer}<ArcViewer {...arcViewer} />{/if}
@@ -845,6 +845,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     </section>
   </div></ModalLayer>
 {/if}
+{#if system.activeExperience !== 'idle'}<div class="experience-dock" aria-label="Active experience controls"><span><i aria-hidden="true">●</i>{system.activeExperience.toUpperCase()} ACTIVE</span><button aria-label="Exit {system.activeExperience} experience" title="Exit experience" onclick={closeExperienceRail}>✕ EXIT</button></div>{/if}
 {#if dockedModalIds.length > 0}<div class="modal-dock" aria-label="Minimized modals">{#each dockVisibleIds as id (id)}<button title={modalLabels[id]} aria-label="Restore {modalLabels[id]}" onclick={() => restoreModal(id)}>{modalLabels[id]?.slice(0, 2)}</button>{/each}{#if dockOverflowIds.length}<div class="dock-overflow"><button aria-label={`Show ${dockOverflowIds.length} older minimized modals`} title="Older minimized modals" onclick={() => dockOverflowOpen = !dockOverflowOpen}>+{dockOverflowIds.length}</button>{#if dockOverflowOpen}<div class="dock-overflow-list">{#each dockOverflowIds as id (id)}<button title={modalLabels[id]} onclick={() => restoreModal(id)}>{modalLabels[id]}</button>{/each}</div>{/if}</div>{/if}</div>{/if}
   {#if shortcutToast}<div class="shortcut-toast">{shortcutToast}</div>{/if}
   {#if exitExperienceConfirm}<div class="experience-confirm-shade" role="presentation"><div class="experience-confirm" role="dialog" aria-modal="true" aria-labelledby="experience-confirm-title"><h2 id="experience-confirm-title">{system.activeExperience === 'mission' ? 'MISSION IN PROGRESS' : system.activeExperience.toUpperCase() + ' IN PROGRESS'}</h2><p>{system.activeExperience === 'training' ? 'Training in progress. Exit will abort the current mission.' : system.activeExperience === 'mission' ? 'Mission in progress. Exit will abort the current mission.' : `${system.activeExperience[0]?.toUpperCase()}${system.activeExperience.slice(1)} is in progress. Exit will stop this experience.`}</p><div><button onclick={() => exitExperienceConfirm = false}>CANCEL</button><button class="danger" onclick={confirmExperienceExit}>EXIT</button></div></div></div>{/if}
@@ -887,7 +888,12 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   .sim-speed { flex:none; display:flex; gap:1px; }
   .sim-speed button { min-width:22px; height:22px; padding:0 3px; border:1px solid var(--border-subtle); color:var(--text-muted); background:transparent; font:7px var(--font-mono); cursor:pointer; }
   .sim-speed button.active { color:var(--accent-cyan); border-color:var(--accent-cyan); }
-  .rail-close { width:32px; border:0; border-left:1px solid var(--border-subtle); background:transparent; color:var(--text-secondary); font:16px var(--font-mono); cursor:pointer; }
+  .rail-close { width:auto; padding:0 7px; border:0; border-left:1px solid var(--border-subtle); background:transparent; color:var(--text-secondary); font:9px var(--font-mono); letter-spacing:.06em; white-space:nowrap; cursor:pointer; }
+  .experience-dock { position:fixed; z-index:250; left:10px; bottom:10px; display:flex; align-items:center; gap:8px; padding:4px 5px 4px 9px; border:1px solid var(--border-strong); background:rgba(5,8,15,.96); font:8px var(--font-mono); letter-spacing:.08em; }
+  .experience-dock span { display:flex; align-items:center; gap:6px; color:var(--accent-cyan); white-space:nowrap; }
+  .experience-dock i { color:var(--accent-green); font-size:8px; font-style:normal; }
+  .experience-dock button { padding:6px 8px; border:1px solid var(--accent-red); background:transparent; color:var(--accent-red); font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; }
+  .experience-dock button:hover,.experience-dock button:focus-visible { outline:1px solid var(--accent-red); outline-offset:1px; }
   .rail-decision { flex:0 0 62%; height:62%; min-height:0; max-height:62%; overflow:auto; border-top:1px solid var(--border-strong); }
   .decision-impact { position:fixed; z-index:150; left:50%; bottom:112px; transform:translateX(-50%); width:min(560px,90vw); padding:12px 14px; border:1px solid var(--accent-cyan); background:rgba(5,8,15,.96); box-shadow:0 8px 32px rgba(0,0,0,.45); animation:decision-impact-in .18s ease-out; font-family:var(--font-mono); }
   .decision-impact header { display:flex; justify-content:space-between; gap:12px; padding:0 0 7px; border-bottom:1px solid var(--border-subtle); color:var(--accent-cyan); font-size:9px; letter-spacing:.12em; }
