@@ -11,13 +11,19 @@ import { freshAirspace } from '../data/airspace';
 import { freshWeather } from '../data/weather';
 import { detectDeconflictionWarnings } from '../engine/deconfliction';
 import { analyzeTrackLoss, type TrackLossAnalysis } from '../engine/trackLossEngine';
-import { clearVoiceDedupe, narrateEvent, setNarrationSpeed } from '../engine/voice';
+import { clearVoiceDedupe, narrateEvent, setNarrationSpeed, stopVoiceForOwner } from '../engine/voice';
 import type { Aircraft, Mission, Threat, COA, AircraftStatus } from '../types';
 
 export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
+export type ExperienceName = 'idle' | 'demo' | 'training' | 'simulation' | 'mission';
 export interface EventEntry { time: string; source: string; msg: string; level: EventLevel; scenario?: string | null; }
 
 class SystemStore {
+  activeExperience = $state<ExperienceName>('idle');
+  experienceSession = 0;
+  experienceMissionId: string | null = null;
+  experienceScenarioTimers: number[] = [];
+  private experienceTimerCancelers = new Map<number, () => void>();
   focusMode = $state<{
     active: boolean;
     missionId: string | null;
@@ -46,6 +52,7 @@ class SystemStore {
   activeScenarioFilter = $state<string | null>(null);
   scenarioOnlyMissionIds = $state.raw<string[]>([]);
   scenarioTimers: number[] = [];
+  private scenarioGeneration = 0;
   activeMissions = $state<ActiveMission[]>([]);
   coaGenerationCount = $state(0);
   coaSelectionCount = $state(0);
@@ -59,8 +66,100 @@ class SystemStore {
   reoptimizing = $state(false);
   reoptimizationInterval: number | null = null;
   reoptimizationDebounce: number | null = null;
+  private reoptimizationEpoch = 0;
+  private coaComputationEpoch = 0;
   prioritization = $state(50);
   riskBias = $state(0.7);
+
+  enterExperience(name: Exclude<ExperienceName, 'idle'>): boolean {
+    if (this.activeExperience !== 'idle') {
+      const active = this.activeExperience[0].toUpperCase() + this.activeExperience.slice(1);
+      window.dispatchEvent(new CustomEvent('aircommand:busy-toast', { detail: `${active} is running. Press Exit to stop it first.` }));
+      return false;
+    }
+    this.activeExperience = name;
+    this.experienceSession += 1;
+    this.reoptimizationEpoch += 1;
+    this.coaComputationEpoch += 1;
+    this.computing = false;
+    this.experienceMissionId = null;
+    return true;
+  }
+
+  isExperienceSession(session: number): boolean { return session === this.experienceSession && this.activeExperience !== 'idle'; }
+
+  registerExperienceTimer(timer: number): number { this.experienceScenarioTimers.push(timer); return timer; }
+
+  waitForExperience(session: number, delayMs: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      let timer = 0;
+      const finish = (elapsed: boolean) => {
+        this.experienceScenarioTimers = this.experienceScenarioTimers.filter((id) => id !== timer);
+        this.experienceTimerCancelers.delete(timer);
+        resolve(elapsed && this.isExperienceSession(session));
+      };
+      timer = window.setTimeout(() => finish(true), Math.max(0, delayMs));
+      this.registerExperienceTimer(timer);
+      this.experienceTimerCancelers.set(timer, () => { window.clearTimeout(timer); finish(false); });
+    });
+  }
+
+  scheduleExperienceTask(session: number, delayMs: number, task: () => void): number {
+    let timer = 0;
+    const finish = () => {
+      this.experienceScenarioTimers = this.experienceScenarioTimers.filter((id) => id !== timer);
+      this.experienceTimerCancelers.delete(timer);
+      if (this.isExperienceSession(session)) task();
+    };
+    timer = window.setTimeout(finish, Math.max(0, delayMs));
+    this.registerExperienceTimer(timer);
+    this.experienceTimerCancelers.set(timer, () => {
+      window.clearTimeout(timer);
+      this.experienceScenarioTimers = this.experienceScenarioTimers.filter((id) => id !== timer);
+      this.experienceTimerCancelers.delete(timer);
+    });
+    return timer;
+  }
+
+  private cancelExperienceTimers() {
+    for (const cancel of [...this.experienceTimerCancelers.values()]) cancel();
+    for (const timer of this.experienceScenarioTimers) window.clearTimeout(timer);
+    this.experienceScenarioTimers = [];
+    this.experienceTimerCancelers.clear();
+  }
+
+  abortMission(missionId: string) {
+    const active = this.activeMissions.find((item) => item.missionId === missionId && !['COMPLETE', 'ABORTED'].includes(item.phase));
+    if (!active) return;
+    active.phase = 'ABORTED'; active.outcome = 'ABORTED'; active.pendingDecision = null;
+    this.activeMissions = [...this.activeMissions];
+    this.missions = this.missions.map((item) => item.id === missionId ? { ...item, status: 'ABORTED' as const } : item);
+    for (const id of active.aircraftIds) this.setAircraftStatus(id, 'FMC');
+    this.pushEvent('EXEC', `MISSION ABORTED · ${active.missionName} · EXPERIENCE EXIT`, 'warn');
+  }
+
+  exitExperience() {
+    const owner = this.activeExperience;
+    this.experienceSession += 1;
+    this.reoptimizationEpoch += 1;
+    this.coaComputationEpoch += 1;
+    this.computing = false;
+    this.cancelExperienceTimers();
+    this.clearScenarioTimers();
+    this.activeScenario = null;
+    if ((this.activeExperience === 'training' || this.activeExperience === 'mission') && this.experienceMissionId) this.abortMission(this.experienceMissionId);
+    if (owner !== 'idle') stopVoiceForOwner(owner);
+    this.activeExperience = 'idle';
+    this.experienceMissionId = null;
+    this.exitFocusMode();
+  }
+
+  refuseScenarioChange(): boolean {
+    if (this.activeExperience === 'idle') return false;
+    const active = this.activeExperience[0].toUpperCase() + this.activeExperience.slice(1);
+    window.dispatchEvent(new CustomEvent('aircommand:busy-toast', { detail: `${active} is running. Exit before changing scenario.` }));
+    return true;
+  }
 
   get scenarioMissions(): Mission[] {
     const key = this.activeScenarioFilter;
@@ -184,17 +283,24 @@ class SystemStore {
   }
 
   async silentReoptimize() {
+    if (this.shouldSkipReoptimization()) return;
     if (this.computing || this.reoptimizing) return;
+    const epoch = this.reoptimizationEpoch;
     this.reoptimizing = true;
     const startT = performance.now();
     try {
       await new Promise((r) => setTimeout(r, 850));
+      if (epoch !== this.reoptimizationEpoch || this.shouldSkipReoptimization()) return;
       this.coas = optimise(this.scenarioAircraft, this.scenarioMissions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems, this.riskBias);
       this.coaGenerationCount += 1;
       this.lastCoaComputeMs = Math.round(performance.now() - startT);
     } finally {
       this.reoptimizing = false;
     }
+  }
+
+  shouldSkipReoptimization(): boolean {
+    return this.activeExperience === 'mission' || this.activeMissions.some((mission) => !['COMPLETE', 'ABORTED'].includes(mission.phase));
   }
 
   triggerReoptimization(force = false) {
@@ -233,14 +339,20 @@ class SystemStore {
   pushEvent(source: string, msg: string, level: EventLevel = 'info') {
     const time = new Date().toISOString().slice(11, 23);
     this.events = [...this.events, { time, source, msg, level, scenario: this.activeScenarioFilter }].slice(-120);
-    narrateEvent(source, msg, level === 'alert');
+    narrateEvent(source, msg, level === 'alert', this.activeExperience === 'idle' ? undefined : this.activeExperience);
   }
 
   async generateCOAs() {
     if (this.computing) return;
     this.computing = true;
+    const epoch = this.coaComputationEpoch;
+    const session = this.experienceSession;
+    const owner = this.activeExperience;
     const startT = performance.now();
-    await new Promise((r) => setTimeout(r, 850));
+    const current = owner === 'idle'
+      ? (await new Promise<boolean>((resolve) => window.setTimeout(() => resolve(true), 850)))
+      : await this.waitForExperience(session, 850);
+    if (!current || epoch !== this.coaComputationEpoch || session !== this.experienceSession || owner !== this.activeExperience) return;
     this.coas = optimise(this.scenarioAircraft, this.scenarioMissions, this.optimisationThreats(), this.airspaceZones, this.weatherSystems, this.riskBias);
     
     // In DEGRADED mode, reduce confidence values
@@ -309,18 +421,27 @@ class SystemStore {
 
   // ============ MISSION EXECUTION ============
 
-  startMission(missionId: string, aircraftIds: string[], templateId: string) {
-    clearVoiceDedupe();
+  startMission(missionId: string, aircraftIds: string[], templateId: string, ownedByTraining = false) {
+    const requestedByTraining = this.activeExperience === 'training' && ownedByTraining;
+    if (this.activeExperience !== 'idle' && !requestedByTraining) {
+      const active = this.activeExperience[0].toUpperCase() + this.activeExperience.slice(1);
+      window.dispatchEvent(new CustomEvent('aircommand:busy-toast', { detail: `${active} is running. Press Exit to stop it first.` }));
+      return false;
+    }
+    if ((this.activeExperience === 'training' || this.activeExperience === 'mission') && this.experienceMissionId) return false;
     const mission = this.missions.find((m) => m.id === missionId);
-    if (!mission) return;
+    if (!mission) return false;
     const template = HISTORICAL_MISSIONS[templateId];
-    if (!template) return;
+    if (!template) return false;
     const aircraft = this.aircraft.filter((a) => aircraftIds.includes(a.id));
-    if (aircraft.length === 0) return;
+    if (aircraft.length === 0) return false;
+    if (this.activeExperience === 'idle' && !this.enterExperience('mission')) return false;
+    clearVoiceDedupe();
 
     const weapon = optimalWeaponFor(aircraft[0].type, mission.targetType);
     const active = createActiveMission(mission, aircraft, template, weapon?.id ?? null);
     this.activeMissions = [...this.activeMissions, active];
+    this.experienceMissionId = missionId;
 
     // Mark mission active
     this.missions = this.missions.map((m) => m.id === missionId ? { ...m, status: 'ACTIVE' as const } : m);
@@ -333,6 +454,7 @@ class SystemStore {
     const wpn = weapon ? weapon.name : 'UNARMED';
     this.pushEvent('EXEC', `MISSION LAUNCHED · ${mission.name} · ${aircraft.length} AC · ${wpn}`, 'ok');
     this.pushEvent('EXEC', `TEMPLATE: ${template.reference}`, 'info');
+    return true;
   }
 
   tickExecutions() {
@@ -399,7 +521,7 @@ class SystemStore {
             const weapon = am.weaponId ? WEAPONS[am.weaponId] : null;
             const mission = this.missions.find((m) => m.id === am.missionId);
             this.pushEvent('WEAPON', `WEAPON RELEASED · ${weapon?.name ?? am.weaponId ?? 'UNSPECIFIED'} · ${mission?.targetType ?? 'UNKNOWN TARGET'}`, 'alert');
-            window.setTimeout(() => this.pushEvent('WEAPON', `IMPACT CONFIRMED · ${am.missionName}`, 'alert'), 5000);
+            this.scheduleExperienceTask(this.experienceSession, 5000, () => this.pushEvent('WEAPON', `IMPACT CONFIRMED · ${am.missionName}`, 'alert'));
           }
         }
       }
@@ -492,10 +614,12 @@ class SystemStore {
 
   // ============ SCENARIOS ============
 
-  runScenario(name: string) {
+  runScenario(name: string, ownedExperience = false) {
+    if (!ownedExperience && this.refuseScenarioChange()) return;
     const steps = SCENARIOS[name];
     if (!steps) return;
     this.clearScenarioTimers();
+    const generation = this.scenarioGeneration;
     this.activeScenario = name;
     this.activeScenarioFilter = name;
     const sceneMissions = SCENARIO_MISSION_SETS[name] ?? [];
@@ -509,23 +633,35 @@ class SystemStore {
     let lastDelay = 0;
     for (const step of steps) {
       lastDelay = Math.max(lastDelay, step.delay);
-      this.scenarioTimers.push(window.setTimeout(() => this.execute(step), step.delay));
+      this.scheduleScenarioTask(generation, step.delay, () => this.execute(step, generation));
     }
-    this.scenarioTimers.push(window.setTimeout(() => { this.activeScenario = null; this.scenarioTimers = []; }, lastDelay + 2000));
+    this.scheduleScenarioTask(generation, lastDelay + 2000, () => { this.activeScenario = null; });
   }
 
   setScenarioFilter(name: string | null) {
+    if (this.refuseScenarioChange()) return;
     if (!name) { this.clearScenarioTimers(); this.activeScenario = null; }
     this.activeScenarioFilter = name;
     if (name) void this.generateCOAs();
   }
 
   private clearScenarioTimers() {
+    this.scenarioGeneration += 1;
     for (const timer of this.scenarioTimers) window.clearTimeout(timer);
     this.scenarioTimers = [];
   }
 
-  private execute(step: ScenarioStep) {
+  private scheduleScenarioTask(generation: number, delayMs: number, task: () => void) {
+    let timer = 0;
+    timer = window.setTimeout(() => {
+      this.scenarioTimers = this.scenarioTimers.filter((id) => id !== timer);
+      if (generation === this.scenarioGeneration) task();
+    }, delayMs);
+    this.scenarioTimers.push(timer);
+  }
+
+  private execute(step: ScenarioStep, generation: number) {
+    if (generation !== this.scenarioGeneration) return;
     switch (step.action) {
       case 'log':        this.pushEvent(step.payload.source, step.payload.msg, step.payload.level); break;
       case 'set_status': this.setAircraftStatus(step.payload.id, step.payload.status); break;
@@ -557,30 +693,33 @@ class SystemStore {
         this.pushEvent('SENSOR', `SPOOFED TRACK APPEARED · ${step.payload.trackId}`, 'warn');
         if (this.mode === 'DEGRADED') {
           this.pushEvent('FUSION', 'CROSS-SENSOR VALIDATION UNAVAILABLE · DEGRADED SINGLE-SOURCE MODE', 'warn');
-          setTimeout(() => {
+          this.scheduleScenarioTask(generation, 5000, () => {
             this.threats = this.threats.filter(t => t.id !== step.payload.trackId);
             this.pushEvent('SENSOR', `UNVERIFIED TRACK EXPIRED · ${step.payload.trackId}`, 'warn');
-          }, 5000);
+          });
           break;
         }
         
         // Validation runs two seconds after the track appears.
-        setTimeout(() => {
+        this.scheduleScenarioTask(generation, 2000, () => {
           this.pushEvent('FUSION', 'CROSS-SENSOR VALIDATION IN PROGRESS · 3 SENSORS', 'info');
           this.spoofedTrackId = step.payload.trackId;
           this.pushEvent('FUSION', `CROSS-SENSOR VALIDATION FAILED · TRACK ID 4421 FLAGGED SPOOFED · CONFIDENCE 92%`, 'alert');
           // Remove three seconds after validation flags the marker.
-          setTimeout(() => {
+          this.scheduleScenarioTask(generation, 3000, () => {
             this.threats = this.threats.filter(t => t.id !== step.payload.trackId);
             this.spoofedTrackId = null;
             this.pushEvent('FUSION', `SPOOFED TRACK REMOVED · ${step.payload.trackId}`, 'ok');
-          }, 3000);
-        }, 2000);
+          });
+        });
         break;
     }
   }
 
   reset() {
+    this.exitExperience();
+    this.coaComputationEpoch += 1;
+    if (this.reoptimizationDebounce !== null) { window.clearTimeout(this.reoptimizationDebounce); this.reoptimizationDebounce = null; }
     this.clearScenarioTimers();
     const s = generateSystemState();
     this.aircraft = s.aircraft;
@@ -593,9 +732,24 @@ class SystemStore {
     this.selectedCoaId = null;
     this.selectedBaseId = null;
     this.mode = 'NORMAL';
+    this.simSpeed = 1;
+    setNarrationSpeed(1);
+    this.prioritization = 50;
+    this.riskBias = 0.7;
     this.activeScenario = null;
     this.activeScenarioFilter = null;
     this.activeMissions = [];
+    this.trackLossAnalysis = null;
+    this.spoofedTrackId = null;
+    this.aarQueue = [];
+    this.coaGenerationCount = 0;
+    this.coaSelectionCount = 0;
+    this.lastCoaComputeMs = 0;
+    this.computing = false;
+    this.reoptimizing = false;
+    this.events = [];
+    this.continuousReoptimization = true;
+    this.startContinuousReoptimization();
     this.pushEvent('SYSTEM', 'STATE RESET · BASELINE RESTORED', 'ok');
   }
 }

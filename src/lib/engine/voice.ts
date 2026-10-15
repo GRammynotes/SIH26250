@@ -1,7 +1,7 @@
 export type VoicePriority = 'critical' | 'info';
 export type VoiceCharacter = 'commander' | 'agent';
 export type VoiceFocusTarget = { selector: string; duration: number };
-type QueuedLine = { text: string; priority: VoicePriority; source: string; focus?: VoiceFocusTarget; speaker?: VoiceCharacter };
+type QueuedLine = { text: string; priority: VoicePriority; source: string; owner?: string; focus?: VoiceFocusTarget; speaker?: VoiceCharacter };
 
 let enabled = true;
 let narrationSpeed: 1 | 2 | 4 = 1;
@@ -9,6 +9,7 @@ let narrationSpeed: 1 | 2 | 4 = 1;
 export function setNarrationSpeed(speed: 1 | 2 | 4): void { narrationSpeed = speed; }
 let speaking = false;
 let speakingPriority: VoicePriority | null = null;
+let speakingLine: QueuedLine | null = null;
 let queue: QueuedLine[] = [];
 let generation = 0;
 const lastSpoken = new Map<string, number>();
@@ -21,7 +22,19 @@ export function stopVoice(): void {
   queue = [];
   speaking = false;
   speakingPriority = null;
+  speakingLine = null;
   if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+}
+
+export function stopVoiceForOwner(owner: string): void {
+  queue = queue.filter((line) => line.owner !== owner);
+  if (speakingLine?.owner !== owner) return;
+  generation += 1;
+  speaking = false;
+  speakingPriority = null;
+  speakingLine = null;
+  if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+  void drain();
 }
 
 export function isVoiceEnabled(): boolean { return enabled; }
@@ -33,6 +46,7 @@ export function setVoiceEnabled(value: boolean): void {
     queue = [];
     speaking = false;
     speakingPriority = null;
+    speakingLine = null;
     if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
   }
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('aircommand:voice-state', { detail: enabled }));
@@ -106,9 +120,10 @@ async function drain(): Promise<void> {
   const token = generation;
   speaking = true;
   speakingPriority = item.priority;
+  speakingLine = item;
   await playTone(token, item.speaker);
-  if (token !== generation || !enabled) { speaking = false; speakingPriority = null; void drain(); return; }
-  if (!('speechSynthesis' in window)) { speaking = false; speakingPriority = null; void drain(); return; }
+  if (token !== generation || !enabled) return;
+  if (!('speechSynthesis' in window)) { finishLine(token); return; }
   const utterance = new SpeechSynthesisUtterance(item.text);
   window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: item.source, text: item.text } }));
   if (item.focus) window.dispatchEvent(new CustomEvent('aircommand:focus', { detail: { ...item.focus, text: item.text } }));
@@ -124,31 +139,39 @@ async function drain(): Promise<void> {
   const alternateVoice = availableVoices[item.speaker === 'commander' ? 0 : Math.min(1, availableVoices.length - 1)];
   const voice = hintedVoice ?? alternateVoice;
   if (voice) utterance.voice = voice;
-  const finish = () => { if (token !== generation) return; speaking = false; speakingPriority = null; void drain(); };
+  const finish = () => finishLine(token);
   utterance.onend = finish;
   utterance.onerror = finish;
   window.speechSynthesis.cancel();
   await new Promise<void>((resolve) => window.setTimeout(resolve, 20));
-  if (token !== generation || !enabled) { speaking = false; speakingPriority = null; void drain(); return; }
+  if (token !== generation || !enabled) return;
   window.speechSynthesis.speak(utterance);
 }
 
-export function narrateEvent(source: string, message: string, interrupt = false): void {
+function finishLine(token: number): void {
+  if (token !== generation) return;
+  speaking = false;
+  speakingPriority = null;
+  speakingLine = null;
+  void drain();
+}
+
+export function narrateEvent(source: string, message: string, interrupt = false, owner?: string): void {
   if (typeof window === 'undefined') return;
   const narration = narrationFor(source, message);
   if (!narration) return;
   window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source, text: narration.text } }));
   if (!enabled) return;
-  const line: QueuedLine = { ...narration, source };
+  const line: QueuedLine = { ...narration, source, owner };
   enqueue(line, interrupt);
 }
 
-export function narrateUtterance(text: string, options: { source?: string; priority?: VoicePriority; focus?: VoiceFocusTarget; speaker?: VoiceCharacter } = {}): void {
+export function narrateUtterance(text: string, options: { source?: string; priority?: VoicePriority; focus?: VoiceFocusTarget; speaker?: VoiceCharacter; owner?: string } = {}): void {
   if (typeof window === 'undefined' || !text.trim()) return;
   const source = options.source ?? (options.speaker === 'commander' ? 'COMMANDER' : 'OPS AGENT');
   window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source, text } }));
   if (!enabled) return;
-  enqueue({ text, source, priority: options.priority ?? 'info', focus: options.focus, speaker: options.speaker }, options.priority === 'critical');
+  enqueue({ text, source, priority: options.priority ?? 'info', focus: options.focus, speaker: options.speaker, owner: options.owner }, options.priority === 'critical');
 }
 
 function enqueue(line: QueuedLine, interrupt: boolean): void {

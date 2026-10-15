@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { narrateUtterance } from '../../engine/voice';
+  import { narrateUtterance, stopVoiceForOwner } from '../../engine/voice';
   import { onDestroy } from 'svelte';
   import { HISTORICAL_MISSIONS } from '../../data/historicalMissions';
   import { system } from '../../stores/systemStore.svelte';
@@ -14,6 +14,8 @@
   let introAnnounced = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let revealSequenceToken = 0;
+  let sessionToken = -1;
+  const sessionIsCurrent = () => system.activeExperience === 'simulation' && system.isExperienceSession(sessionToken);
   const cases = Object.values(HISTORICAL_MISSIONS);
   const scenarios = {
     balakot: [{ name: 'TARGET DESTROYED', chance: 72, consequence: 'Primary target effect achieved; package returns for full BDA correlation.' }, { name: 'TARGET DAMAGED', chance: 22, consequence: 'Partial effect; commander reviews re-attack options and collateral assessment.' }, { name: 'TARGET MISSED', chance: 6, consequence: 'No confirmed effect; preserve the force and reassess intelligence.' }],
@@ -21,24 +23,25 @@
     sead_suppression: [{ name: 'RADAR SUPPRESSED', chance: 64, consequence: 'Threat emission ceases and the follow-on corridor opens.' }, { name: 'RADAR DEGRADED', chance: 27, consequence: 'Coverage is reduced, but the radar may recover.' }, { name: 'RADAR RELOCATED', chance: 9, consequence: 'Last-known coordinates are empty; update the threat picture.' }],
   } as const;
   const activeCase = $derived(HISTORICAL_MISSIONS[caseId]);
-  const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+  const wait = (ms: number) => system.waitForExperience(sessionToken, ms);
   async function sequenceBranchReveal(missionId: string, aircraftTail: string, threatIds: string[], startAt: number) {
     const sequenceToken = revealSequenceToken;
-    const current = () => revealSequenceToken === sequenceToken && system.focusMode?.active && system.focusMode.missionId === missionId;
-    const waitUntil = async (offset: number) => { const remaining = startAt + offset - performance.now(); if (remaining > 0) await wait(remaining); };
-    await waitUntil(2000);
+    const current = () => revealSequenceToken === sequenceToken && sessionIsCurrent() && system.focusMode?.active && system.focusMode.missionId === missionId;
+    const waitUntil = async (offset: number) => { const remaining = startAt + offset - performance.now(); return remaining <= 0 || await wait(remaining); };
+    if (!await waitUntil(2000)) return;
     if (!current()) return;
     system.revealElement('aircraft', aircraftTail);
-    await waitUntil(4000);
+    if (!await waitUntil(4000)) return;
     if (!current()) return;
     system.revealElement('route');
-    await waitUntil(6000);
-    for (const id of threatIds) { if (!current()) return; system.revealElement('threat', id); await wait(200); }
-    await waitUntil(8000);
+    if (!await waitUntil(6000)) return;
+    for (const id of threatIds) { if (!current()) return; system.revealElement('threat', id); if (!await wait(200)) return; }
+    if (!await waitUntil(8000)) return;
     if (current()) window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: 'aircraft', entityId: aircraftTail, missionId } }));
   }
   const outcomes = $derived(scenarios[caseId]);
   function simulate(forcedIndex?: number) {
+    if (!sessionIsCurrent()) return;
     const roll = forcedIndex === undefined ? Math.random() * 100 : 0; let total = 0;
     selectedOutcome = forcedIndex ?? outcomes.findIndex((item) => { total += item.chance; return roll < total; });
     const result = outcomes[selectedOutcome];
@@ -54,20 +57,26 @@
     }
     runCount++;
     system.pushEvent('SIMULATION', `${result.name} · ${result.chance}% MODELED PROBABILITY`, result.name.includes('DESTROYED') || result.name.includes('SUPPRESSED') ? 'ok' : 'info');
-    narrateUtterance(`Simulation branch selected: ${result.name}. ${result.consequence}`, { source: 'SIMULATION', speaker: 'agent' });
+    narrateUtterance(`Simulation branch selected: ${result.name}. ${result.consequence}`, { source: 'SIMULATION', owner: 'simulation', speaker: 'agent' });
     window.dispatchEvent(new CustomEvent('aircommand:diagram-focus', { detail: { bounds: [[72.7, 29.5], [77.2, 34.3]], text: `${result.name}. ${result.consequence}` } }));
     window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: 'SIMULATION', text: `${result.name} · ${result.chance}% modeled probability` } }));
   }
   $effect(() => {
+    if (open && system.activeExperience === 'simulation') sessionToken = system.experienceSession;
+    if (!open) {
+      sessionToken = -1;
+      revealSequenceToken++;
+      stopVoiceForOwner('simulation');
+    }
     runCount;
     if (timer) clearTimeout(timer);
-    if (open && autoEnabled && simSpeed !== 0) timer = setTimeout(() => { simulate(); }, 6000 / simSpeed);
+    if (open && autoEnabled && simSpeed !== 0 && sessionIsCurrent()) timer = setTimeout(() => { if (sessionIsCurrent()) simulate(); }, 6000 / simSpeed);
   });
-  onDestroy(() => { revealSequenceToken++; if (timer) clearTimeout(timer); });
+  onDestroy(() => { revealSequenceToken++; if (timer) clearTimeout(timer); stopVoiceForOwner('simulation'); });
   $effect(() => {
     if (open && !introAnnounced) {
       introAnnounced = true;
-      narrateUtterance('SIMULATION MODE. This runs a probabilistic engagement with three possible outcomes weighted by historical base rates. Watch what-if branches resolve. Purpose: evaluate plan robustness under uncertainty.', { source: 'SIM', speaker: 'agent' });
+      narrateUtterance('SIMULATION MODE. This runs a probabilistic engagement with three possible outcomes weighted by historical base rates. Watch what-if branches resolve. Purpose: evaluate plan robustness under uncertainty.', { source: 'SIM', owner: 'simulation', speaker: 'agent' });
     }
     if (!open && introAnnounced) { introAnnounced = false; pastDecisions = []; pastDecisionsExpanded = false; }
   });

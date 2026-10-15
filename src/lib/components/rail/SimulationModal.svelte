@@ -18,50 +18,54 @@
   let runner: ReturnType<typeof setTimeout> | undefined;
   let exitTimer: ReturnType<typeof setTimeout> | undefined;
   let autoDecision = $state(true);
+  let sessionToken = 0;
   const history = HISTORICAL_MISSIONS.sindoor_deep;
   let active = $derived(system.activeMissions.find((mission) => mission.missionId === simMissionId) ?? null);
   let pending = $derived(active?.pendingDecision ?? null);
+  const sessionIsCurrent = () => system.activeExperience === 'training' && system.isExperienceSession(sessionToken);
 
   function say(speaker: Dialogue['speaker'], text: string) {
+    if (!sessionIsCurrent()) return;
     window.dispatchEvent(new CustomEvent('aircommand:arc-viewer-clear'));
     const narrative = parseMapNarrative(text);
     turns = [...turns, { speaker, text: narrative.text }].slice(-30);
-    narrateUtterance(narrative.text, { source: speaker, speaker: speaker === 'COMMANDER' ? 'commander' : 'agent', priority: speaker === 'SYSTEM' ? 'critical' : 'info' });
+    narrateUtterance(narrative.text, { source: speaker, owner: 'training', speaker: speaker === 'COMMANDER' ? 'commander' : 'agent', priority: speaker === 'SYSTEM' ? 'critical' : 'info' });
     window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: speaker, text: narrative.text } }));
   }
-  const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+  const wait = (ms: number) => system.waitForExperience(sessionToken, ms);
   async function sequencedReveal(missionId: string, missionName: string, aircraft: typeof system.scenarioAircraft, threatIds: string[], startAt: number) {
-    const current = () => system.focusMode?.active && system.focusMode.missionId === missionId;
-    const waitFor = async (offset: number) => { const remaining = startAt + offset - performance.now(); if (remaining > 0) await wait(remaining); };
+    const current = () => sessionIsCurrent() && system.focusMode?.active && system.focusMode.missionId === missionId;
+    const waitFor = async (offset: number) => { const remaining = startAt + offset - performance.now(); return remaining <= 0 || await wait(remaining); };
     await waitFor(2000);
     if (!current()) return;
     const firstAircraft = aircraft[0];
     system.revealElement('aircraft', firstAircraft.tailNumber);
-    system.startMission(missionId, aircraft.map((item) => item.id), 'sindoor_deep');
+    system.startMission(missionId, aircraft.map((item) => item.id), 'sindoor_deep', true);
     say('OPS AGENT', `Aircraft ${firstAircraft.tailNumber} is assigned to ${missionName}.`);
-    await waitFor(4000);
+    if (!await waitFor(4000)) return;
     if (!current()) return;
     system.revealElement('route');
     say('OPS AGENT', `The trajectory to ${missionName} is now shown. Route risk is assessed against the current threat picture.`);
-    await waitFor(6000);
+    if (!await waitFor(6000)) return;
     for (const id of threatIds) {
       if (!current()) return;
       system.revealElement('threat', id);
-      await wait(200);
+      if (!await wait(200)) return;
     }
-    await waitFor(8000);
+    if (!await waitFor(8000)) return;
     if (!current()) return;
     say('OPS AGENT', `Review the aircraft trajectory for ${firstAircraft.tailNumber}.`);
     window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: 'aircraft', entityId: firstAircraft.tailNumber, missionId } }));
-    await waitFor(Math.max(10000, 8000 + threatIds.length * 200 + 800));
+    if (!await waitFor(Math.max(10000, 8000 + threatIds.length * 200 + 800))) return;
     if (!current()) return;
     say('OPS AGENT', `Course of action generated. ${aircraft.length} available aircraft are assigned for this training run. AUTO is ${autoDecision ? 'on' : 'off'}; decision points pause for your review when AUTO is off.`);
     busy = false;
     advanceToDecision();
   }
   function startExercise() {
-    if (started) return;
+    if (started || system.activeExperience !== 'training') return;
     started = true;
+    sessionToken = system.experienceSession;
     busy = true;
     if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike');
     system.generateCOAs();
@@ -86,10 +90,11 @@
     void sequencedReveal(mission.id, mission.name, aircraft, system.focusMode?.routeThreatIds ?? [], sequenceStart);
   }
   function advanceToDecision() {
-    if (paused || busy || !active || active.phase === 'COMPLETE' || active.phase === 'ABORTED') return;
+    if (!sessionIsCurrent() || paused || busy || !active || active.phase === 'COMPLETE' || active.phase === 'ABORTED') return;
     busy = true;
     say('OPS AGENT', `${active.phase}: advancing the exercise timeline and monitoring fuel, threat geometry, and mission status.`);
     runner = setTimeout(() => {
+      if (!system.isExperienceSession(sessionToken)) return;
       system.advanceSimulationClock(0.5);
       busy = false;
       const now = system.activeMissions.find((mission) => mission.missionId === simMissionId);
@@ -99,7 +104,7 @@
       else if (now?.phase === 'COMPLETE') {
         say('OPS AGENT', 'Exercise complete. Review the mission log and after-action report for outcomes and decision consequences. The focus view will close in five seconds.');
         if (exitTimer) clearTimeout(exitTimer);
-        exitTimer = setTimeout(() => onClose?.(), 5000);
+        exitTimer = setTimeout(() => { if (sessionIsCurrent()) onClose?.(); }, 5000);
       }
     }, scaledDelay(6000));
   }
@@ -109,7 +114,7 @@
     return weighted.find((item) => (roll -= item.weight) <= 0)?.branch ?? branches[0];
   }
   function choose(branchId: string) {
-    if (!pending || !branchId) return;
+    if (!sessionIsCurrent() || !pending || !branchId) return;
     if (decisionTimer) clearTimeout(decisionTimer);
     const branch = pending.branches.find((item) => item.id === branchId);
     if (!branch) return;
@@ -120,11 +125,11 @@
     say('OPS AGENT', branch.consequence);
     runner = setTimeout(advanceToDecision, scaledDelay(800));
   }
-  function togglePause() { paused = !paused; say('OPS AGENT', paused ? 'Simulation paused. The map and mission state remain available for inspection.' : 'Simulation resumed.'); if (!paused) advanceToDecision(); }
+  function togglePause() { if (!sessionIsCurrent()) return; paused = !paused; say('OPS AGENT', paused ? 'Simulation paused. The map and mission state remain available for inspection.' : 'Simulation resumed.'); if (!paused) advanceToDecision(); }
   function jumpToMap() { window.dispatchEvent(new CustomEvent('aircommand:diagram-focus', { detail: { bounds: [[72.7, 29.5], [77.2, 34.3]], text: 'Historical training area focused. Track the package route, target marker, and threat geometry as the exercise progresses.' } })); }
   function handleRailDecision(event: Event) {
     const detail = (event as CustomEvent<{ missionId: string }>).detail;
-    if (detail.missionId !== active?.missionId) return;
+    if (!sessionIsCurrent() || detail.missionId !== active?.missionId) return;
     if (decisionTimer) clearTimeout(decisionTimer);
     runner = setTimeout(advanceToDecision, scaledDelay(800));
   }
@@ -139,6 +144,7 @@
     if (decisionTimer) clearTimeout(decisionTimer);
     if (open && auto && waiting && speed !== 0) {
       decisionTimer = setTimeout(() => {
+        if (!sessionIsCurrent()) return;
         const latest = system.activeMissions.find((mission) => mission.missionId === simMissionId);
         if (latest?.pendingDecision) choose(weightedBranch(latest.pendingDecision.branches).id);
       }, scaledDelay(6000));
@@ -146,6 +152,16 @@
     return () => { if (decisionTimer) clearTimeout(decisionTimer); };
   });
   onDestroy(() => { if (decisionTimer) clearTimeout(decisionTimer); if (runner) clearTimeout(runner); if (exitTimer) clearTimeout(exitTimer); });
+  $effect(() => {
+    if (!open) {
+      sessionToken = -1;
+      if (decisionTimer) clearTimeout(decisionTimer);
+      if (runner) clearTimeout(runner);
+      if (exitTimer) clearTimeout(exitTimer);
+      busy = false;
+      return;
+    }
+  });
   $effect(() => { if (open && !started) startExercise(); });
 </script>
 

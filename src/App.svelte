@@ -96,6 +96,8 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let rightPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let logPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let shortcutToast = $state('');
+  let exitExperienceConfirm = $state(false);
+  let resetConfirm = $state(false);
   let unreadLogCount = $state(0);
   let previousLogCount = system.events.length;
   let dockOverflowOpen = $state(false);
@@ -220,6 +222,50 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     toastTimer = setTimeout(() => shortcutToast = '', 1800);
   }
 
+  function showBusyToast(message: string) {
+    shortcutToast = message;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => shortcutToast = '', 3000);
+  }
+
+  function cleanupExperience() {
+    system.exitExperience();
+    railMode = null; demoActive = false; comprehensiveDemoOpen = false;
+    simulationOpen = false; probabilisticSimOpen = false; arcViewer = null;
+    exitExperienceConfirm = false;
+    for (const event of ['aircommand:arc-viewer-clear', 'aircommand:diagram-focus-clear', 'aircommand:temporary-overlay-clear']) window.dispatchEvent(new CustomEvent(event));
+    if (railExitTimer) clearTimeout(railExitTimer);
+  }
+
+  function closeExperienceRail() {
+    if (system.activeExperience === 'idle') { cleanupExperience(); return; }
+    const missionId = system.experienceMissionId;
+    const mission = missionId && system.activeMissions.find((item) => item.missionId === missionId && !['COMPLETE', 'ABORTED'].includes(item.phase));
+    if (mission) { exitExperienceConfirm = true; return; }
+    cleanupExperience();
+  }
+
+  function requestReset() {
+    exitExperienceConfirm = false;
+    resetConfirm = true;
+  }
+
+  function confirmExperienceExit() {
+    cleanupExperience();
+  }
+
+  function confirmSystemReset() {
+    resetConfirm = false;
+    cleanupExperience();
+    system.reset();
+    entityDetail = null; detailPreviousRail = null; arcViewer = null;
+    briefingMissionId = null; aarMissionId = null; assignedAircraftId = null;
+    trackLossOpen = false; shortcutHelpOpen = false; glossaryOpen = false;
+    flowOpen = false; referenceOpen = false; metricsOpen = false; loadoutOpen = false;
+    systemGuideOpen = false; demoCompleteOpen = false; commandPaletteOpen = false;
+    pastDecisions = []; pastDecisionsExpanded = false;
+  }
+
   function resetLayout() {
     mapFullscreen = false;
     leftCollapsed = false; rightCollapsed = false; logCollapsed = false;
@@ -263,6 +309,10 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     try { if (localStorage.getItem('aircommand.seen') !== 'true') welcomeOpen = true; } catch { welcomeOpen = true; }
     void import('./lib/components/map/TacticalMap.svelte').then((module) => TacticalMap = module.default);
     const handleMissionBrief = (event: Event) => briefingMissionId = (event as CustomEvent<string>).detail;
+    const handleBusyToast = (event: Event) => showBusyToast(String((event as CustomEvent<string>).detail ?? 'EXPERIENCE IS ACTIVE'));
+    const handleResetRequest = () => requestReset();
+    window.addEventListener('aircommand:busy-toast', handleBusyToast);
+    window.addEventListener('aircommand:reset-request', handleResetRequest);
     const handleEntityDetail = (event: Event) => {
       const detail = (event as CustomEvent<{ type: string; id: string }>).detail;
       if (!detail?.type || !detail.id) return;
@@ -303,7 +353,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       if (rightCollapsed) rightPane?.resize(3);
       if (logCollapsed) logPane?.resize(3);
     });
-    return () => { window.removeEventListener('aircommand:mission-brief', handleMissionBrief); window.removeEventListener('aircommand:entity-detail', handleEntityDetail); window.removeEventListener('aircommand:select-right-tab', handleSelectRightTab); window.removeEventListener('aircommand:map-open-panel', handleMapOpenPanel); window.removeEventListener('aircommand:tour-target', handleTourTarget); window.removeEventListener('aircommand:arc-viewer', handleArcViewer); window.removeEventListener('aircommand:arc-viewer-clear', clearArcViewer); };
+    return () => { window.removeEventListener('aircommand:busy-toast', handleBusyToast); window.removeEventListener('aircommand:reset-request', handleResetRequest); window.removeEventListener('aircommand:mission-brief', handleMissionBrief); window.removeEventListener('aircommand:entity-detail', handleEntityDetail); window.removeEventListener('aircommand:select-right-tab', handleSelectRightTab); window.removeEventListener('aircommand:map-open-panel', handleMapOpenPanel); window.removeEventListener('aircommand:tour-target', handleTourTarget); window.removeEventListener('aircommand:arc-viewer', handleArcViewer); window.removeEventListener('aircommand:arc-viewer-clear', clearArcViewer); };
   });
 
   function closeEntityDetail() { entityDetail = null; arcViewer = null; railMode = detailPreviousRail; detailPreviousRail = null; }
@@ -450,9 +500,10 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   }
 
   function startDemo() {
+    if (!system.enterExperience('demo')) return;
     closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false;
     demoActive = true;
-    if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike');
+    if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike', true);
     const demoMission = system.scenarioMissions.find((item) => item.targetType === HISTORICAL_MISSIONS.sindoor_deep.targetType) ?? system.scenarioMissions[0];
     system.enterFocusMode(demoMission?.id ?? null);
     if (demoMission) system.revealElement('target', demoMission.id);
@@ -461,8 +512,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   }
 
   function startSimulation() {
+    if (!system.enterExperience('training')) return;
     closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false;
-    if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike');
+    if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike', true);
     const trainingMission = system.scenarioMissions.find((item) => item.targetType === HISTORICAL_MISSIONS.sindoor_deep.targetType) ?? system.scenarioMissions[0];
     system.enterFocusMode(trainingMission?.id ?? null);
     if (trainingMission) system.revealElement('target', trainingMission.id);
@@ -472,10 +524,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     simulationOpen = true;
   }
 
-  function startProbabilisticSimulation() { closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false; demoActive = false; if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike'); const mission = system.scenarioMissions[0]; system.enterFocusMode(mission?.id ?? null); if (mission) system.revealElement('target', mission.id); railMode = 'sim'; railCollapsed = false; comprehensiveDemoOpen = false; probabilisticSimOpen = true; }
+  function startProbabilisticSimulation() { if (!system.enterExperience('simulation')) return; closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false; demoActive = false; if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike', true); const mission = system.scenarioMissions[0]; system.enterFocusMode(mission?.id ?? null); if (mission) system.revealElement('target', mission.id); railMode = 'sim'; railCollapsed = false; comprehensiveDemoOpen = false; probabilisticSimOpen = true; }
   function closeWelcome() { welcomeOpen = false; try { localStorage.setItem('aircommand.seen', 'true'); } catch {} }
   function replayWelcome() { try { localStorage.removeItem('aircommand.seen'); } catch {} welcomeOpen = true; }
-  function closeExperienceRail() { railMode = null; demoActive = false; comprehensiveDemoOpen = false; arcViewer = null; system.exitFocusMode(); if (railExitTimer) clearTimeout(railExitTimer); }
   function resizeRail(event: PointerEvent) { if (railResizing) railWidth = Math.min(500, Math.max(320, innerWidth - event.clientX)); }
   function endRailResize() { railResizing = false; }
   function selectRailMode(mode: 'demo' | 'training' | 'sim') {
@@ -518,11 +569,24 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     if (event.ctrlKey && event.key.toLowerCase() === 'k') { event.preventDefault(); commandPaletteOpen = true; return; }
     const target = event.target as HTMLElement | null;
     if (event.key === 'Escape') {
+      if (exitExperienceConfirm) { exitExperienceConfirm = false; return; }
+      if (resetConfirm) { resetConfirm = false; return; }
+      if (entityDetail) { closeEntityDetail(); return; }
+      if (commandPaletteOpen) { commandPaletteOpen = false; return; }
+      if (arcViewer) { arcViewer = null; return; }
+      const topModal = [...modalStack].reverse().find((id) => activeModalIds.includes(id) && !minimizedModals.includes(id) && id !== 'comprehensive-demo');
+      if (topModal) { closeModal(topModal); return; }
+      if (system.activeExperience !== 'idle') {
+        if (system.activeExperience === 'demo' && system.simSpeed !== 0) {
+          window.dispatchEvent(new CustomEvent('aircommand:experience-pause-request'));
+          showBusyToast('PAUSED · PRESS EXIT TO STOP THIS EXPERIENCE');
+        } else if (system.simSpeed !== 0) { system.setSimSpeed(0); showBusyToast('PAUSED · PRESS EXIT TO STOP THIS EXPERIENCE'); }
+        else showBusyToast('EXPERIENCE IS ACTIVE · USE EXIT TO STOP IT');
+        return;
+      }
       if (system.focusMode?.active) { system.exitFocusMode(); event.stopImmediatePropagation(); return; }
       if (comprehensiveDemoOpen || railMode) { closeExperienceRail(); return; }
       if (mapFullscreen) { toggleMapFullscreen(); return; }
-      const topModal = [...modalStack].reverse().find((id) => activeModalIds.includes(id) && !minimizedModals.includes(id));
-      if (topModal) { closeModal(topModal); return; }
       if (commandPaletteOpen) { commandPaletteOpen = false; return; }
       if (mapFullscreen) { toggleMapFullscreen(); return; }
       if (railMode) { closeExperienceRail(); return; }
@@ -566,7 +630,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       'act-glossary': () => glossaryOpen = true, 'act-shortcuts': () => shortcutHelpOpen = true,
       'act-demo': startDemo, 'act-simulation': startSimulation, 'act-auto': () => system.toggleContinuousReoptimization(),
       'act-degraded': () => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED'),
-      'act-reset': () => system.reset(),
+      'act-reset': requestReset,
     };
     actions[command.id]?.();
   }
@@ -609,7 +673,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     onGuideClick={() => { systemGuideOpen = !systemGuideOpen; narrateUtterance(systemGuideOpen ? 'System guide opened.' : 'System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }}
     onReplayWelcome={replayWelcome}
     onGenerate={() => system.generateCOAs()}
-    onReset={() => system.reset()}
+    onReset={requestReset}
     onDegradedToggle={() => system.setMode(system.mode === 'DEGRADED' ? 'NORMAL' : 'DEGRADED')}
     onLayerToggle={toggleMapLayer}
     onPanelToggle={(key, visible) => setPanelVisibility(key as keyof typeof panelVisibility, visible)}
@@ -820,7 +884,10 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   </div></ModalLayer>
 {/if}
 {#if dockedModalIds.length > 0}<div class="modal-dock" aria-label="Minimized modals">{#each dockVisibleIds as id (id)}<button title={modalLabels[id]} aria-label="Restore {modalLabels[id]}" onclick={() => restoreModal(id)}>{modalLabels[id]?.slice(0, 2)}</button>{/each}{#if dockOverflowIds.length}<div class="dock-overflow"><button aria-label={`Show ${dockOverflowIds.length} older minimized modals`} title="Older minimized modals" onclick={() => dockOverflowOpen = !dockOverflowOpen}>+{dockOverflowIds.length}</button>{#if dockOverflowOpen}<div class="dock-overflow-list">{#each dockOverflowIds as id (id)}<button title={modalLabels[id]} onclick={() => restoreModal(id)}>{modalLabels[id]}</button>{/each}</div>{/if}</div>{/if}</div>{/if}
-{#if shortcutToast}<div class="shortcut-toast">{shortcutToast}</div>{/if}
+  {#if shortcutToast}<div class="shortcut-toast">{shortcutToast}</div>{/if}
+  {#if system.activeExperience === 'mission' && !railMode}<button class="experience-exit-chip" onclick={closeExperienceRail}>MISSION ACTIVE · EXIT</button>{/if}
+  {#if exitExperienceConfirm}<div class="experience-confirm-shade" role="presentation"><div class="experience-confirm" role="dialog" aria-modal="true" aria-labelledby="experience-confirm-title"><h2 id="experience-confirm-title">{system.activeExperience === 'mission' ? 'MISSION IN PROGRESS' : system.activeExperience.toUpperCase() + ' IN PROGRESS'}</h2><p>{system.activeExperience === 'training' ? 'Training in progress. Exit will abort the current mission.' : system.activeExperience === 'mission' ? 'Mission in progress. Exit will abort the current mission.' : `${system.activeExperience[0]?.toUpperCase()}${system.activeExperience.slice(1)} is in progress. Exit will stop this experience.`}</p><div><button onclick={() => exitExperienceConfirm = false}>CANCEL</button><button class="danger" onclick={confirmExperienceExit}>EXIT</button></div></div></div>{/if}
+  {#if resetConfirm}<div class="experience-confirm-shade" role="presentation"><div class="experience-confirm" role="dialog" aria-modal="true" aria-labelledby="reset-confirm-title"><h2 id="reset-confirm-title">RESET SYSTEM?</h2><p>Reset will stop all active experiences and clear all state.</p><div><button onclick={() => resetConfirm = false}>CANCEL</button><button class="danger" onclick={confirmSystemReset}>RESET</button></div></div></div>{/if}
 
 <style>
   :global(html, body) { margin: 0; padding: 0; overflow: hidden; background: var(--bg-base); }
@@ -834,6 +901,14 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     background: #1a242e;
     gap: 0;
   }
+  .experience-confirm-shade { position:fixed; inset:0; z-index:500; display:grid; place-items:center; background:rgba(0,0,0,.72); }
+  .experience-confirm { width:min(420px,calc(100vw - 32px)); padding:20px; border:1px solid var(--accent-amber); background:var(--bg-panel); color:var(--text-primary); font-family:var(--font-mono); box-shadow:0 12px 40px rgba(0,0,0,.6); }
+  .experience-confirm h2 { margin:0 0 10px; color:var(--accent-amber); font-size:12px; letter-spacing:.12em; }
+  .experience-confirm p { color:var(--text-secondary); font:12px/1.5 var(--font-sans); }
+  .experience-confirm div { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+  .experience-confirm button,.experience-exit-chip { padding:8px 12px; border:1px solid var(--border-strong); background:transparent; color:var(--text-primary); font:9px var(--font-mono); cursor:pointer; }
+  .experience-confirm button.danger,.experience-exit-chip { border-color:var(--accent-red); color:var(--accent-red); }
+  .experience-exit-chip { position:fixed; z-index:140; right:12px; top:42px; background:var(--bg-panel); }
   .shell.rail-open { grid-template-columns:minmax(0,1fr) var(--rail-width); }
   :global(.shell > .topbar), :global(.shell > .scenario-menu) { grid-column:1 / -1; }
   :global(.workspace-layout) { grid-row:3; width:100%; height:100%; min-height:0; }

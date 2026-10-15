@@ -6,6 +6,7 @@
 
   const scenarios = Object.entries(SCENARIO_LABELS);
   function select(key: string | null) {
+    if (system.refuseScenarioChange()) return;
     if (key && system.activeScenarioFilter !== key) system.runScenario(key);
     else system.setScenarioFilter(null);
   }

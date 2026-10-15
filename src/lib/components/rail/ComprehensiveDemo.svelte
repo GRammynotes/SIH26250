@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { COMPREHENSIVE_DEMO_STEPS, getStepGlossaryTerms } from '../../demo/comprehensiveDemoScript';
-  import { narrateUtterance, stopVoice } from '../../engine/voice';
+  import { narrateUtterance, stopVoiceForOwner } from '../../engine/voice';
   import { parseMapNarrative } from '../../engine/mapNarrative';
   import { system } from '../../stores/systemStore.svelte';
   import type { NarrativeMarker } from '../../engine/mapNarrative';
@@ -17,6 +17,11 @@
   let stepTimer: ReturnType<typeof setTimeout> | undefined;
   let actionTimer: ReturnType<typeof setTimeout> | undefined;
   let revealSequenceToken = 0;
+  let sessionToken = -1;
+
+  function sessionIsCurrent() {
+    return open && system.activeExperience === 'demo' && system.isExperienceSession(sessionToken);
+  }
 
   // Current step data
   let currentStep = $derived(COMPREHENSIVE_DEMO_STEPS[currentStepIndex] ?? null);
@@ -28,7 +33,8 @@
 
   // Start the demo
   function startDemo() {
-    if (isPlaying) return;
+    if (isPlaying || !open || system.activeExperience !== 'demo') return;
+    sessionToken = system.experienceSession;
     isPlaying = true;
     isPaused = false;
     isComplete = false;
@@ -39,16 +45,20 @@
 
   // Execute current step
   function executeStep() {
-    if (!currentStep || isPaused || !isPlaying) return;
+    if (!currentStep || isPaused || !isPlaying || !sessionIsCurrent()) return;
     window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
     const narration = parseMapNarrative(currentStep.narration);
     void sequenceStepFocus(currentStep, narration.markers);
     const caption = parseMapNarrative(currentStep.caption).text;
     window.dispatchEvent(new CustomEvent('aircommand:tour-target', { detail: currentStep.element ?? '[data-tour="map"]' }));
 
-    requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('aircommand:focus', {
-      detail: { selector: currentStep.element ?? '[data-tour="map"]', duration: currentStep.duration || 5000, text: caption },
-    })));
+    const stepSession = sessionToken;
+    requestAnimationFrame(() => {
+      if (!sessionIsCurrent() || sessionToken !== stepSession) return;
+      window.dispatchEvent(new CustomEvent('aircommand:focus', {
+        detail: { selector: currentStep.element ?? '[data-tour="map"]', duration: currentStep.duration || 5000, text: caption },
+      }));
+    });
 
     // Dispatch caption event
     if (!voiceEnabled) window.dispatchEvent(
@@ -64,6 +74,7 @@
     if (voiceEnabled) {
       narrateUtterance(narration.text, {
         source: 'DEMO',
+        owner: 'demo',
         speaker: 'agent',
         priority: 'info',
       });
@@ -74,6 +85,7 @@
       currentStep.action();
       if (currentStep.actionDelay) {
         actionTimer = setTimeout(() => {
+          if (!sessionIsCurrent()) return;
           scheduleNextStep();
         }, simSpeed === 0 ? 2147483647 : currentStep.actionDelay / simSpeed);
       } else {
@@ -95,15 +107,19 @@
     const targetId = focus?.target ? missionId : markers.find((marker) => marker.kind === 'target')?.id ?? '';
     const aircraftIds = [...(focus?.aircraft ?? []).map((id) => id === '$assigned' ? assigned?.tailNumber ?? '' : id), ...markers.filter((marker) => marker.kind === 'aircraft').map((marker) => marker.id)].filter(Boolean);
     const threatIds = [...(focus?.threats ?? []).flatMap((id) => id === '$route' ? system.focusMode?.routeThreatIds ?? [] : [id]), ...markers.filter((marker) => marker.kind === 'threat').map((marker) => marker.id)];
-    const stillCurrent = () => token === revealSequenceToken && isPlaying && !isPaused && open;
-    const waitUntil = async (offset: number) => { const remaining = startedAt + offset - performance.now(); if (remaining > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, remaining)); };
+    const stillCurrent = () => token === revealSequenceToken && isPlaying && !isPaused && sessionIsCurrent();
+    const waitUntil = async (offset: number) => {
+      const remaining = startedAt + offset - performance.now();
+      if (remaining > 0) await system.waitForExperience(sessionToken, remaining);
+    };
+    if (!stillCurrent()) return;
     if (targetId) system.revealElement('target', targetId);
     for (const layer of (focus?.layers ?? []).filter((name) => !['route', 'wez', 'egress'].includes(name))) system.revealElement(layer);
     if (aircraftIds.length) {
       await waitUntil(2000);
       if (!stillCurrent()) return;
       system.revealElement('aircraft', aircraftIds[0]);
-      for (const id of aircraftIds.slice(1)) { await new Promise<void>((resolve) => window.setTimeout(resolve, 1500)); if (!stillCurrent()) return; system.revealElement('aircraft', id); }
+      for (const id of aircraftIds.slice(1)) { if (!await system.waitForExperience(sessionToken, 1500) || !stillCurrent()) return; system.revealElement('aircraft', id); }
     }
     if ((focus?.layers ?? []).includes('route')) {
       await waitUntil(4000);
@@ -114,7 +130,7 @@
     if ((focus?.layers ?? []).includes('egress')) system.revealElement('egress');
     if (threatIds.length) {
       await waitUntil(6000);
-      for (const id of threatIds) { if (!stillCurrent()) return; system.revealElement('threat', id); await new Promise<void>((resolve) => window.setTimeout(resolve, 200)); }
+      for (const id of threatIds) { if (!stillCurrent()) return; system.revealElement('threat', id); if (!await system.waitForExperience(sessionToken, 200)) return; }
     }
     if (assigned && (aircraftIds.length || (focus?.layers ?? []).includes('route'))) {
       await waitUntil(8000);
@@ -125,16 +141,18 @@
 
   // Schedule next step
   function scheduleNextStep() {
-    if (!autoAdvance || isPaused || !isPlaying || simSpeed === 0) return;
+    if (!autoAdvance || isPaused || !isPlaying || simSpeed === 0 || !sessionIsCurrent()) return;
 
     const duration = currentStep?.duration || 5000;
     stepTimer = setTimeout(() => {
+      if (!sessionIsCurrent()) return;
       advanceStep();
     }, duration / simSpeed);
   }
 
   // Advance to next step
   function advanceStep() {
+    if (!sessionIsCurrent()) return;
     if (currentStepIndex < COMPREHENSIVE_DEMO_STEPS.length - 1) {
       currentStepIndex++;
       executeStep();
@@ -187,7 +205,7 @@
     clearTimeout(actionTimer);
     isPlaying = false;
     isPaused = false;
-    stopVoice();
+    stopVoiceForOwner('demo');
     document.body.classList.remove('demo-active');
     // Clear focus pointer
     window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
@@ -196,6 +214,7 @@
 
   // Complete demo
   function completeDemo() {
+    if (!sessionIsCurrent()) return;
     revealSequenceToken++;
     clearTimeout(stepTimer);
     clearTimeout(actionTimer);
@@ -241,9 +260,6 @@
   function handleKeydown(e: KeyboardEvent) {
     if (!open) return;
     switch (e.key) {
-      case 'Escape':
-        stopDemo();
-        break;
       case ' ':
         e.preventDefault();
         if (isComplete) restartDemo();
@@ -258,8 +274,13 @@
     }
   }
 
+  function handlePauseRequest() {
+    if (open && isPlaying && !isPaused && sessionIsCurrent()) togglePause();
+  }
+
   onMount(() => {
     window.addEventListener('keydown', handleKeydown);
+    window.addEventListener('aircommand:experience-pause-request', handlePauseRequest);
     if (open) {
       startDemo();
     }
@@ -268,8 +289,9 @@
   onDestroy(() => {
     revealSequenceToken++;
     document.body.classList.remove('demo-active');
-    stopVoice();
+    stopVoiceForOwner('demo');
     window.removeEventListener('keydown', handleKeydown);
+    window.removeEventListener('aircommand:experience-pause-request', handlePauseRequest);
     clearTimeout(stepTimer);
     clearTimeout(actionTimer);
     window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
@@ -291,12 +313,14 @@
   });
 
   $effect(() => {
-    if (!open && isPlaying) {
+    if (!open && (isPlaying || isPaused)) {
+      revealSequenceToken++;
       clearTimeout(stepTimer);
       clearTimeout(actionTimer);
       isPlaying = false;
       isPaused = false;
-      stopVoice();
+      sessionToken = -1;
+      stopVoiceForOwner('demo');
       document.body.classList.remove('demo-active');
       window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
     }

@@ -24,7 +24,7 @@
       <span>{s.label}</span>
     </button>
   {/each}
-  <button class="btn reset" onclick={() => system.reset()}>
+  <button class="btn reset" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:reset-request'))}>
     <span class="ico">↻</span>
     <span>RESET</span>
   </button>
