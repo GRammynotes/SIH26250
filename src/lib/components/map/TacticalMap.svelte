@@ -334,7 +334,7 @@
     if (!map.getLayer('active-aircraft-pulse')) map.addLayer({ id: 'active-aircraft-pulse', type: 'circle', source: 'aircraft-gl', minzoom: 3, filter: ['==', ['get', 'missionActive'], true], paint: { 'circle-radius': ['interpolate', ['linear'], ['get', 'pulse'], 0, 3, 1, 7], 'circle-color': C.cyan, 'circle-opacity': ['interpolate', ['linear'], ['get', 'pulse'], 0, .9, 1, .2], 'circle-blur': .15 } });
     if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
       id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl', minzoom: 5, filter: ['!', ['has', 'point_count']],
-      layout: { 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'icon-image': ['match', ['get', 'status'], 'FMC', 'symbol-aircraft-fmc', 'PMC', 'symbol-aircraft-pmc', 'symbol-aircraft-nmc'], 'icon-size': ['*', ['interpolate', ['linear'], ['zoom'], 5, .36, 8, .55, 11, .8], ['case', ['get', 'missionActive'], 1.5, 1]], 'icon-rotate': ['coalesce', ['get', 'heading'], 0], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+      layout: { 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'icon-image': ['match', ['get', 'status'], 'FMC', 'symbol-aircraft-fmc', 'PMC', 'symbol-aircraft-pmc', 'symbol-aircraft-nmc'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 0.8, 12, 1.2], 'icon-rotate': ['coalesce', ['get', 'heading'], 0], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
       paint: { 'icon-opacity': densityOpacity() },
     });
     if (!map.getLayer('aircraft-gl-labels')) map.addLayer({
