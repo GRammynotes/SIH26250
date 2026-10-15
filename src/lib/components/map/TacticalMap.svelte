@@ -758,7 +758,7 @@
     }
     (map.getSource('focus-route') as maplibregl.GeoJSONSource | undefined)?.setData({ type: 'FeatureCollection', features: focusRouteFeatures });
     const baseSource = map.getSource('bases-gl') as maplibregl.GeoJSONSource;
-    const visibleBases = focus?.active ? IAF_BASES.filter((base) => [base.id, base.code, base.name].some((value) => value.toLowerCase() === (focus.originBaseId ?? '').toLowerCase())) : IAF_BASES;
+    const visibleBases = focus?.active ? [] : IAF_BASES;
     baseSource.setData({ type: 'FeatureCollection', features: visibleBases.map((base) => ({ type: 'Feature', properties: { id: base.id, code: base.code, label: base.name, elevation: base.elevation, selected: base.id === selBase, opacity: focus?.active && !revealedLayers.includes('base') ? 0.2 : 1 }, geometry: { type: 'Point', coordinates: [base.lng, base.lat] } })) });
 
     // Clean previous threat layers & source
@@ -1009,33 +1009,36 @@
 
   $effect(() => {
     const frame = getSimulationFrame();
+    const focus = system.focusMode;
     const animationNeeded = system.activeScenarioFilter !== null || system.activeMissions.some((mission) => mission.phase !== 'COMPLETE' && mission.phase !== 'ABORTED');
     setSimulationAnimationActive(animationNeeded);
     if (!mapReady || !map) return;
     const aircraftSource = map.getSource('aircraft-gl') as maplibregl.GeoJSONSource | undefined;
-    if (aircraftSource && Object.keys(frame.aircraft).length) aircraftSource.setData({ type: 'FeatureCollection', features: system.scenarioAircraft.map((aircraft) => { const track = frame.aircraft[aircraft.id]; const pos = track ?? aircraft.position; return { type: 'Feature' as const, properties: { id: aircraft.id, tailNumber: aircraft.tailNumber, status: aircraft.status, type: aircraft.type, fuel: aircraft.fuel, base: aircraft.base.toUpperCase(), heading: track?.heading ?? 0, scale: track?.scale ?? 1 }, geometry: { type: 'Point' as const, coordinates: [pos.lng, pos.lat] as [number, number] } }; }) });
+    if (aircraftSource && Object.keys(frame.aircraft).length) aircraftSource.setData({ type: 'FeatureCollection', features: system.scenarioAircraft.filter((aircraft) => !focus?.active || focus.visibleAircraftIds.includes(aircraft.id)).map((aircraft) => { const track = frame.aircraft[aircraft.id]; const pos = track ?? aircraft.position; return { type: 'Feature' as const, properties: { id: aircraft.id, tailNumber: aircraft.tailNumber, status: aircraft.status, type: aircraft.type, fuel: aircraft.fuel, base: aircraft.base.toUpperCase(), heading: track?.heading ?? 0, scale: track?.scale ?? 1 }, geometry: { type: 'Point' as const, coordinates: [pos.lng, pos.lat] as [number, number] } }; }) });
     const trailSource = map.getSource('simulation-trails') as maplibregl.GeoJSONSource | undefined;
-    const simTrailFeatures = showTrails ? Object.entries(frame.aircraft).flatMap(([id, track]) => { const points = track.trail.slice(-8); return points.slice(1).map((point, index) => ({ type: 'Feature' as const, properties: { id, opacity: points.length <= 2 ? 1 : 0.1 + (index / (points.length - 2)) * 0.9 }, geometry: { type: 'LineString' as const, coordinates: [points[index], point] } })); }) : [];
+    const simTrailFeatures = showTrails ? Object.entries(frame.aircraft).filter(([id]) => !focus?.active || focus.visibleAircraftIds.includes(id)).flatMap(([id, track]) => { const points = track.trail.slice(-8); return points.slice(1).map((point, index) => ({ type: 'Feature' as const, properties: { id, opacity: points.length <= 2 ? 1 : 0.1 + (index / (points.length - 2)) * 0.9 }, geometry: { type: 'LineString' as const, coordinates: [points[index], point] } })); }) : [];
     const simTrailSignature = JSON.stringify(simTrailFeatures);
     if (simTrailSignature !== lastSimulationTrailFeatureSignature) {
       trailSource?.setData({ type: 'FeatureCollection', features: simTrailFeatures });
       lastSimulationTrailFeatureSignature = simTrailSignature;
     }
     const missileSource = map.getSource('simulation-missiles') as maplibregl.GeoJSONSource | undefined;
-    missileSource?.setData({ type: 'FeatureCollection', features: frame.missiles.flatMap((missile) => [{ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: missile.trail } }, { type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: missile.coordinates } }]) });
+    const visibleMissiles = frame.missiles.filter((missile) => !focus?.active || missile.id.includes(focus.missionId ?? ''));
+    missileSource?.setData({ type: 'FeatureCollection', features: visibleMissiles.flatMap((missile) => [{ type: 'Feature' as const, properties: { id: missile.id }, geometry: { type: 'LineString' as const, coordinates: missile.trail } }, { type: 'Feature' as const, properties: { id: missile.id }, geometry: { type: 'Point' as const, coordinates: missile.coordinates } }]) });
     const impactSource = map.getSource('simulation-impacts') as maplibregl.GeoJSONSource | undefined;
-    impactSource?.setData({ type: 'FeatureCollection', features: frame.impacts.map((impact) => ({ type: 'Feature' as const, properties: { progress: impact.progress }, geometry: { type: 'Polygon' as const, coordinates: [circlePolygon(impact.coordinates, Math.max(.05, impact.progress * 2))] } })) });
+    const visibleImpacts = frame.impacts.filter((impact) => !focus?.active || impact.id === focus.missionId);
+    impactSource?.setData({ type: 'FeatureCollection', features: visibleImpacts.map((impact) => ({ type: 'Feature' as const, properties: { progress: impact.progress }, geometry: { type: 'Polygon' as const, coordinates: [circlePolygon(impact.coordinates, Math.max(.05, impact.progress * 2))] } })) });
     const assetSource = map.getSource('assets-gl') as maplibregl.GeoJSONSource | undefined;
     if (assetSource && Object.keys(frame.assets).length) assetSource.setData({ type: 'FeatureCollection', features: [
-      ...(showGround ? GROUND_ASSETS.map((asset) => { const pos = frame.assets[asset.id] ?? asset.position; return { type: 'Feature' as const, properties: { id: asset.id, label: asset.designation, type: asset.type, status: asset.status, color: C.green, opacity: 1, armament: asset.armament, rangeKm: asset.range_km }, geometry: { type: 'Point' as const, coordinates: [pos.lng, pos.lat] as [number, number] } }; }) : []),
-      ...(showEnemy ? ENEMY_ASSETS.map((asset) => ({ type: 'Feature' as const, properties: { id: asset.id, label: asset.designation, type: asset.type, behaviour: asset.behaviour, color: C.red, opacity: 1, rangeKm: asset.engagementRange_km, probabilityKill: asset.probabilityKill }, geometry: { type: 'Point' as const, coordinates: [asset.position.lng, asset.position.lat] as [number, number] } })) : []),
+      ...(showGround ? GROUND_ASSETS.filter((asset) => !focus?.active || focus.visibleGroundIds.includes(asset.id)).map((asset) => { const pos = frame.assets[asset.id] ?? asset.position; return { type: 'Feature' as const, properties: { id: asset.id, label: asset.designation, type: asset.type, status: asset.status, color: C.green, opacity: 1, armament: asset.armament, rangeKm: asset.range_km }, geometry: { type: 'Point' as const, coordinates: [pos.lng, pos.lat] as [number, number] } }; }) : []),
+      ...(showEnemy ? ENEMY_ASSETS.filter((asset) => !focus?.active || focus.visibleEnemyIds.includes(asset.id)).map((asset) => ({ type: 'Feature' as const, properties: { id: asset.id, label: asset.designation, type: asset.type, behaviour: asset.behaviour, color: C.red, opacity: 1, rangeKm: asset.engagementRange_km, probabilityKill: asset.probabilityKill }, geometry: { type: 'Point' as const, coordinates: [asset.position.lng, asset.position.lat] as [number, number] } })) : []),
     ] });
     const flashSource = map.getSource('simulation-impact-flashes') as maplibregl.GeoJSONSource | undefined;
-    flashSource?.setData({ type: 'FeatureCollection', features: frame.impacts.filter((impact) => impact.flash).map((impact) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: impact.coordinates } })) });
+    flashSource?.setData({ type: 'FeatureCollection', features: visibleImpacts.filter((impact) => impact.flash).map((impact) => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'Point' as const, coordinates: impact.coordinates } })) });
     const radarSource = map.getSource('simulation-radar-sweep') as maplibregl.GeoJSONSource | undefined;
-    radarSource?.setData({ type: 'FeatureCollection', features: GROUND_ASSETS.filter((asset) => asset.type === 'sam' || asset.type === 'radar').map((asset) => { const pos = frame.assets[asset.id] ?? asset.position; const angle = (frame.assets[asset.id]?.heading ?? 0) * Math.PI / 180; return { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [[pos.lng, pos.lat], [pos.lng + Math.cos(angle) * .11, pos.lat + Math.sin(angle) * .11]] } }; }) });
+    radarSource?.setData({ type: 'FeatureCollection', features: GROUND_ASSETS.filter((asset) => (!focus?.active || focus.visibleGroundIds.includes(asset.id)) && (asset.type === 'sam' || asset.type === 'radar')).map((asset) => { const pos = frame.assets[asset.id] ?? asset.position; const angle = (frame.assets[asset.id]?.heading ?? 0) * Math.PI / 180; return { type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: [[pos.lng, pos.lat], [pos.lng + Math.cos(angle) * .11, pos.lat + Math.sin(angle) * .11]] } }; }) });
     const threatSource = map.getSource('simulation-threat-pulse') as maplibregl.GeoJSONSource | undefined;
-    threatSource?.setData({ type: 'FeatureCollection', features: Object.entries(frame.threats).flatMap(([id, pulse]) => { const threat = system.scenarioThreats.find((item) => item.id === id); if (!threat) return []; const radius = threat.radius * (threat.probability > .7 ? 1 + pulse * .1 : 1); return [{ type: 'Feature' as const, properties: { opacity: .3 + pulse * .65 }, geometry: { type: 'LineString' as const, coordinates: circlePolygon([threat.position.lng, threat.position.lat], radius) } }]; }) });
+    threatSource?.setData({ type: 'FeatureCollection', features: Object.entries(frame.threats).filter(([id]) => !focus?.active || focus.visibleThreatIds.includes(id)).flatMap(([id, pulse]) => { const threat = system.scenarioThreats.find((item) => item.id === id); if (!threat) return []; const radius = threat.radius * (threat.probability > .7 ? 1 + pulse * .1 : 1); return [{ type: 'Feature' as const, properties: { id, opacity: .3 + pulse * .65 }, geometry: { type: 'LineString' as const, coordinates: circlePolygon([threat.position.lng, threat.position.lat], radius) } }]; }) });
   });
 
   function toggleGround() {

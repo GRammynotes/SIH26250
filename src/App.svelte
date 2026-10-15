@@ -31,7 +31,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   import ArcViewer from './lib/components/rail/ArcViewer.svelte';
   import { narrateUtterance } from './lib/engine/voice';
   import { distanceKm, focusMapElements } from './lib/engine/mapNarrative';
-  import type { DecisionBranch } from './lib/data/historicalMissions';
+  import { HISTORICAL_MISSIONS, type DecisionBranch } from './lib/data/historicalMissions';
 
   let pending = $derived(system.activeMissions.find((m) => m.pendingDecision) ?? null);
   let decisionProcessing = $state(false);
@@ -442,6 +442,10 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
 
   function startSimulation() {
     closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false;
+    if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike');
+    const trainingMission = system.scenarioMissions.find((item) => item.targetType === HISTORICAL_MISSIONS.sindoor_deep.targetType) ?? system.scenarioMissions[0];
+    system.enterFocusMode(trainingMission?.id ?? null);
+    if (trainingMission) system.revealElement('target', trainingMission.id);
     demoActive = false;
     railMode = 'training'; railCollapsed = false;
     comprehensiveDemoOpen = false;

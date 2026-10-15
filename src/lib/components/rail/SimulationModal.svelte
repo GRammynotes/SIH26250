@@ -5,7 +5,6 @@
   import { parseMapNarrative } from '../../engine/mapNarrative';
   import type { DecisionBranch } from '../../data/historicalMissions';
   import { HISTORICAL_MISSIONS } from '../../data/historicalMissions';
-  import { distanceKm, focusMapElements } from '../../engine/mapNarrative';
 
   let { open = false, simSpeed = 1, onSpeedChange, onClose }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onSpeedChange?: (speed: 0 | 1 | 2 | 4) => void; onClose?: () => void } = $props();
   const scaledDelay = (base: number) => simSpeed === 0 ? 2147483647 : base / simSpeed;
@@ -18,6 +17,7 @@
   let decisionTimer: ReturnType<typeof setTimeout> | undefined;
   let runner: ReturnType<typeof setTimeout> | undefined;
   let exitTimer: ReturnType<typeof setTimeout> | undefined;
+  let focusRevealTimers: ReturnType<typeof setTimeout>[] = [];
   let autoDecision = $state(true);
   const history = HISTORICAL_MISSIONS.sindoor_deep;
   let active = $derived(system.activeMissions.find((mission) => mission.missionId === simMissionId) ?? null);
@@ -34,37 +34,60 @@
     if (started) return;
     started = true;
     busy = true;
+    if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike');
+    system.generateCOAs();
+    window.dispatchEvent(new CustomEvent('aircommand:select-right-tab', { detail: 'coa' }));
+    const mission = system.scenarioMissions.find((item) => item.targetType === history.targetType) ?? system.scenarioMissions[0];
+    const eligibleAircraft = system.scenarioAircraft.filter((item) => item.status === 'FMC' || item.status === 'PMC');
+    const plannedAircraftIds = mission ? system.coas.find((coa) => coa.id === system.selectedCoaId)?.assignments[mission.id] ?? [] : [];
+    const plannedAircraft = eligibleAircraft.filter((item) => plannedAircraftIds.includes(item.id));
+    const aircraft = (plannedAircraft.length ? plannedAircraft : eligibleAircraft).slice(0, 2);
+    if (!mission || aircraft.length === 0) {
+      say('OPS AGENT', 'The current scenario has no eligible mission and aircraft pair. Choose DEEP STRIKE and check force readiness, then restart the exercise.');
+      busy = false;
+      return;
+    }
+    simMissionId = mission.id;
+    system.enterFocusMode(mission.id);
+    system.revealElement('target', mission.id);
     say('SYSTEM', 'TRAINING MODE. This runs a historical IAF mission with scripted decision points. You act as commander. Pick branches. See how choices change the outcome. Purpose: practice decision-making under operational pressure.');
     say('SYSTEM', `HISTORICAL TRAINING CASE · ${history.reference} · ${history.date}. Simulation values are illustrative.`);
     say('OPS AGENT', history.narrative);
-    system.runScenario('deep_strike');
-    system.generateCOAs();
-    window.dispatchEvent(new CustomEvent('aircommand:select-right-tab', { detail: 'coa' }));
-    runner = setTimeout(() => {
-      const mission = system.scenarioMissions.find((item) => item.targetType === history.targetType) ?? system.scenarioMissions[0];
-      const aircraft = system.scenarioAircraft.filter((item) => item.status === 'FMC' || item.status === 'PMC').slice(0, 2);
-      if (!mission || aircraft.length === 0) {
-        say('OPS AGENT', 'The current scenario has no eligible mission and aircraft pair. Choose DEEP STRIKE and check force readiness, then restart the exercise.');
-        busy = false;
-        return;
-      }
-      simMissionId = mission.id;
-      system.enterFocusMode(mission.id);
-      focusMapElements([{ type: 'aircraft', id: aircraft[0].tailNumber, label: `${aircraft[0].tailNumber} · ${distanceKm(aircraft[0].position, mission.target)} km` }, { type: 'target', id: mission.name, label: mission.name }]);
-      say('OPS AGENT', `Review ${aircraft[0].tailNumber} and target ${mission.name} on the map before choosing a branch.`);
-      say('COMMANDER', `Review the ${mission.name} package. What is the system recommendation?`);
-      say('OPS AGENT', `Course of action generated. ${aircraft.length} available aircraft assigned for this training run. AUTO is ${autoDecision ? 'on' : 'off'}; decision points pause for your review when AUTO is off.`);
+    const firstAircraft = aircraft[0];
+    const revealAt = (delay: number, callback: () => void) => {
+      focusRevealTimers.push(window.setTimeout(() => {
+        if (system.focusMode?.active && system.focusMode.missionId === mission.id) callback();
+      }, delay));
+    };
+    revealAt(2000, () => {
+      system.revealElement('aircraft', firstAircraft.tailNumber);
       system.startMission(mission.id, aircraft.map((item) => item.id), 'sindoor_deep');
-      say('OPS AGENT', `Track @aircraft:${aircraft[0].tailNumber} is moving toward @target:${mission.name}. Monitor the package and target geometry on the tactical picture.`);
+      say('OPS AGENT', `Aircraft ${firstAircraft.tailNumber} is assigned to ${mission.name}.`);
+    });
+    revealAt(4000, () => {
+      system.revealElement('route');
+      say('OPS AGENT', `The trajectory to ${mission.name} is now shown. Route risk is assessed against the current threat picture.`);
+    });
+    const routeThreatIds = system.focusMode?.routeThreatIds ?? [];
+    routeThreatIds.forEach((id, index) => {
+      revealAt(6000 + index * 1600, () => system.revealElement('threat', id));
+    });
+    revealAt(6000, () => say('OPS AGENT', 'Threat overlap along the route is being revealed one ring at a time.'));
+    revealAt(8000, () => {
+      say('OPS AGENT', `Review the aircraft trajectory for ${firstAircraft.tailNumber}.`);
+      window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: 'aircraft', entityId: firstAircraft.tailNumber, missionId: mission.id } }));
+    });
+    const lastThreatDelay = routeThreatIds.length ? 6000 + (routeThreatIds.length - 1) * 1600 : 6000;
+    revealAt(Math.max(10000, lastThreatDelay + 1600), () => {
+      say('OPS AGENT', `Course of action generated. ${aircraft.length} available aircraft are assigned for this training run. AUTO is ${autoDecision ? 'on' : 'off'}; decision points pause for your review when AUTO is off.`);
       busy = false;
       advanceToDecision();
-    }, 900);
+    });
   }
   function advanceToDecision() {
     if (paused || busy || !active || active.phase === 'COMPLETE' || active.phase === 'ABORTED') return;
     busy = true;
     say('OPS AGENT', `${active.phase}: advancing the exercise timeline and monitoring fuel, threat geometry, and mission status.`);
-    window.setTimeout(() => system.revealElement('route'), 800);
     runner = setTimeout(() => {
       system.advanceSimulationClock(0.5);
       busy = false;
@@ -121,7 +144,7 @@
     }
     return () => { if (decisionTimer) clearTimeout(decisionTimer); };
   });
-  onDestroy(() => { if (decisionTimer) clearTimeout(decisionTimer); if (runner) clearTimeout(runner); if (exitTimer) clearTimeout(exitTimer); });
+  onDestroy(() => { if (decisionTimer) clearTimeout(decisionTimer); if (runner) clearTimeout(runner); if (exitTimer) clearTimeout(exitTimer); focusRevealTimers.forEach(clearTimeout); });
   $effect(() => { if (open && !started) startExercise(); });
 </script>
 
