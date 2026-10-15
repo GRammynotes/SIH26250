@@ -29,6 +29,7 @@
 import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   import ComprehensiveDemo from './lib/components/rail/ComprehensiveDemo.svelte';
   import ArcViewer from './lib/components/rail/ArcViewer.svelte';
+  import { preloadModelAssets } from './lib/three/modelAssets';
   import { narrateUtterance } from './lib/engine/voice';
   import { distanceKm, focusMapElements } from './lib/engine/mapNarrative';
   import { HISTORICAL_MISSIONS, type DecisionBranch } from './lib/data/historicalMissions';
@@ -255,6 +256,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   });
 
   onMount(() => {
+    void preloadModelAssets();
     try { if (localStorage.getItem('aircommand.seen') !== 'true') welcomeOpen = true; } catch { welcomeOpen = true; }
     void import('./lib/components/map/TacticalMap.svelte').then((module) => TacticalMap = module.default);
     const handleMissionBrief = (event: Event) => briefingMissionId = (event as CustomEvent<string>).detail;

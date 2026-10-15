@@ -1,0 +1,54 @@
+<script lang="ts">
+  import { T, useTask } from '@threlte/core';
+  import { OrbitControls } from '@threlte/extras';
+  import { CatmullRomCurve3, Group, TubeGeometry, Vector3, type ColorRepresentation } from 'three';
+
+  let { modelInstance, trajectory }: { modelInstance: Group; trajectory: 'ingress' | 'wez' | 'release' | 'egress' | null } = $props();
+  let modelGroup: Group | undefined = $state();
+  let elapsed = 0;
+  const points = [
+    new Vector3(-3.6, -0.35, -1.2),
+    new Vector3(-2.7, 0.35, -1.4),
+    new Vector3(-1.5, 0.75, -1.4),
+    new Vector3(-0.4, 0.82, -1.5),
+    new Vector3(0.8, 0.18, -1.5),
+    new Vector3(3.6, 1.05, -1.1),
+    new Vector3(2.7, -0.95, -1.4),
+  ];
+  const phaseColors: Record<'ingress' | 'wez' | 'release' | 'egress', ColorRepresentation> = {
+    ingress: '#00d4ff', wez: '#ffb800', release: '#ff2d55', egress: '#42f58d',
+  };
+  const arcSegments = [
+    { phase: 'ingress', curve: new CatmullRomCurve3(points.slice(0, 3)), color: phaseColors.ingress },
+    { phase: 'wez', curve: new CatmullRomCurve3(points.slice(2, 5)), color: phaseColors.wez },
+    { phase: 'release', curve: new CatmullRomCurve3(points.slice(3, 6)), color: phaseColors.release },
+    { phase: 'egress', curve: new CatmullRomCurve3(points.slice(5, 7)), color: phaseColors.egress },
+  ].map((segment) => ({ ...segment, geometry: new TubeGeometry(segment.curve, 28, 0.035, 6, false) }));
+
+  useTask((delta) => {
+    if (!modelGroup) return;
+    elapsed += delta;
+    modelGroup.rotation.y += delta * 0.08;
+    modelGroup.position.y = Math.sin(elapsed * Math.PI) * 0.5;
+  });
+</script>
+
+<T.PerspectiveCamera makeDefault position={[0, 2.5, 8]} fov={38} />
+<T.AmbientLight intensity={0.3} />
+<T.DirectionalLight position={[5, 10, 5]} intensity={1.2} color="#ffb800" />
+<T.DirectionalLight position={[-5, 5, -5]} intensity={0.4} color="#00d4ff" />
+<T.GridHelper args={[20, 20, 0x0a0e1a, 0x0a0e1a]} />
+<OrbitControls enableZoom={false} autoRotate autoRotateSpeed={0.8} />
+
+<T.Group bind:ref={modelGroup}>
+  <T is={modelInstance} />
+</T.Group>
+
+{#if trajectory}
+  {#each arcSegments as segment (segment.phase)}
+    <T.Mesh>
+      <T is={segment.geometry} />
+      <T.MeshBasicMaterial color={segment.color} transparent opacity={trajectory === segment.phase ? 0.95 : 0.36} />
+    </T.Mesh>
+  {/each}
+{/if}
