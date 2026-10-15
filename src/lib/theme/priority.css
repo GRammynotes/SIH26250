@@ -1,0 +1,68 @@
+:root {
+  --pri-1: var(--accent-red);
+  --pri-1-glow: 0 0 8px color-mix(in srgb, var(--accent-red) 50%, transparent);
+  --pri-1-weight: 700;
+  --pri-1-size: 13px;
+  --pri-2: var(--accent-cyan);
+  --pri-2-glow: 0 0 6px color-mix(in srgb, var(--accent-cyan) 40%, transparent);
+  --pri-2-weight: 600;
+  --pri-2-size: 12px;
+  --pri-3: var(--text-primary);
+  --pri-3-weight: 500;
+  --pri-3-size: 11px;
+  --pri-4: var(--text-muted);
+  --pri-4-weight: 400;
+  --pri-4-size: 10px;
+  --pri-5: var(--border-strong);
+}
+
+body .shell :is(.panel-header, .section-header, .sec-hdr h3, .panel-head h3) {
+  color: var(--pri-3);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--pri-3-weight);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+body .shell :is(.panel .hdr > span:first-child, .panel .hdr > strong, .right-wrap .hdr > span:first-child) {
+  color: var(--pri-3) !important;
+  font-size: 9px !important;
+  font-weight: var(--pri-3-weight) !important;
+  letter-spacing: .18em !important;
+}
+
+body .shell :is(.primary-value, .st-val, .kpi-value, .fuel-value, .success-value) {
+  color: var(--pri-2);
+  font-weight: var(--pri-2-weight);
+  text-shadow: var(--pri-2-glow);
+}
+
+body .shell :is(.tail, .line1 .tail, .fuel .txt, .success-probability, .primary-data) {
+  color: var(--pri-2) !important;
+  font-size: var(--pri-2-size) !important;
+  font-weight: var(--pri-2-weight) !important;
+  text-shadow: var(--pri-2-glow);
+}
+
+body .shell :is(.critical-alert, .blocked-alert, .spoofed-alert, .nmc-alert) {
+  color: var(--pri-1);
+  font-size: var(--pri-1-size);
+  font-weight: var(--pri-1-weight);
+  border-color: var(--pri-1);
+  box-shadow: var(--pri-1-glow);
+}
+
+body .shell .status[aria-label="Not mission capable"],
+body .shell .row:has(.status[aria-label="Not mission capable"]) {
+  color: var(--pri-1) !important;
+  border-color: color-mix(in srgb, var(--pri-1) 55%, var(--border-subtle)) !important;
+}
+
+body .shell :is(.metadata, .unit, .st-sub, .field-label) {
+  color: var(--pri-4);
+  font-size: var(--pri-4-size);
+  font-weight: var(--pri-4-weight);
+}
+
+body .shell :is(button:disabled, [aria-disabled="true"], .disabled) { color: var(--pri-5); }
