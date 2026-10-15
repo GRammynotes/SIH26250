@@ -3,7 +3,7 @@
   import { OrbitControls } from '@threlte/extras';
   import { CatmullRomCurve3, Group, TubeGeometry, Vector3, type ColorRepresentation } from 'three';
 
-  let { modelInstance, trajectory, interactive = false, autoRotate = true, rotationOffset = 0 }: { modelInstance: Group; trajectory: 'ingress' | 'wez' | 'release' | 'egress' | null; interactive?: boolean; autoRotate?: boolean; rotationOffset?: number } = $props();
+  let { modelInstance, trajectory, liveProgress = null, interactive = false, autoRotate = true, rotationOffset = 0 }: { modelInstance: Group; trajectory: 'ingress' | 'wez' | 'release' | 'egress' | null; liveProgress?: number | null; interactive?: boolean; autoRotate?: boolean; rotationOffset?: number } = $props();
   let modelGroup: Group | undefined = $state();
   let elapsed = 0;
   const points = [
@@ -24,10 +24,19 @@
     { phase: 'release', curve: new CatmullRomCurve3(points.slice(3, 6)), color: phaseColors.release },
     { phase: 'egress', curve: new CatmullRomCurve3(points.slice(5, 7)), color: phaseColors.egress },
   ].map((segment) => ({ ...segment, geometry: new TubeGeometry(segment.curve, 28, 0.035, 6, false) }));
+  const traceCurve = new CatmullRomCurve3(points.slice(0, 6));
 
   useTask((delta) => {
     if (!modelGroup) return;
     elapsed += delta;
+    if (liveProgress !== null && !interactive) {
+      const t = Math.max(0, Math.min(1, liveProgress));
+      const location = traceCurve.getPoint(t);
+      const tangent = traceCurve.getTangent(t);
+      modelGroup.position.copy(location);
+      modelGroup.rotation.y = Math.atan2(tangent.x, tangent.z);
+      return;
+    }
     if (interactive) {
       modelGroup.rotation.y = rotationOffset;
       modelGroup.position.y = 0;
@@ -56,4 +65,10 @@
       <T.MeshBasicMaterial color={segment.color} transparent opacity={trajectory === segment.phase ? 0.95 : 0.36} />
     </T.Mesh>
   {/each}
+{/if}
+{#if liveProgress !== null}
+  <T.Mesh position={traceCurve.getPoint(Math.max(0, Math.min(1, liveProgress)))}>
+    <T.SphereGeometry args={[0.11, 12, 12]} />
+    <T.MeshBasicMaterial color="#ffffff" />
+  </T.Mesh>
 {/if}

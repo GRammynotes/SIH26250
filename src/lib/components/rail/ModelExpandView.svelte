@@ -6,13 +6,15 @@
   import { createModelInstance, loadModelAsset, type ModelAsset } from '../../three/modelAssets';
   import { system } from '../../stores/systemStore.svelte';
 
-  let { modelPath, designation, entityType, trajectory, fuel = '—', eta = '—', onClose }: {
+  let { modelPath, designation, entityType, trajectory, fuel = '—', eta = '—', liveProgress = null, trackPosition = null, onClose }: {
     modelPath: string;
     designation: string;
     entityType: 'aircraft' | 'missile' | 'ground';
     trajectory: 'ingress' | 'wez' | 'release' | 'egress' | null;
     fuel?: string;
     eta?: string;
+    liveProgress?: number | null;
+    trackPosition?: string | null;
     onClose?: () => void;
   } = $props();
 
@@ -72,7 +74,7 @@
         {#if modelInstance}
           {#key resetKey}
             <Canvas {createRenderer} dpr={[1, 1.5]}>
-              <ModelScene {modelInstance} {trajectory} interactive autoRotate={!interacting} {rotationOffset} />
+              <ModelScene {modelInstance} {trajectory} {liveProgress} interactive autoRotate={!interacting} {rotationOffset} />
             </Canvas>
           {/key}
         {:else}<div class="loading">LOADING LOCAL MODEL…</div>{/if}
@@ -81,7 +83,7 @@
       <aside>
         <span class="eyebrow">LOCAL 3D ASSET</span>
         <h2>{designation}</h2>
-        <dl><div><dt>TYPE</dt><dd>{entityType.toUpperCase()}</dd></div><div><dt>STATE</dt><dd>{trajectory?.toUpperCase() ?? 'STAGED'}</dd></div><div><dt>FUEL</dt><dd>{fuel}</dd></div><div><dt>ETA</dt><dd>{eta}</dd></div></dl>
+        <dl><div><dt>TYPE</dt><dd>{entityType.toUpperCase()}</dd></div><div><dt>STATE</dt><dd>{trajectory?.toUpperCase() ?? 'STAGED'}</dd></div><div><dt>FUEL</dt><dd>{fuel}</dd></div><div><dt>ETA</dt><dd>{eta}</dd></div>{#if liveProgress !== null}<div><dt>TRACK PROGRESS</dt><dd>{Math.round(liveProgress * 100)}%</dd></div>{#if trackPosition}<div><dt>POSITION</dt><dd>{trackPosition}</dd></div>{/if}{/if}</dl>
         <p>{interacting ? 'MANUAL VIEW CONTROL' : 'AUTO ROTATE ACTIVE'}</p>
       </aside>
     </main>
