@@ -3,6 +3,7 @@
   import { Canvas } from '@threlte/core';
   import { WebGLRenderer, type Group } from 'three';
   import ModelScene from './ModelScene.svelte';
+  import ModelFrameLimiter from './ModelFrameLimiter.svelte';
   import { createModelInstance, loadModelAsset, type ModelAsset } from '../../three/modelAssets';
   import { system } from '../../stores/systemStore.svelte';
 
@@ -26,7 +27,7 @@
   let interactionTimer: ReturnType<typeof setTimeout> | undefined;
   let loadFailed = $state(false);
   let loadTimer: ReturnType<typeof setTimeout> | undefined;
-  const createRenderer = (canvas: HTMLCanvasElement) => new WebGLRenderer({ canvas, alpha: true, antialias: true });
+  const createRenderer = (canvas: HTMLCanvasElement) => { const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true }); renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); renderer.shadowMap.enabled = false; return renderer; };
 
   $effect(() => {
     let cancelled = false;
@@ -43,7 +44,7 @@
   function markInteraction() {
     interacting = true;
     if (interactionTimer) clearTimeout(interactionTimer);
-    interactionTimer = setTimeout(() => interacting = false, 1100);
+    interactionTimer = setTimeout(() => interacting = false, 3000);
   }
 
   function close() { onClose?.(); }
@@ -76,7 +77,8 @@
     </header>
     <main>
       <div class="canvas-wrap" onpointerdown={markInteraction} onpointerup={markInteraction}>
-        {#key resetKey}<Canvas {createRenderer} dpr={[1, 1.5]}>
+        {#key resetKey}<Canvas {createRenderer} dpr={[1, 1.5]} renderMode="on-demand">
+          <ModelFrameLimiter />
           {#if modelInstance}<ModelScene {modelInstance} {trajectory} {liveProgress} interactive autoRotate={!interacting} {rotationOffset} />{/if}
         </Canvas>{/key}
         {#if !modelInstance && !loadFailed}<div class="loading">LOADING MODEL...</div>{/if}

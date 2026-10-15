@@ -3,6 +3,7 @@
   import { Canvas } from '@threlte/core';
   import { WebGLRenderer, type Group } from 'three';
   import ModelScene from './ModelScene.svelte';
+  import ModelFrameLimiter from './ModelFrameLimiter.svelte';
   import ModelExpandView from './ModelExpandView.svelte';
   import { createModelInstance, loadModelAsset, type ModelAsset } from '../../three/modelAssets';
 
@@ -38,7 +39,7 @@
   let expanded = $state(false);
   let loadFailed = $state(false);
   let loadTimer: ReturnType<typeof setTimeout> | undefined;
-  const createRenderer = (canvas: HTMLCanvasElement) => new WebGLRenderer({ canvas, alpha: true, antialias: true });
+  const createRenderer = (canvas: HTMLCanvasElement) => { const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true }); renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); renderer.shadowMap.enabled = false; return renderer; };
 
   $effect(() => {
     const path = modelPath;
@@ -67,7 +68,8 @@
 </script>
 
 <div class="model-viewer" bind:this={host} style={`height:${size}px;--model-width:${width}px`}>
-  <Canvas {createRenderer} dpr={[1, 1.5]}>
+  <Canvas {createRenderer} dpr={[1, 1.5]} renderMode="on-demand">
+    <ModelFrameLimiter />
     {#if modelInstance}<ModelScene {modelInstance} {trajectory} {liveProgress} />{/if}
   </Canvas>
   {#if !modelInstance && !loadFailed}<div class="loading" aria-label={`Loading ${designation} 3D model`}>LOADING MODEL...</div>{/if}
