@@ -1,5 +1,6 @@
 import { Box3, Group, Vector3 } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 
 export const MODEL_MAP: Record<string, string> = {
@@ -18,7 +19,10 @@ export interface ModelAsset {
   scale: number;
 }
 
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('/draco/');
 const loader = new GLTFLoader();
+loader.setDRACOLoader(dracoLoader);
 const assets = new Map<string, Promise<ModelAsset>>();
 
 function load(path: string): Promise<ModelAsset> {

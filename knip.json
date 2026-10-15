@@ -1,0 +1,6 @@
+{
+  "ignoreFiles": [
+    "public/draco/draco_decoder.js",
+    "public/draco/draco_wasm_wrapper.js"
+  ]
+}

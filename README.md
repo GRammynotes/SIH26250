@@ -29,12 +29,11 @@ src/
 ├── lib/
 │   ├── components/
 │   │   ├── layout/          (TopBar, ScenarioBar, TooltipLayer)
-│   │   ├── map/             (TacticalMap, MapLegend, TrajectoryLayer, TerrainToggle)
+│   │   ├── map/             (TacticalMap, MapContextMenu, TrajectoryLayer, TerrainToggle)
 │   │   ├── overlay/         (CaptionLayer, FocusPointer)
 │   │   ├── panels/          (COAPanel, WeaponMatrix, AfterActionReview, etc.)
-│   │   └── simulation/      (Simulation3DView)
 │   ├── data/                (aircraft, bases, weapons, historicalMissions, etc.)
-│   ├── demo/                (comprehensiveDemoScript, demoConfig)
+│   ├── demo/                (comprehensiveDemoScript)
 │   ├── engine/              (optimisation, threatAssessment, gameTheory, weaponeering, trajectory, voice)
 │   ├── stores/              (systemStore.svelte.ts - reactive state)
 │   ├── theme/               (tactical.css)
@@ -43,7 +42,7 @@ src/
 └── App.svelte               (Root component)
 
 server/
-└── api/                     (Express backend scaffold)
+└── index.js                 (Express health endpoint)
 
 public/                      (Static assets)
 ```
@@ -67,12 +66,12 @@ public/                      (Static assets)
 
 - **Frontend:** Vite, Svelte 5, TypeScript
 - **Map:** MapLibre GL JS with OpenStreetMap raster tiles
-- **Backend:** Express with health endpoint and SSE-ready scaffold
+- **Backend:** Express health endpoint with CORS
 - **State:** Svelte 5 reactive stores
 - **Routing:** @turf/great-circle for geospatial calculations
-- **Demo:** driver.js for guided walkthrough, Web Speech API for voice narration
+- **Demo:** Svelte-guided walkthrough, Web Speech API for voice narration
 - **Panels:** PaneForge for panel management
-- **Symbols:** milsymbol for military symbology
+- **Symbols:** Built-in canvas and SVG tactical symbols
 
 ## Running Locally
 
@@ -80,9 +79,10 @@ public/                      (Static assets)
 npm install
 npm run dev
 npm run build
+npm run server
 ```
 
-The development server starts on http://localhost:5173
+The development server starts on http://localhost:5173. The optional backend health endpoint starts on http://localhost:3001/api/health.
 
 ## Deployment
 
