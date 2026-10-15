@@ -69,7 +69,7 @@
     busy = true;
     if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike');
     system.generateCOAs();
-    window.dispatchEvent(new CustomEvent('aircommand:select-right-tab', { detail: 'coa' }));
+    window.dispatchEvent(new CustomEvent('aircommand:select-right-tab', { detail: 'flow' }));
     const mission = system.scenarioMissions.find((item) => item.targetType === history.targetType) ?? system.scenarioMissions[0];
     const eligibleAircraft = system.scenarioAircraft.filter((item) => item.status === 'FMC' || item.status === 'PMC');
     const plannedAircraftIds = mission ? system.coas.find((coa) => coa.id === system.selectedCoaId)?.assignments[mission.id] ?? [] : [];

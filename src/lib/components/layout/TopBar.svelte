@@ -5,17 +5,18 @@
 
   let {
     aircraftCount = 0, missionCount = 0, threatCount = 0,
-    onFlowClick, onReferenceClick, onMetricsClick, onDemoClick, onSimulationClick,
+    onFlowClick, onReferenceClick, onMetricsClick, onDemoClick, onSimulationClick, onProbabilisticSimulationClick,
     onGlossaryClick, onShortcutHelpClick, onGuideClick, onReplayWelcome, onGenerate, onReset, onDegradedToggle,
     onLayerToggle, demoActive = false, modalCount = 0, onResetLayout, onToggleFocusLock, focusLocked = true, railActive = false, panelVisibility = {},
-    onPanelToggle, onShowAllPanels, onHideAllPanels,
+    onPanelToggle, onShowAllPanels, onHideAllPanels, onBottomToggle, bottomExpanded = false, unreadLogCount = 0,
   }: {
     aircraftCount?: number; missionCount?: number; threatCount?: number;
     onFlowClick?: () => void; onReferenceClick?: () => void; onMetricsClick?: () => void;
-    onDemoClick?: () => void; onSimulationClick?: () => void; onGlossaryClick?: () => void; onShortcutHelpClick?: () => void; onGuideClick?: () => void; onReplayWelcome?: () => void;
+    onDemoClick?: () => void; onSimulationClick?: () => void; onProbabilisticSimulationClick?: () => void; onGlossaryClick?: () => void; onShortcutHelpClick?: () => void; onGuideClick?: () => void; onReplayWelcome?: () => void;
     onGenerate?: () => void; onReset?: () => void; onDegradedToggle?: () => void;
     onLayerToggle?: (layer: string) => void; demoActive?: boolean; modalCount?: number;
     onPanelToggle?: (key: string, visible: boolean) => void; onShowAllPanels?: () => void; onHideAllPanels?: () => void;
+    onBottomToggle?: () => void; bottomExpanded?: boolean; unreadLogCount?: number;
     onResetLayout?: () => void; onToggleFocusLock?: () => void; focusLocked?: boolean; railActive?: boolean; panelVisibility?: Record<string, boolean>;
   } = $props();
 
@@ -26,7 +27,7 @@
   let captionsOn = $state(true);
   let toggleToast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
-  const menus = ['VIEW', 'TOOLS', 'HELP', 'SYSTEM'];
+  const menus = ['EXPERIENCE', 'VIEW', 'TOOLS', 'HELP', 'SYSTEM'];
   const layers = [
     ['Terrain', 'terrain'], ['Airspace', 'airspace'], ['Weather', 'weather'], ['Enemy', 'enemy'], ['Ground', 'ground'],
     ['Trails', 'trails'], ['Grid', 'grid'], ['Threat', 'threats'],
@@ -66,7 +67,11 @@
         <button class="menu-trigger" data-tour={menu === 'TOOLS' ? 'reference-library' : menu === 'HELP' ? 'help-menu' : undefined} class:open={openMenu === menu} aria-haspopup="true" aria-expanded={openMenu === menu} onclick={(event) => toggleMenu(menu, event)}>{menu}</button>
         {#if openMenu === menu}
           <div class="menu-panel" role="menu" onclick={(event) => event.stopPropagation()}>
-            {#if menu === 'VIEW'}
+            {#if menu === 'EXPERIENCE'}
+              <button role="menuitem" onclick={() => action(onDemoClick)}>▶ GUIDED DEMO</button>
+              <button role="menuitem" onclick={() => action(onSimulationClick)}>▷ HISTORICAL TRAINING</button>
+              <button role="menuitem" onclick={() => action(onProbabilisticSimulationClick)}>◈ OUTCOME SIMULATION</button>
+            {:else if menu === 'VIEW'}
               <details class="submenu"><summary>MAP LAYERS ▸</summary>{#each layers as [label, key]}<button role="menuitemcheckbox" aria-checked={layerChecked[key as keyof typeof layerChecked]} onclick={() => toggleLayer(key)}><span>{layerChecked[key as keyof typeof layerChecked] ? '☑' : '☐'} {label}</span></button>{/each}</details>
               <details class="submenu"><summary>PANELS ▸</summary>{#each panels as [label, key]}<button role="menuitemcheckbox" aria-checked={panelVisibility[key] !== false} onclick={() => onPanelToggle?.(key, panelVisibility[key] === false)}><span>{panelVisibility[key] === false ? '☐' : '☑'} {label}</span></button>{/each}</details>
               <div class="menu-divider"></div>
@@ -79,8 +84,6 @@
               <button role="menuitem" onclick={() => action(onReferenceClick)}>◈ REFERENCE <kbd>R</kbd></button>
               <button role="menuitem" onclick={() => action(onFlowClick)}>◈ MISSION FLOW <kbd>F</kbd></button>
             {:else if menu === 'HELP'}
-              <button role="menuitem" onclick={() => action(onDemoClick)}>◈ COMPREHENSIVE DEMO <kbd>D</kbd></button>
-              <button role="menuitem" onclick={() => action(onSimulationClick)}>◈ TRAINING SIMULATION <kbd>S</kbd></button>
               <div class="menu-divider"></div>
               <button role="menuitem" onclick={() => action(onShortcutHelpClick)}>⌨ KEYBOARD SHORTCUTS <kbd>?</kbd></button>
               <button role="menuitem" onclick={() => action(onGlossaryClick)}>◈ GLOSSARY <kbd>⌘</kbd></button>
@@ -95,6 +98,7 @@
       </div>
     {/each}
   </nav>
+  <button class="log-toggle" aria-expanded={bottomExpanded} aria-label={bottomExpanded ? 'Collapse event log and command status' : `Open event log and command status, ${unreadLogCount} unread`} title="Event log and command status" onclick={onBottomToggle}>LOG {unreadLogCount ? `· ${unreadLogCount}` : '· STATUS'} {bottomExpanded ? '⌄' : '⌃'}</button>
   <span class="spacer"></span>
   <button class="voice-toggle" data-tour="voice-toggle" aria-pressed={voiceOn} title="Toggle voice narration" onclick={toggleVoice}>◈ VOICE {voiceOn ? 'ON' : 'OFF'}</button>
   <button class="voice-toggle" aria-pressed={captionsOn} title="Toggle captions" onclick={toggleCaptions}>CC {captionsOn ? 'ON' : 'OFF'}</button>
@@ -119,6 +123,7 @@
   .live { display:flex; align-items:center; gap:5px; color:var(--accent-green); font-size:8px; } .dot { width:5px; height:5px; border-radius:50%; background:var(--accent-green); box-shadow:0 0 6px var(--accent-green); }
   .menus { display:flex; align-items:center; height:100%; gap:4px; margin-left:8px; } .menu-group { position:relative; height:100%; display:flex; align-items:center; }
   .voice-toggle { padding:4px 7px; background:transparent; border:1px solid var(--border-subtle); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; white-space:nowrap; }.voice-toggle[aria-pressed="false"] { color:var(--text-muted); }
+  .log-toggle { padding:4px 6px; border:1px solid var(--border-subtle); background:transparent; color:var(--text-secondary); font:7px var(--font-mono); letter-spacing:.08em; white-space:nowrap; cursor:pointer; }.log-toggle:hover,.log-toggle[aria-expanded="true"] { color:var(--accent-cyan); border-color:var(--accent-cyan); }
   .toggle-toast { position:absolute; right:12px; top:38px; z-index:60; padding:6px 9px; border:1px solid var(--accent-cyan); background:var(--bg-panel); color:var(--accent-cyan); font:8px var(--font-mono); }
   .menu-trigger { position:relative; height:100%; padding:0 10px; background:transparent; border:0; color:var(--text-secondary); font:9px var(--font-mono); letter-spacing:.16em; cursor:pointer; }
   .menu-trigger::after { content:''; position:absolute; bottom:5px; left:10px; right:10px; height:1px; background:var(--accent-cyan); transform:scaleX(0); transition:transform .18s ease; }

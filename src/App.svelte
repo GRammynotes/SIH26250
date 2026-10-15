@@ -67,13 +67,10 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let demoActive = $state(false);
   let comprehensiveDemoOpen = $state(false);
   let railMode = $state<'demo' | 'training' | 'sim' | null>(null);
-  let railCollapsed = $state(false);
-  let railWidth = $state(380);
   let arcViewer = $state<{ entityType: 'aircraft' | 'missile'; entityId: string; missionId: string } | null>(null);
   let entityDetail = $state<{ type: string; id: string } | null>(null);
   let detailPreviousRail = $state<'demo' | 'training' | 'sim' | null>(null);
   let railExitTimer: ReturnType<typeof setTimeout> | undefined;
-  let railResizing = $state(false);
   type PastDecision = { at: number; title: string; choice: string };
   let pastDecisions = $state<PastDecision[]>([]);
   let pastDecisionsExpanded = $state(false);
@@ -85,6 +82,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let leftCollapsed = $state(false);
   let rightCollapsed = $state(false);
   let logCollapsed = $state(false);
+  let bottomExpanded = $state(false);
   let mapFullscreen = $state(false);
   let panelVisibility = $state({ forceRoster: true, missions: true, theaterMap: true, coa: true, missionLog: true, commandStatus: true, scenarioBar: true });
   let savedLeftSize = 18;
@@ -94,7 +92,6 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let leftPanelTab = $state<'roster' | 'missions'>('roster');
   let leftPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let rightPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
-  let logPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
   let shortcutToast = $state('');
   let exitExperienceConfirm = $state(false);
   let resetConfirm = $state(false);
@@ -157,8 +154,17 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   });
   $effect(() => {
     const count = system.events.length;
-    if ((logCollapsed || !panelVisibility.missionLog) && count > previousLogCount) unreadLogCount += count - previousLogCount;
+    if ((!bottomExpanded || !panelVisibility.missionLog) && count > previousLogCount) unreadLogCount += count - previousLogCount;
     previousLogCount = count;
+  });
+  let previousLayoutExperience = 'idle';
+  $effect(() => {
+    const experience = system.activeExperience;
+    if (experience === previousLayoutExperience) return;
+    previousLayoutExperience = experience;
+    if (experience === 'mission') leftPanelTab = 'missions';
+    rightTab = experience === 'idle' ? 'coa' : experience === 'mission' ? 'execution' : experience === 'simulation' ? 'metrics' : 'flow';
+    requestAnimationFrame(() => leftPane?.resize(experience === 'idle' ? 18 : 29));
   });
   $effect(() => {
     const tab = rightTab;
@@ -199,7 +205,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   }
 
   function persistCollapsedState() {
-    localStorage.setItem('aircommand.panels.v1', JSON.stringify({ left: leftCollapsed, right: rightCollapsed, log: logCollapsed, visibility: panelVisibility }));
+    localStorage.setItem('aircommand.panels.v1', JSON.stringify({ left: leftCollapsed, right: rightCollapsed, visibility: panelVisibility }));
   }
 
   function setPanelVisibility(key: keyof typeof panelVisibility, visible: boolean) {
@@ -232,6 +238,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     system.exitExperience();
     railMode = null; demoActive = false; comprehensiveDemoOpen = false;
     simulationOpen = false; probabilisticSimOpen = false; arcViewer = null;
+    rightTab = 'coa';
     exitExperienceConfirm = false;
     for (const event of ['aircommand:arc-viewer-clear', 'aircommand:diagram-focus-clear', 'aircommand:temporary-overlay-clear']) window.dispatchEvent(new CustomEvent(event));
     if (railExitTimer) clearTimeout(railExitTimer);
@@ -268,30 +275,25 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
 
   function resetLayout() {
     mapFullscreen = false;
-    leftCollapsed = false; rightCollapsed = false; logCollapsed = false;
+    leftCollapsed = false; rightCollapsed = false; logCollapsed = true; bottomExpanded = false;
     panelVisibility = { forceRoster: true, missions: true, theaterMap: true, coa: true, missionLog: true, commandStatus: true, scenarioBar: true };
-    leftPanelTab = 'roster'; rightTab = 'coa'; unreadLogCount = 0; railCollapsed = false;
+    leftPanelTab = 'roster'; rightTab = 'coa'; unreadLogCount = 0;
     if (railMode) setMapFocusLock(true);
     persistCollapsedState();
-    requestAnimationFrame(() => { leftPane?.resize(18); rightPane?.resize(22); logPane?.resize(15); });
+    requestAnimationFrame(() => { leftPane?.resize(18); rightPane?.resize(28); });
     flashHint('LAYOUT RESET TO DEFAULT');
-  }
-
-  function toggleRailFromStrip(mode: 'demo' | 'training' | 'sim') {
-    if (railMode === mode) { if (railCollapsed) railCollapsed = false; else closeExperienceRail(); }
-    else { selectRailMode(mode); railCollapsed = false; }
   }
 
   function restoreLeftPanel(tab: 'roster' | 'missions') {
     setPanelVisibility(tab === 'roster' ? 'forceRoster' : 'missions', true);
     leftPanelTab = tab; leftCollapsed = false;
-    requestAnimationFrame(() => leftPane?.resize(18));
+    requestAnimationFrame(() => leftPane?.resize(system.activeExperience === 'idle' ? 18 : 29));
   }
 
   function restoreRightTab(tab: typeof rightTab) {
     if (tab === 'coa') setPanelVisibility('coa', true);
     rightTab = tab; rightCollapsed = false;
-    requestAnimationFrame(() => rightPane?.resize(22));
+    requestAnimationFrame(() => rightPane?.resize(28));
   }
 
   $effect(() => {
@@ -316,10 +318,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     const handleEntityDetail = (event: Event) => {
       const detail = (event as CustomEvent<{ type: string; id: string }>).detail;
       if (!detail?.type || !detail.id) return;
-      if (!entityDetail) detailPreviousRail = railMode;
       entityDetail = detail;
-      if (!railMode) railMode = 'demo';
-      railCollapsed = false;
       arcViewer = null;
     };
     const handleSelectRightTab = (event: Event) => rightTab = (event as CustomEvent<typeof rightTab>).detail;
@@ -332,7 +331,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       if (target.includes('roster')) { setPanelVisibility('forceRoster', true); leftPanelTab = 'roster'; leftCollapsed = false; requestAnimationFrame(() => leftPane?.resize(15)); }
       else if (target.includes('missions')) { setPanelVisibility('missions', true); leftPanelTab = 'missions'; leftCollapsed = false; requestAnimationFrame(() => leftPane?.resize(15)); }
       else if (target.includes('coa') || target.includes('generate-coa')) { setPanelVisibility('coa', true); rightTab = 'coa'; rightCollapsed = false; requestAnimationFrame(() => rightPane?.resize(28)); }
-      else if (target.includes('log')) { setPanelVisibility('missionLog', true); logCollapsed = false; requestAnimationFrame(() => logPane?.resize(15)); }
+      else if (target.includes('log')) { setPanelVisibility('missionLog', true); bottomExpanded = true; logCollapsed = false; }
       else if (target.includes('command-status')) setPanelVisibility('commandStatus', true);
       else if (target.includes('scenario-bar')) setPanelVisibility('scenarioBar', true);
     };
@@ -346,21 +345,20 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     window.addEventListener('aircommand:arc-viewer', handleArcViewer);
     window.addEventListener('aircommand:arc-viewer-clear', clearArcViewer);
     const saved = readCollapsedState();
-    leftCollapsed = saved.left ?? false; rightCollapsed = saved.right ?? false; logCollapsed = saved.log ?? false;
+    leftCollapsed = saved.left ?? false; rightCollapsed = saved.right ?? false; logCollapsed = true; bottomExpanded = false;
     panelVisibility = { ...panelVisibility, ...(saved.visibility ?? {}) };
     requestAnimationFrame(() => {
       if (leftCollapsed) leftPane?.resize(3);
       if (rightCollapsed) rightPane?.resize(3);
-      if (logCollapsed) logPane?.resize(3);
     });
     return () => { window.removeEventListener('aircommand:busy-toast', handleBusyToast); window.removeEventListener('aircommand:reset-request', handleResetRequest); window.removeEventListener('aircommand:mission-brief', handleMissionBrief); window.removeEventListener('aircommand:entity-detail', handleEntityDetail); window.removeEventListener('aircommand:select-right-tab', handleSelectRightTab); window.removeEventListener('aircommand:map-open-panel', handleMapOpenPanel); window.removeEventListener('aircommand:tour-target', handleTourTarget); window.removeEventListener('aircommand:arc-viewer', handleArcViewer); window.removeEventListener('aircommand:arc-viewer-clear', clearArcViewer); };
   });
 
-  function closeEntityDetail() { entityDetail = null; arcViewer = null; railMode = detailPreviousRail; detailPreviousRail = null; }
+  function closeEntityDetail() { entityDetail = null; arcViewer = null; detailPreviousRail = null; }
 
   function toggleLeftPane() { leftCollapsed = !leftCollapsed; persistCollapsedState(); leftPane?.resize(leftCollapsed ? 3 : 15); }
   function toggleRightPane() { rightCollapsed = !rightCollapsed; persistCollapsedState(); rightPane?.resize(rightCollapsed ? 3 : 28); }
-  function toggleLogPane() { logCollapsed = !logCollapsed; if (!logCollapsed) unreadLogCount = 0; persistCollapsedState(); logPane?.resize(logCollapsed ? 3 : 15); }
+  function toggleLogPane() { bottomExpanded = !bottomExpanded; logCollapsed = !bottomExpanded; if (bottomExpanded) unreadLogCount = 0; }
   function toggleMapFullscreen() {
     if (!mapFullscreen) { savedLeftSize = leftPane?.getSize?.() ?? (leftCollapsed ? 3 : 15); savedRightSize = rightPane?.getSize?.() ?? (rightCollapsed ? 3 : 28); mapFullscreen = true; }
     else { mapFullscreen = false; requestAnimationFrame(() => { leftPane?.resize(savedLeftSize); rightPane?.resize(savedRightSize); }); }
@@ -495,40 +493,41 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     };
     const templateId = map[mission.targetType] ?? 'sindoor_deep';
     system.startMission(missionId, ids, templateId);
+    if (system.activeExperience === 'mission') rightTab = 'execution';
     assignedAircraftId = null;
     briefingMissionId = null;
   }
 
   function startDemo() {
     if (!system.enterExperience('demo')) return;
+    rightTab = 'flow';
     closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false;
     demoActive = true;
     if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike', true);
     const demoMission = system.scenarioMissions.find((item) => item.targetType === HISTORICAL_MISSIONS.sindoor_deep.targetType) ?? system.scenarioMissions[0];
     system.enterFocusMode(demoMission?.id ?? null);
     if (demoMission) system.revealElement('target', demoMission.id);
-    railMode = 'demo'; railCollapsed = false;
+    railMode = 'demo';
     comprehensiveDemoOpen = true;
   }
 
   function startSimulation() {
     if (!system.enterExperience('training')) return;
+    rightTab = 'flow';
     closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false;
     if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike', true);
     const trainingMission = system.scenarioMissions.find((item) => item.targetType === HISTORICAL_MISSIONS.sindoor_deep.targetType) ?? system.scenarioMissions[0];
     system.enterFocusMode(trainingMission?.id ?? null);
     if (trainingMission) system.revealElement('target', trainingMission.id);
     demoActive = false;
-    railMode = 'training'; railCollapsed = false;
+    railMode = 'training';
     comprehensiveDemoOpen = false;
     simulationOpen = true;
   }
 
-  function startProbabilisticSimulation() { if (!system.enterExperience('simulation')) return; closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false; demoActive = false; if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike', true); const mission = system.scenarioMissions[0]; system.enterFocusMode(mission?.id ?? null); if (mission) system.revealElement('target', mission.id); railMode = 'sim'; railCollapsed = false; comprehensiveDemoOpen = false; probabilisticSimOpen = true; }
+  function startProbabilisticSimulation() { if (!system.enterExperience('simulation')) return; rightTab = 'metrics'; closeWelcome(); pastDecisions = []; pastDecisionsExpanded = false; demoActive = false; if (system.activeScenarioFilter !== 'deep_strike') system.runScenario('deep_strike', true); const mission = system.scenarioMissions[0]; system.enterFocusMode(mission?.id ?? null); if (mission) system.revealElement('target', mission.id); railMode = 'sim'; comprehensiveDemoOpen = false; probabilisticSimOpen = true; }
   function closeWelcome() { welcomeOpen = false; try { localStorage.setItem('aircommand.seen', 'true'); } catch {} }
   function replayWelcome() { try { localStorage.removeItem('aircommand.seen'); } catch {} welcomeOpen = true; }
-  function resizeRail(event: PointerEvent) { if (railResizing) railWidth = Math.min(500, Math.max(320, innerWidth - event.clientX)); }
-  function endRailResize() { railResizing = false; }
   function selectRailMode(mode: 'demo' | 'training' | 'sim') {
     if (mode === 'demo') startDemo();
     else if (mode === 'training') startSimulation();
@@ -653,11 +652,11 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   });
 </script>
 
-<svelte:window onkeydown={handleGlobalKeydown} onpointermove={resizeRail} onpointerup={endRailResize} />
+<svelte:window onkeydown={handleGlobalKeydown} />
 <TooltipLayer />
 <CaptionLayer />
 <FocusPointer />
-<div class="shell" class:fullscreen={mapFullscreen} class:scenario-hidden={!panelVisibility.scenarioBar} class:focus-mode={focusMode} class:demo-locked={comprehensiveDemoOpen} class:rail-open={!!railMode && !mapFullscreen} style={`--rail-width:${railCollapsed ? 32 : arcViewer ? 420 : railWidth}px`} data-fullscreen={mapFullscreen ? 'true' : 'false'}>
+<div class="shell" class:fullscreen={mapFullscreen} class:focus-mode={focusMode} class:demo-locked={comprehensiveDemoOpen} data-experience={system.activeExperience} data-fullscreen={mapFullscreen ? 'true' : 'false'}>
   {#if !mapFullscreen}
   <TopBar
     aircraftCount={system.aircraft.length}
@@ -668,6 +667,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     onMetricsClick={() => (metricsOpen = true)}
     onDemoClick={startDemo}
     onSimulationClick={startSimulation}
+    onProbabilisticSimulationClick={startProbabilisticSimulation}
     onGlossaryClick={() => glossaryOpen = true}
     onShortcutHelpClick={() => shortcutHelpOpen = true}
     onGuideClick={() => { systemGuideOpen = !systemGuideOpen; narrateUtterance(systemGuideOpen ? 'System guide opened.' : 'System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }}
@@ -684,144 +684,98 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     onToggleFocusLock={() => setMapFocusLock(!mapFocusLocked)}
     focusLocked={mapFocusLocked}
     railActive={!!railMode}
+    onBottomToggle={toggleLogPane}
+    {bottomExpanded}
+    {unreadLogCount}
     demoActive={demoActive}
     modalCount={activeModalIds.length}
   />
-  {#if !mapFullscreen}<ScenarioBar collapsed={!panelVisibility.scenarioBar} onToggleVisibility={() => setPanelVisibility('scenarioBar', false)} />{/if}
   {/if}
 
-  <PaneGroup direction="vertical" autoSaveId="aircommand.layout.v1" class="workspace-layout">
-    <Pane defaultSize={90} minSize={55} maxSize={92}>
-      <PaneGroup direction="horizontal" autoSaveId="aircommand.layout.v1.panels" class="content-layout">
-        {#if !mapFullscreen && (panelVisibility.forceRoster || panelVisibility.missions)}<Pane bind:this={leftPane} defaultSize={15} minSize={3} maxSize={30}>
-          {#if leftCollapsed}<div class="collapsed-rail"><button title="Expand aircraft and mission panels" aria-label="Expand left panels" onclick={toggleLeftPane}>»</button><span>A</span><span>M</span></div>
-          {:else if system.selectedBaseId}<BaseDetailPanel onLoadoutClick={openLoadout} />
-          {:else}<aside class="left">
+  <div class="workspace-layout" class:bottom-expanded={bottomExpanded}>
+    <PaneGroup direction="horizontal" autoSaveId="aircommand.layout.v1.panels" class="content-layout">
+      {#if !mapFullscreen && (system.activeExperience !== 'idle' || panelVisibility.forceRoster || panelVisibility.missions)}<Pane bind:this={leftPane} defaultSize={18} minSize={3} maxSize={36}>
+        {#if leftCollapsed}<div class="collapsed-rail"><button title="Expand work area" aria-label="Expand left work area" onclick={toggleLeftPane}>»</button><span>{railMode ? railMode.toUpperCase().slice(0,1) : leftPanelTab === 'roster' ? 'A' : 'M'}</span></div>
+        {:else if railMode}
+          <section class="experience-workspace" aria-label={`${railMode} experience`}>
+            <header class="experience-workspace-header">
+              <strong>{railMode === 'training' ? 'HISTORICAL TRAINING' : railMode === 'sim' ? 'OUTCOME SIMULATION' : 'GUIDED DEMO'}</strong>
+              <div class="experience-actions">
+                <button class="rail-focus-lock" class:active={mapFocusLocked} aria-pressed={mapFocusLocked} onclick={() => setMapFocusLock(!mapFocusLocked)} title="Toggle map focus lock">{mapFocusLocked ? '🔒' : '🔓'}</button>
+                {#if !mapFocusLocked}<button aria-label="Re-focus map to the scenario area" title="Re-focus map" onclick={refocusMap}>⌖</button>{/if}
+                <div class="sim-speed" role="group" aria-label="Simulation speed">{#each [0, 1, 2, 4] as speed}<button class:active={system.simSpeed === speed} aria-pressed={system.simSpeed === speed} aria-label={speed === 0 ? 'Pause simulation' : `Set simulation speed to ${speed}x`} onclick={() => system.setSimSpeed(speed as 0 | 1 | 2 | 4)}>{speed === 0 ? 'Ⅱ' : `${speed}x`}</button>{/each}</div>
+                <button class="rail-close" aria-label="Exit experience" title="Exit experience" onclick={closeExperienceRail}>EXIT</button>
+              </div>
+            </header>
+            {#if entityDetail}<EntityDetail entityType={entityDetail.type} entityId={entityDetail.id} onBack={closeEntityDetail} />{:else}
+              {#if arcViewer}<ArcViewer {...arcViewer} />{/if}
+              {#if railMode === 'demo'}<ComprehensiveDemo open={comprehensiveDemoOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} onComplete={() => { if (railExitTimer) clearTimeout(railExitTimer); railExitTimer = setTimeout(closeExperienceRail, 5000); }} />
+              {:else if railMode === 'training'}<div class="experience-content">{#if SimulationModal}<SimulationModal open={simulationOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
+              {:else if railMode === 'sim'}<div class="experience-content">{#if ProbabilisticSimulation}<ProbabilisticSimulation open={probabilisticSimOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>{/if}
+              {#if railMode !== 'demo' && pending?.pendingDecision}<div class="rail-decision"><DecisionPrompt open={true} rail title={pending.pendingDecision.title} context={pending.pendingDecision.context} message={pending.pendingDecision.message} options={decisionOptions()} processing={decisionProcessing} onSelect={handleRailDecision} onClose={() => system.dismissDecision(pending!.id)} /></div>{/if}
+              {#if railMode !== 'demo' && pastDecisions.length}<section class="past-decisions" aria-label="Past decisions"><button aria-expanded={pastDecisionsExpanded} onclick={() => pastDecisionsExpanded = !pastDecisionsExpanded}>DECISIONS MADE ({pastDecisions.length}) {pastDecisionsExpanded ? '▴' : '▾'}</button>{#if pastDecisionsExpanded}<ol>{#each pastDecisions as decision, index (`${decision.at}-${index}`)}<li><span>{['①','②','③','④','⑤','⑥','⑦','⑧'][index] ?? `${index + 1}.`}</span><b>{decision.title}</b><i>→ {decision.choice}</i></li>{/each}</ol>{/if}</section>{/if}
+            {/if}
+          </section>
+        {:else if entityDetail}<EntityDetail entityType={entityDetail.type} entityId={entityDetail.id} onBack={closeEntityDetail} />
+        {:else if system.selectedBaseId}<BaseDetailPanel onLoadoutClick={openLoadout} />
+        {:else}<aside class="left">
+          {#if system.activeExperience === 'idle' && panelVisibility.scenarioBar}<ScenarioBar collapsed={true} />{/if}
+          {#if system.activeExperience === 'mission'}
+            <div class="mission-experience-header"><span>MISSION ACTIVE</span><button onclick={closeExperienceRail}>EXIT</button></div>
+            <MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} onCollapse={toggleLeftPane} onToggleVisibility={() => setPanelVisibility('missions', false)} />
+          {:else}
             <div class="left-tabs" role="tablist" aria-label="Left panel">
               {#if panelVisibility.forceRoster}<button role="tab" aria-selected={leftPanelTab === 'roster'} class:active={leftPanelTab === 'roster'} onclick={() => leftPanelTab = 'roster'}>FORCE ROSTER</button>{/if}
               {#if panelVisibility.missions}<button role="tab" aria-selected={leftPanelTab === 'missions'} class:active={leftPanelTab === 'missions'} onclick={() => leftPanelTab = 'missions'}>MISSIONS</button>{/if}
             </div>
             {#if leftPanelTab === 'roster' && panelVisibility.forceRoster}<AircraftPanel onCollapse={toggleLeftPane} onToggleVisibility={() => setPanelVisibility('forceRoster', false)} onLoadout={openLoadout} onAssign={(aircraftId, missionId) => { assignedAircraftId = aircraftId; briefingMissionId = missionId; }} />
             {:else if panelVisibility.missions}<MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} onCollapse={toggleLeftPane} onToggleVisibility={() => setPanelVisibility('missions', false)} />{:else if panelVisibility.forceRoster}<AircraftPanel onCollapse={toggleLeftPane} onToggleVisibility={() => setPanelVisibility('forceRoster', false)} onLoadout={openLoadout} onAssign={(aircraftId, missionId) => { assignedAircraftId = aircraftId; briefingMissionId = missionId; }} />{/if}
-          </aside>{/if}
-        </Pane><PaneResizer class="pane-resizer" />{/if}
-        <Pane defaultSize={mapFullscreen ? 100 : 57} minSize={40}>
-          <section class="center">
-            {#if TacticalMap}<TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} onFullscreenClick={toggleMapFullscreen} onToggleTheaterVisibility={() => setPanelVisibility('theaterMap', !panelVisibility.theaterMap)} theaterMapVisible={panelVisibility.theaterMap} fullscreen={mapFullscreen} />{:else}<div class="map-loading mono">INITIALISING TACTICAL MAP · SECURE DATA LINK</div>{/if}
-            {#if system.computing}<div class="computing mono">◢ COMPUTING COA · NSGA-II · 4 OBJECTIVES</div>{/if}
-          </section>
-        </Pane>
-        {#if !mapFullscreen}<PaneResizer class="pane-resizer" />
-        {#if panelVisibility.coa || rightTab !== 'coa'}<Pane bind:this={rightPane} defaultSize={28} minSize={3} maxSize={35}>
-          {#if rightCollapsed}<div class="collapsed-rail"><button title="Expand COA panel" aria-label="Expand right panel" onclick={toggleRightPane}>«</button><span>C</span></div>
-          {:else}
-            <div class="right-wrap">
-              <div class="right-tabs" role="tablist" aria-label="Right panel">
-                {#if panelVisibility.coa}<button role="tab" aria-selected={rightTab === 'coa'} class:active={rightTab === 'coa'} onclick={() => rightTab = 'coa'}>COA</button>{/if}
-                <button role="tab" aria-selected={rightTab === 'red'} class:active={rightTab === 'red'} onclick={() => rightTab = 'red'}>RED VIEW</button>
-                <button role="tab" aria-selected={rightTab === 'weapons'} class:active={rightTab === 'weapons'} onclick={() => rightTab = 'weapons'}>WEAPONS <kbd>Ctrl+5</kbd></button>
-                <button role="tab" aria-selected={rightTab === 'cyber'} class:active={rightTab === 'cyber'} onclick={() => rightTab = 'cyber'}>CYBER <kbd>Ctrl+6</kbd></button>
-                <button role="tab" aria-selected={rightTab === 'metrics'} class:active={rightTab === 'metrics'} onclick={() => rightTab = 'metrics'}>METRICS <kbd>Ctrl+3</kbd></button>
-                <button role="tab" aria-selected={rightTab === 'execution'} class:active={rightTab === 'execution'} onclick={() => rightTab = 'execution'}>EXECUTION <kbd>Ctrl+4</kbd></button>
-                <button role="tab" aria-selected={rightTab === 'flow'} class:active={rightTab === 'flow'} onclick={() => rightTab = 'flow'}>MISSION FLOW</button>
-                <button class="right-collapse" aria-label="Collapse right panel" title="Collapse right panel" onclick={toggleRightPane}>›</button>
-              </div>
-              <div class="right-tab-content">
-                {#if rightTab === 'coa' && panelVisibility.coa}<COAPanel mode="blue" onToggleVisibility={() => setPanelVisibility('coa', false)} />
-                {:else if rightTab === 'red'}<COAPanel mode="red" />
-                {:else if rightTab === 'metrics'}{#if MetricsDashboard}<MetricsDashboard open={true} inline={true} />{:else}<div class="map-loading mono">LOADING ANALYTICS</div>{/if}
-                {:else if rightTab === 'execution'}<ExecutionPanel />
-                {:else if rightTab === 'weapons'}<div class="weapon-workspace"><WeaponMatrix /><PrioritizationSlider /></div>
-                {:else if rightTab === 'flow'}<MissionIOFlow />
-                {:else}<CyberPanel />{/if}
-              </div>
-            </div>
           {/if}
-        </Pane>{/if}{/if}
-      </PaneGroup>
-    </Pane>
-    {#if !mapFullscreen && (panelVisibility.missionLog || panelVisibility.commandStatus)}<PaneResizer class="pane-resizer vertical-resizer" />
-    <Pane bind:this={logPane} defaultSize={10} minSize={8} maxSize={45}>
+        </aside>{/if}
+      </Pane><PaneResizer class="pane-resizer" />{/if}
+      <Pane defaultSize={mapFullscreen ? 100 : 54} minSize={40}>
+        <section class="center">
+          {#if TacticalMap}<TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} onFullscreenClick={toggleMapFullscreen} onToggleTheaterVisibility={() => setPanelVisibility('theaterMap', !panelVisibility.theaterMap)} theaterMapVisible={panelVisibility.theaterMap} fullscreen={mapFullscreen} />{:else}<div class="map-loading mono">INITIALISING TACTICAL MAP · SECURE DATA LINK</div>{/if}
+          {#if system.computing}<div class="computing mono">◢ COMPUTING COA · NSGA-II · 4 OBJECTIVES</div>{/if}
+        </section>
+      </Pane>
+      {#if !mapFullscreen}<PaneResizer class="pane-resizer" />
+      {#if panelVisibility.coa || rightTab !== 'coa'}<Pane bind:this={rightPane} defaultSize={28} minSize={3} maxSize={38}>
+        {#if rightCollapsed}<div class="collapsed-rail"><button title="Expand supporting detail" aria-label="Expand right work area" onclick={toggleRightPane}>«</button><span>{rightTab.slice(0,1).toUpperCase()}</span></div>
+        {:else}<div class="right-wrap">
+          <div class="right-tabs" role="tablist" aria-label="Supporting detail">
+            {#if panelVisibility.coa}<button role="tab" aria-selected={rightTab === 'coa'} class:active={rightTab === 'coa'} onclick={() => rightTab = 'coa'}>COA</button>{/if}
+            <button role="tab" aria-selected={rightTab === 'red'} class:active={rightTab === 'red'} onclick={() => rightTab = 'red'}>RED VIEW</button>
+            <button role="tab" aria-selected={rightTab === 'weapons'} class:active={rightTab === 'weapons'} onclick={() => rightTab = 'weapons'}>WEAPONS</button>
+            <button role="tab" aria-selected={rightTab === 'cyber'} class:active={rightTab === 'cyber'} onclick={() => rightTab = 'cyber'}>CYBER</button>
+            <button role="tab" aria-selected={rightTab === 'metrics'} class:active={rightTab === 'metrics'} onclick={() => rightTab = 'metrics'}>METRICS</button>
+            <button role="tab" aria-selected={rightTab === 'execution'} class:active={rightTab === 'execution'} onclick={() => rightTab = 'execution'}>EXECUTION</button>
+            <button role="tab" aria-selected={rightTab === 'flow'} class:active={rightTab === 'flow'} onclick={() => rightTab = 'flow'}>FLOW</button>
+            <button class="right-collapse" aria-label="Collapse right panel" title="Collapse right panel" onclick={toggleRightPane}>›</button>
+          </div>
+          <div class="right-tab-content">
+            {#if rightTab === 'coa' && panelVisibility.coa}<COAPanel mode="blue" onToggleVisibility={() => setPanelVisibility('coa', false)} />
+            {:else if rightTab === 'red'}<COAPanel mode="red" />
+            {:else if rightTab === 'metrics'}{#if MetricsDashboard}<MetricsDashboard open={true} inline={true} />{:else}<div class="map-loading mono">LOADING ANALYTICS</div>{/if}
+            {:else if rightTab === 'execution'}<ExecutionPanel />
+            {:else if rightTab === 'weapons'}<div class="weapon-workspace"><WeaponMatrix /><PrioritizationSlider /></div>
+            {:else if rightTab === 'flow'}<MissionIOFlow />
+            {:else}<CyberPanel />{/if}
+          </div>
+        </div>{/if}
+      </Pane>{/if}{/if}
+    </PaneGroup>
+    {#if bottomExpanded && !mapFullscreen && (panelVisibility.missionLog || panelVisibility.commandStatus)}
       <PaneGroup direction="horizontal" autoSaveId="aircommand.command-row" class="command-row">
-        {#if panelVisibility.missionLog}<Pane defaultSize={panelVisibility.commandStatus ? 70 : 100} minSize={48}><EventLog collapsed={logCollapsed} onToggle={toggleLogPane} onToggleVisibility={() => setPanelVisibility('missionLog', false)} /></Pane>{/if}
+        {#if panelVisibility.missionLog}<Pane defaultSize={panelVisibility.commandStatus ? 70 : 100} minSize={48}><EventLog collapsed={false} onToggle={toggleLogPane} onToggleVisibility={() => setPanelVisibility('missionLog', false)} /></Pane>{/if}
         {#if panelVisibility.missionLog && panelVisibility.commandStatus}<PaneResizer class="pane-resizer" />{/if}
         {#if panelVisibility.commandStatus}<Pane defaultSize={panelVisibility.missionLog ? 30 : 100} minSize={22}><CommandStatus onToggleVisibility={() => setPanelVisibility('commandStatus', false)} /></Pane>{/if}
       </PaneGroup>
-    </Pane>{/if}
-  </PaneGroup>
-  {#if railMode || simulationOpen || probabilisticSimOpen}
-    <aside class="rail-right" class:collapsed={railCollapsed} class:hidden={railMode === null || mapFullscreen} aria-label="Experience rail">
-      <nav class="rail-tabs-collapsed" aria-label="Experience modes">
-        <button class:active={railMode === 'demo'} onclick={() => selectRailMode('demo')} aria-label="Open demo rail">DEMO</button>
-        <button class:active={railMode === 'training'} onclick={() => selectRailMode('training')} aria-label="Open training rail">TRAINING</button>
-        <button class:active={railMode === 'sim'} onclick={() => selectRailMode('sim')} aria-label="Open simulation rail">SIM</button>
-      </nav>
-      <div class="rail-expanded" class:rail-hidden={railCollapsed}>
-        <button class="rail-resize" aria-label="Resize experience rail" title="Drag to resize rail" onpointerdown={(event) => { railResizing = true; event.preventDefault(); }}></button>
-        <div class="rail-toolbar">
-          <div class="rail-mode-tabs" role="tablist" aria-label="Experience mode" data-tour="scenario-controls">
-            <button data-tour="demo" class:active={railMode === 'demo'} role="tab" aria-selected={railMode === 'demo'} onclick={() => selectRailMode('demo')}>DEMO</button>
-            <button data-tour="simulation" class:active={railMode === 'training'} role="tab" aria-selected={railMode === 'training'} onclick={() => selectRailMode('training')}>TRAINING</button>
-            <button class:active={railMode === 'sim'} role="tab" aria-selected={railMode === 'sim'} onclick={() => selectRailMode('sim')}>SIM</button>
-          </div>
-          <button class="rail-focus-lock" class:active={mapFocusLocked} aria-pressed={mapFocusLocked} onclick={() => setMapFocusLock(!mapFocusLocked)}>{mapFocusLocked ? '🔒 LOCKED' : '🔓 FREE'}</button>
-          {#if !mapFocusLocked}<button class="rail-refocus" aria-label="Re-focus map to the scenario area" onclick={refocusMap}>⌖ RE-FOCUS</button>{/if}
-          <div class="sim-speed" role="group" aria-label="Simulation speed">{#each [0, 1, 2, 4] as speed}<button class:active={system.simSpeed === speed} aria-pressed={system.simSpeed === speed} aria-label={speed === 0 ? 'Pause simulation' : `Set simulation speed to ${speed}x`} onclick={() => system.setSimSpeed(speed as 0 | 1 | 2 | 4)}>{speed === 0 ? 'Ⅱ' : `${speed}x`}</button>{/each}</div>
-          <button class="rail-collapse" title="Collapse rail" aria-label="Collapse experience rail" onclick={() => railCollapsed = true}>›</button>
-          <button class="rail-close" title="Close rail" aria-label="Close experience rail" onclick={closeExperienceRail}>×</button>
-        </div>
-        <div class="mode-orientation" class:training={railMode === 'training'} class:sim={railMode === 'sim'} title={railMode === 'training' ? 'Practice a historical mission and make commander decisions.' : railMode === 'sim' ? 'Evaluate plan robustness through weighted probabilistic outcomes.' : 'Watch a guided walkthrough of system capabilities.'}>[{railMode === 'training' ? 'TRAINING' : railMode === 'sim' ? 'SIM' : 'DEMO'}]</div>
-        {#if entityDetail}<EntityDetail entityType={entityDetail.type} entityId={entityDetail.id} onBack={closeEntityDetail} />{:else}
-        {#if arcViewer}<ArcViewer {...arcViewer} />{/if}
-        <div class="rail-content" class:rail-hidden={railMode !== 'demo'}><ComprehensiveDemo open={comprehensiveDemoOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} onComplete={() => { if (railExitTimer) clearTimeout(railExitTimer); railExitTimer = setTimeout(closeExperienceRail, 5000); }} /></div>
-        <div class="rail-content" class:rail-hidden={railMode !== 'training'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if SimulationModal}<SimulationModal open={simulationOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
-        <div class="rail-content" class:rail-hidden={railMode !== 'sim'}><div class="background-chip">● RUNNING IN BACKGROUND</div>{#if ProbabilisticSimulation}<ProbabilisticSimulation open={probabilisticSimOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
-        {#if railMode !== 'demo' && pending?.pendingDecision}
-          <div class="rail-decision"><DecisionPrompt open={true} rail title={pending.pendingDecision.title} context={pending.pendingDecision.context} message={pending.pendingDecision.message} options={decisionOptions()} processing={decisionProcessing} onSelect={handleRailDecision} onClose={() => system.dismissDecision(pending!.id)} /></div>
-        {/if}
-        {#if railMode !== 'demo' && pastDecisions.length}
-          <section class="past-decisions" aria-label="Past decisions"><button aria-expanded={pastDecisionsExpanded} onclick={() => pastDecisionsExpanded = !pastDecisionsExpanded}>DECISIONS MADE ({pastDecisions.length}) {pastDecisionsExpanded ? '▴' : '▾'}</button>{#if pastDecisionsExpanded}<ol>{#each pastDecisions as decision, index (`${decision.at}-${index}`)}<li><span>{['①','②','③','④','⑤','⑥','⑦','⑧'][index] ?? `${index + 1}.`}</span><b>{decision.title}</b><i>→ {decision.choice}</i></li>{/each}</ol>{/if}</section>
-        {/if}
-        {/if}
-      </div>
-    </aside>
-  {/if}
-  {#if !mapFullscreen && (leftCollapsed || !panelVisibility.forceRoster || !panelVisibility.missions)}
-    <aside class="left-restore-strip" aria-label="Restore left panels">
-      <button class:active={panelVisibility.forceRoster && leftPanelTab === 'roster' && !leftCollapsed} aria-label="Restore force roster" title="Restore force roster" onclick={() => restoreLeftPanel('roster')}>◧</button>
-      <button class:active={panelVisibility.missions && leftPanelTab === 'missions' && !leftCollapsed} aria-label="Restore missions" title="Restore missions" onclick={() => restoreLeftPanel('missions')}>◰</button>
-    </aside>
-  {/if}
-  {#if !mapFullscreen}
-    <aside class="right-activity" class:narrow={!!railMode && !railCollapsed && !rightCollapsed && panelVisibility.coa} aria-label="Restore right-side panels">
-      {#if !railMode || railCollapsed}
-        <button class:active={railMode === 'demo'} aria-label="Toggle demo rail" title="Demo rail" onclick={() => toggleRailFromStrip('demo')}>▶</button>
-        <button class:active={railMode === 'training'} aria-label="Toggle training rail" title="Training rail" onclick={() => toggleRailFromStrip('training')}>▷</button>
-        <button class:active={railMode === 'sim'} aria-label="Toggle simulation rail" title="Simulation rail" onclick={() => toggleRailFromStrip('sim')}>◈</button>
-      {/if}
-      {#if rightCollapsed}
-        <button class:active={rightTab === 'metrics'} aria-label="Open metrics tab" title="Metrics tab" onclick={() => restoreRightTab('metrics')}>▤</button>
-        <button class:active={rightTab === 'red'} aria-label="Open RED VIEW tab" title="RED VIEW" onclick={() => restoreRightTab('red')}>◫</button>
-        <button class:active={rightTab === 'weapons'} aria-label="Open weapon matrix tab" title="Weapon matrix" onclick={() => restoreRightTab('weapons')}>◈</button>
-        <button class:active={rightTab === 'cyber'} aria-label="Open cyber tab" title="Cyber" onclick={() => restoreRightTab('cyber')}>⌨</button>
-      {/if}
-      {#if !panelVisibility.coa}<button aria-label="Restore COA panel" title="COA" onclick={() => restoreRightTab('coa')}>▤</button>{/if}
-    </aside>
-  {/if}
-  {#if !mapFullscreen && (logCollapsed || !panelVisibility.missionLog)}
-    <button class="log-restore-strip" aria-label={`Expand event log, ${unreadLogCount} unread`} onclick={() => { if (!panelVisibility.missionLog) setPanelVisibility('missionLog', true); logCollapsed = false; unreadLogCount = 0; requestAnimationFrame(() => logPane?.resize(15)); persistCollapsedState(); }}>▴ EVENT LOG ({unreadLogCount}) ▴</button>
-  {/if}
+    {/if}
+  </div>
 </div>
-
-<nav class="experience-dock" aria-label="Demo and training controls">
-  <button onclick={startDemo} aria-label="Start comprehensive demo">▶ DEMO</button>
-  <button onclick={startSimulation} aria-label="Start historical training">▷ TRAINING</button>
-  <button onclick={startProbabilisticSimulation} aria-label="Start probabilistic simulation">◈ SIM</button>
-</nav>
 {#if welcomeOpen}<div class="welcome-shade"><div class="welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title" tabindex="-1"><span>◈ AIR COMMAND · ORIENTATION</span><h1 id="welcome-title">WELCOME TO AIR COMMAND</h1><p>Choose a mode to begin:</p><button onclick={startDemo}>▶ GUIDED DEMO <small>See the system walkthrough</small></button><button onclick={startSimulation}>▷ TRAINING <small>Run a historical mission</small></button><button onclick={startProbabilisticSimulation}>◈ SIM <small>Test probabilistic outcomes</small></button><button class="explore" onclick={closeWelcome}>↻ EXPLORE <small>Skip and use the console directly</small></button></div></div>{/if}
 {#if comprehensiveDemoOpen}<div class="lock-bar"><span>SYSTEM LOCKED · PRESS ESC TO EXIT</span></div>{/if}
-{#if !railMode && (simulationOpen || probabilisticSimOpen)}<button class="background-running-chip" onclick={() => { railMode = simulationOpen ? 'training' : 'sim'; railCollapsed = false; }}>● RUNNING IN BACKGROUND · OPEN RAIL</button>{/if}
-
 {#if pending?.pendingDecision && !railMode && !simulationOpen && !probabilisticSimOpen}
   <ModalLayer label={modalLabels.decision} zIndex={modalZ('decision')} visible={isModalVisible('decision')} onMinimize={() => minimizeModal('decision')}><DecisionPrompt
     open={true}
@@ -885,7 +839,6 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
 {/if}
 {#if dockedModalIds.length > 0}<div class="modal-dock" aria-label="Minimized modals">{#each dockVisibleIds as id (id)}<button title={modalLabels[id]} aria-label="Restore {modalLabels[id]}" onclick={() => restoreModal(id)}>{modalLabels[id]?.slice(0, 2)}</button>{/each}{#if dockOverflowIds.length}<div class="dock-overflow"><button aria-label={`Show ${dockOverflowIds.length} older minimized modals`} title="Older minimized modals" onclick={() => dockOverflowOpen = !dockOverflowOpen}>+{dockOverflowIds.length}</button>{#if dockOverflowOpen}<div class="dock-overflow-list">{#each dockOverflowIds as id (id)}<button title={modalLabels[id]} onclick={() => restoreModal(id)}>{modalLabels[id]}</button>{/each}</div>{/if}</div>{/if}</div>{/if}
   {#if shortcutToast}<div class="shortcut-toast">{shortcutToast}</div>{/if}
-  {#if system.activeExperience === 'mission' && !railMode}<button class="experience-exit-chip" onclick={closeExperienceRail}>MISSION ACTIVE · EXIT</button>{/if}
   {#if exitExperienceConfirm}<div class="experience-confirm-shade" role="presentation"><div class="experience-confirm" role="dialog" aria-modal="true" aria-labelledby="experience-confirm-title"><h2 id="experience-confirm-title">{system.activeExperience === 'mission' ? 'MISSION IN PROGRESS' : system.activeExperience.toUpperCase() + ' IN PROGRESS'}</h2><p>{system.activeExperience === 'training' ? 'Training in progress. Exit will abort the current mission.' : system.activeExperience === 'mission' ? 'Mission in progress. Exit will abort the current mission.' : `${system.activeExperience[0]?.toUpperCase()}${system.activeExperience.slice(1)} is in progress. Exit will stop this experience.`}</p><div><button onclick={() => exitExperienceConfirm = false}>CANCEL</button><button class="danger" onclick={confirmExperienceExit}>EXIT</button></div></div></div>{/if}
   {#if resetConfirm}<div class="experience-confirm-shade" role="presentation"><div class="experience-confirm" role="dialog" aria-modal="true" aria-labelledby="reset-confirm-title"><h2 id="reset-confirm-title">RESET SYSTEM?</h2><p>Reset will stop all active experiences and clear all state.</p><div><button onclick={() => resetConfirm = false}>CANCEL</button><button class="danger" onclick={confirmSystemReset}>RESET</button></div></div></div>{/if}
 
@@ -896,7 +849,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   .shell {
     width: 100vw; height: 100vh;
     display: grid;
-    grid-template-rows:32px 40px minmax(0,1fr);
+    grid-template-rows:32px minmax(0,1fr);
     grid-template-columns:minmax(0,1fr);
     background: #1a242e;
     gap: 0;
@@ -906,63 +859,45 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   .experience-confirm h2 { margin:0 0 10px; color:var(--accent-amber); font-size:12px; letter-spacing:.12em; }
   .experience-confirm p { color:var(--text-secondary); font:12px/1.5 var(--font-sans); }
   .experience-confirm div { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
-  .experience-confirm button,.experience-exit-chip { padding:8px 12px; border:1px solid var(--border-strong); background:transparent; color:var(--text-primary); font:9px var(--font-mono); cursor:pointer; }
-  .experience-confirm button.danger,.experience-exit-chip { border-color:var(--accent-red); color:var(--accent-red); }
-  .experience-exit-chip { position:fixed; z-index:140; right:12px; top:42px; background:var(--bg-panel); }
-  .shell.rail-open { grid-template-columns:minmax(0,1fr) var(--rail-width); }
-  :global(.shell > .topbar), :global(.shell > .scenario-menu) { grid-column:1 / -1; }
-  :global(.workspace-layout) { grid-row:3; width:100%; height:100%; min-height:0; }
-  .shell.rail-open :global(.workspace-layout) { grid-column:1; grid-row:3; }
-  .rail-right { position:relative; grid-column:2; grid-row:3; min-width:0; min-height:0; display:flex; flex-direction:column; background:var(--bg-panel); border-left:1px solid var(--border-strong); overflow:visible; }
-  .rail-right.collapsed { overflow:hidden; }
-  .rail-right.hidden { display:none; }
-  .rail-expanded { min-height:0; flex:1; display:flex; flex-direction:column; position:relative; }
-  .rail-expanded.rail-hidden { display:none; }
-  .rail-content.rail-hidden { display:none; }
-  .rail-tabs-collapsed { display:none; }
-  .rail-right.collapsed .rail-tabs-collapsed { display:flex; flex-direction:column; height:100%; }
-  .rail-right.collapsed .rail-expanded { display:none; }
-  .rail-resize { position:absolute; top:0; bottom:0; left:-4px; width:8px; z-index:20; cursor:col-resize; border:0; background:transparent; touch-action:none; }
-  .rail-resize:hover,.rail-resize:active { background:var(--accent-cyan); opacity:.4; }
-  .rail-toolbar { min-height:35px; display:flex; align-items:center; gap:2px; border-bottom:1px solid var(--border-subtle); background:var(--bg-base); }
-  .rail-mode-tabs { display:flex; flex:1; min-width:0; align-self:stretch; }
-  .rail-mode-tabs button { flex:1; min-width:0; padding:8px 3px; border:0; border-bottom:2px solid transparent; color:var(--text-muted); background:transparent; font:8px var(--font-mono); cursor:pointer; }
-  .rail-mode-tabs button.active { color:var(--accent-cyan); border-bottom-color:var(--accent-cyan); }
-  .rail-toolbar .rail-focus-lock,.rail-toolbar .rail-refocus { flex:none; padding:4px 5px; border:1px solid var(--border-subtle); color:var(--text-muted); background:transparent; font:6px var(--font-mono); white-space:nowrap; cursor:pointer; }
-  .rail-toolbar .rail-focus-lock.active { color:var(--accent-cyan); }
+  .experience-confirm button { padding:8px 12px; border:1px solid var(--border-strong); background:transparent; color:var(--text-primary); font:9px var(--font-mono); cursor:pointer; }
+  .experience-confirm button.danger { border-color:var(--accent-red); color:var(--accent-red); }
+  :global(.workspace-layout) { grid-row:2; position:relative; display:flex; flex-direction:column; width:100%; height:100%; min-height:0; }
+  :global(.content-layout) { flex:none; width:100%; height:100%; min-height:0; }
+  .workspace-layout.bottom-expanded :global(.content-layout) { height:85%; }
+  :global(.shell.fullscreen > .workspace-layout) { grid-row:1; }
+  .shell.fullscreen .workspace-layout.bottom-expanded :global(.content-layout) { height:100%; }
+  :global(.command-row) { position:absolute; left:0; right:0; bottom:0; height:15%; width:100%; border-top:1px solid var(--border-strong); background:var(--bg-panel); }
+  .experience-workspace { height:100%; min-height:0; display:flex; flex-direction:column; overflow:hidden; background:var(--bg-panel); }
+  .experience-workspace-header { display:flex; align-items:center; justify-content:space-between; gap:5px; min-height:38px; padding:0 6px 0 10px; border-bottom:1px solid var(--border-subtle); background:var(--bg-base); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.1em; }
+  .experience-actions { display:flex; align-items:center; gap:3px; }
+  .experience-actions>button { min-width:24px; height:23px; padding:0 5px; border:1px solid var(--border-subtle); background:transparent; color:var(--text-secondary); font:8px var(--font-mono); cursor:pointer; }
+  .experience-actions>button:hover,.experience-actions>button.active { border-color:var(--accent-cyan); color:var(--accent-cyan); }
+  .experience-actions .rail-close { border-color:var(--accent-red); color:var(--accent-red); }
+  .experience-content { flex:1; min-height:0; overflow:auto; }
+  .mission-experience-header { display:flex; justify-content:space-between; align-items:center; flex:none; padding:8px 12px; color:var(--accent-amber); font:8px var(--font-mono); letter-spacing:.12em; border-bottom:1px solid var(--border-subtle); }
+  .mission-experience-header button { border:1px solid var(--accent-red); padding:5px 8px; background:transparent; color:var(--accent-red); font:8px var(--font-mono); cursor:pointer; }
   .sim-speed { flex:none; display:flex; gap:1px; }
   .sim-speed button { min-width:22px; height:22px; padding:0 3px; border:1px solid var(--border-subtle); color:var(--text-muted); background:transparent; font:7px var(--font-mono); cursor:pointer; }
   .sim-speed button.active { color:var(--accent-cyan); border-color:var(--accent-cyan); }
-  .rail-collapse,.rail-close { width:32px; border:0; border-left:1px solid var(--border-subtle); background:transparent; color:var(--text-secondary); font:16px var(--font-mono); cursor:pointer; }
-  .rail-content { min-height:0; flex:1; overflow:auto; }
+  .rail-close { width:32px; border:0; border-left:1px solid var(--border-subtle); background:transparent; color:var(--text-secondary); font:16px var(--font-mono); cursor:pointer; }
   .rail-decision { flex:0 0 62%; height:62%; min-height:0; max-height:62%; overflow:auto; border-top:1px solid var(--border-strong); }
   .decision-impact { position:fixed; z-index:150; left:50%; bottom:112px; transform:translateX(-50%); width:min(560px,90vw); padding:12px 14px; border:1px solid var(--accent-cyan); background:rgba(5,8,15,.96); box-shadow:0 8px 32px rgba(0,0,0,.45); animation:decision-impact-in .18s ease-out; font-family:var(--font-mono); }
   .decision-impact header { display:flex; justify-content:space-between; gap:12px; padding:0 0 7px; border-bottom:1px solid var(--border-subtle); color:var(--accent-cyan); font-size:9px; letter-spacing:.12em; }
   .decision-impact header span { color:var(--text-muted); font-size:8px; }
   .decision-impact p { margin:6px 0 0; color:var(--text-secondary); font-size:8px; letter-spacing:.03em; }
   @keyframes decision-impact-in { from { opacity:0; transform:translate(-50%,6px); } to { opacity:1; transform:translate(-50%,0); } }
-  .background-chip { margin:8px 10px 0; padding:5px 7px; width:max-content; color:var(--accent-green); border:1px solid var(--border-subtle); font:7px var(--font-mono); letter-spacing:.1em; }
-  .background-running-chip { position:fixed; left:12px; top:38px; z-index:120; padding:5px 8px; color:var(--accent-green); background:var(--bg-panel); border:1px solid var(--border-subtle); font:7px var(--font-mono); letter-spacing:.1em; cursor:pointer; }
-  .rail-tabs-collapsed button { flex:1; padding:8px 4px; writing-mode:vertical-rl; transform:rotate(180deg); border:0; border-bottom:1px solid var(--border-subtle); color:var(--text-muted); background:var(--bg-panel); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; }
-  .rail-tabs-collapsed button.active { color:var(--accent-cyan); }
-  .shell.scenario-hidden { grid-template-rows:32px 0 minmax(0,1fr); }
-  .mode-orientation { margin:0 10px; padding:5px 8px; width:max-content; color:var(--accent-cyan); border:1px solid var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.12em; }
-  .mode-orientation.training { color:var(--accent-green); border-color:var(--accent-green); }.mode-orientation.sim { color:var(--accent-amber); border-color:var(--accent-amber); }
   .past-decisions { margin:8px 10px 12px; border-top:1px solid var(--border-subtle); font:8px var(--font-mono); }.past-decisions>button { width:100%; padding:8px 4px; border:0; background:transparent; color:var(--text-secondary); text-align:left; font:inherit; cursor:pointer; }.past-decisions ol { list-style:none; padding:0; margin:0; }.past-decisions li { display:grid; grid-template-columns:20px minmax(0,1fr); gap:4px; padding:5px 4px; color:var(--text-muted); }.past-decisions li span { color:var(--accent-cyan); }.past-decisions li b { color:var(--text-secondary); }.past-decisions li i { grid-column:2; color:var(--accent-amber); font-style:normal; }
   .welcome-shade { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; background:rgba(0,0,0,.6); }.shell:has(~ .welcome-shade) { filter:brightness(.4); }.welcome-card { width:min(440px,92vw); padding:24px; background:var(--bg-panel); border:1px solid var(--accent-cyan); box-shadow:0 12px 60px #000b; font-family:var(--font-mono); }.welcome-card>span { color:var(--accent-cyan); font-size:9px; letter-spacing:.14em; }.welcome-card h1 { color:var(--text-primary); font-size:18px; margin:14px 0 8px; }.welcome-card p { color:var(--text-secondary); font:12px var(--font-sans); }.welcome-card button { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; margin-top:7px; padding:11px; color:var(--text-primary); background:var(--bg-base); border:1px solid var(--border-subtle); font:10px var(--font-mono); cursor:pointer; }.welcome-card button:hover { border-color:var(--accent-cyan); }.welcome-card small { color:var(--text-muted); font:10px var(--font-sans); }.welcome-card .explore { color:var(--text-secondary); }
   .shell.fullscreen { grid-template-rows:1fr; grid-template-columns:minmax(0,1fr); grid-template-areas:"center"; gap:0; }
   .shell { min-width:0; overflow:hidden; }
   :global(.workspace-layout),:global(.content-layout) { min-width:0; max-width:100%; overflow:hidden; }
   :global(.content-layout [data-pane]),:global(.workspace-layout [data-pane]) { min-width:0 !important; }
-  :global(.shell.fullscreen > .workspace-layout) { grid-area:center; grid-row:1; width:100%; height:100%; min-height:0; }
-  :global(.content-layout) { width: 100%; height: 100%; }
-  :global(.content-layout [data-pane]), :global(.workspace-layout [data-pane]) { transition:flex-basis .2s ease; }
-  .left { display:flex; flex-direction:column; gap:1px; background:#1a242e; overflow:hidden; height:100%; }
+  :global(.content-layout [data-pane]) { transition:flex-basis .2s ease; }
+  .left { display:flex; flex-direction:column; gap:1px; background:#1a242e; overflow:visible; height:100%; position:relative; }
   .left-tabs { display:flex; flex:none; gap:1px; background:var(--border-subtle); }
   .left-tabs button { flex:1; padding:8px 4px; border:0; border-bottom:2px solid transparent; background:var(--bg-base); color:var(--text-muted); font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; }
   .left-tabs button.active { color:var(--accent-cyan); border-bottom-color:var(--accent-cyan); }
   .left > :global(.panel), .left > :global(.mission-block) { flex:1; min-height:0; }
-  :global(.command-row) { height:100%; width:100%; }
   .right-wrap { position:relative; height:100%; display:flex; flex-direction:column; background:var(--bg-panel); }
   .right-tabs { display:flex; align-items:stretch; flex:none; border-bottom:1px solid var(--border-subtle); background:var(--bg-base); }
   .right-tabs { overflow-x:auto; }
@@ -978,11 +913,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   :global(.collapsed-rail) { display:flex; flex-direction:column; align-items:center; gap:12px; height:100%; padding:8px 0; background:var(--bg-panel); color:var(--accent-cyan); font:9px var(--font-mono); box-sizing:border-box; }
   :global(.collapsed-rail button), :global(.collapse-btn) { background:transparent; border:0; color:var(--accent-cyan); font:14px var(--font-mono); cursor:pointer; padding:4px; }
   :global(.collapsed-rail button:focus-visible), :global(.collapse-btn:focus-visible) { outline:1px solid var(--accent-cyan); }
-  .experience-dock { position:fixed; z-index:120; left:12px; bottom:30px; display:flex; gap:4px; padding:5px; border:1px solid var(--border-strong); background:var(--bg-panel); box-shadow:0 4px 18px #0008; }
-  .experience-dock button { padding:7px 10px; color:var(--accent-cyan); border:1px solid var(--border-subtle); background:transparent; font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; }
-  .experience-dock button:hover { border-color:var(--accent-cyan); }
   .lock-bar { position:fixed; z-index:600; left:0; right:0; top:0; padding:7px; text-align:center; color:var(--accent-amber); background:var(--bg-base); border-bottom:1px solid var(--accent-amber); font:9px var(--font-mono); letter-spacing:.12em; pointer-events:none; }
   .shell.demo-locked { pointer-events:none; }
+  .shell.demo-locked .experience-workspace { pointer-events:auto; }
   .shell.focus-mode > :global(*) { opacity:.16; filter:saturate(.35); transition:opacity .18s; }
   .shell.focus-mode > :global(.workspace-layout) { opacity:1; filter:none; }
   .shell.focus-mode .left,.shell.focus-mode .right-wrap,.shell.focus-mode .command-row { opacity:.16; }
@@ -993,13 +926,6 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   :global(.pane-resizer:hover), :global(.pane-resizer[data-resize-handle-active]) { background: var(--accent-cyan); }
   :global(.vertical-resizer) { width: 100%; }
   .shortcut-toast { position: fixed; top: 46px; left: 50%; transform: translateX(-50%); z-index: 100; padding: 8px 14px; color: var(--accent-cyan); background: var(--bg-panel); border: 1px solid var(--accent-cyan); font: 10px var(--font-mono); letter-spacing: .14em; }
-  .left-restore-strip { position:fixed; z-index:85; left:0; top:72px; bottom:20px; width:40px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:6px 3px; box-sizing:border-box; background:var(--bg-base); border-right:1px solid var(--border-strong); }
-  .left-restore-strip button,.right-activity button { width:32px; min-height:32px; border:1px solid var(--border-subtle); background:var(--bg-panel); color:var(--text-muted); font:13px var(--font-mono); cursor:pointer; }
-  .left-restore-strip button:hover,.left-restore-strip button.active,.right-activity button:hover,.right-activity button.active { color:var(--accent-cyan); border-color:var(--accent-cyan); }
-  .right-activity { position:fixed; z-index:85; right:0; top:72px; bottom:20px; width:40px; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 3px; box-sizing:border-box; overflow-y:auto; background:var(--bg-base); border-left:1px solid var(--border-strong); }
-  .right-activity.narrow { width:8px; padding:0; border-left:1px solid var(--border-subtle); background:transparent; }
-  .right-activity.narrow button { display:none; }
-  .log-restore-strip { position:fixed; z-index:86; left:40px; right:40px; bottom:0; height:20px; border:1px solid var(--border-subtle); border-bottom:0; color:var(--accent-cyan); background:var(--bg-base); font:8px var(--font-mono); letter-spacing:.12em; cursor:pointer; }
   .modal-dock { position:fixed; z-index:260; right:48px; bottom:28px; display:flex; align-items:end; gap:5px; padding:4px; border:1px solid var(--border-subtle); background:rgba(5,8,15,.94); }
   .modal-dock>button,.dock-overflow>button { width:32px; height:32px; padding:0; border:1px solid var(--border-strong); background:var(--bg-panel); color:var(--accent-cyan); font:8px var(--font-mono); cursor:pointer; }
   .dock-overflow { position:relative; }
