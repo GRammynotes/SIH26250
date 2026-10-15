@@ -6,7 +6,7 @@
   import type { DecisionBranch } from '../../data/historicalMissions';
   import { HISTORICAL_MISSIONS } from '../../data/historicalMissions';
 
-  let { open = false, simSpeed = 1, onSpeedChange, onClose }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onSpeedChange?: (speed: 0 | 1 | 2 | 4) => void; onClose?: () => void } = $props();
+  let { open = false, simSpeed = 1, onClose }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onClose?: () => void } = $props();
   const scaledDelay = (base: number) => simSpeed === 0 ? 2147483647 : base / simSpeed;
   type Dialogue = { speaker: 'COMMANDER' | 'OPS AGENT' | 'SYSTEM'; text: string };
   let started = $state(false);
@@ -151,7 +151,7 @@
 {#if open}
   <div class="mode-chip" title="Practice a historical mission and make commander decisions.">[TRAINING]</div>
   <section class="sim" aria-labelledby="sim-title">
-      <header><div><span class="eyebrow">AUTONOMOUS TRAINING RUN · HISTORICAL CASE STUDY</span><h2 id="sim-title">OP SINDOOR · DEEP STRIKE</h2><p>{history.date} · {history.targetType.toUpperCase()} · SIMULATED, NOT LIVE DATA</p></div><div class="rail-controls"><button class:active={autoDecision} onclick={() => { autoDecision = !autoDecision; if (!autoDecision && decisionTimer) clearTimeout(decisionTimer); }}>AUTO {autoDecision ? 'ON' : 'OFF'}</button><button class:active={simSpeed === 2} onclick={() => onSpeedChange?.(simSpeed === 2 ? 1 : 2)} aria-label="Toggle 2x speed">⏩ {simSpeed === 2 ? '2x ON' : '2x'}</button><button class="close" aria-label="Close simulation" onclick={() => onClose?.()}>×</button></div></header>
+      <header><div><span class="eyebrow">AUTONOMOUS TRAINING RUN · HISTORICAL CASE STUDY</span><h2 id="sim-title">OP SINDOOR · DEEP STRIKE</h2><p>{history.date} · {history.targetType.toUpperCase()} · SIMULATED, NOT LIVE DATA</p></div><div class="rail-controls"><button class:active={autoDecision} onclick={() => { autoDecision = !autoDecision; if (!autoDecision && decisionTimer) clearTimeout(decisionTimer); }}>AUTO {autoDecision ? 'ON' : 'OFF'}</button><span class="speed-readout">{simSpeed === 0 ? 'PAUSED' : `${simSpeed}X`}</span><button class="close" aria-label="Close simulation" onclick={() => onClose?.()}>×</button></div></header>
       <div class="story"><strong>MISSION BRIEF</strong><p>{history.narrative}</p><button onclick={jumpToMap}>⌖ FOCUS TRAINING AREA</button></div>
       <div class="body">
         <section class="dialogue" aria-label="Commander and operations agent dialogue">

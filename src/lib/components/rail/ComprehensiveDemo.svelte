@@ -3,9 +3,8 @@
   import { COMPREHENSIVE_DEMO_STEPS, getStepGlossaryTerms } from '../../demo/comprehensiveDemoScript';
   import { narrateUtterance, stopVoice } from '../../engine/voice';
   import { parseMapNarrative } from '../../engine/mapNarrative';
-  import { system } from '../../stores/systemStore.svelte';
 
-  let { open = false, simSpeed = 1, onSpeedChange, onClose, onComplete }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onSpeedChange?: (speed: 0 | 1 | 2 | 4) => void; onClose?: () => void; onComplete?: () => void } = $props();
+  let { open = false, simSpeed = 1, onClose, onComplete }: { open?: boolean; simSpeed?: 0 | 1 | 2 | 4; onClose?: () => void; onComplete?: () => void } = $props();
 
   // Demo state
   let currentStepIndex = $state(0);
@@ -15,7 +14,6 @@
   let autoAdvance = $state(true);
   let stepTimer: ReturnType<typeof setTimeout> | undefined;
   let actionTimer: ReturnType<typeof setTimeout> | undefined;
-  let revealTimers: ReturnType<typeof setTimeout>[] = [];
 
   // Current step data
   let currentStep = $derived(COMPREHENSIVE_DEMO_STEPS[currentStepIndex] ?? null);
@@ -32,7 +30,6 @@
     isPaused = false;
     isComplete = false;
     currentStepIndex = 0;
-    system.enterFocusMode(system.scenarioMissions[0]?.id ?? null);
     document.body.classList.add('demo-active');
     executeStep();
   }
@@ -40,34 +37,14 @@
   // Execute current step
   function executeStep() {
     if (!currentStep || isPaused || !isPlaying) return;
-    revealTimers.forEach(clearTimeout); revealTimers = [];
-    window.dispatchEvent(new CustomEvent('aircommand:arc-viewer-clear'));
     window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
     const narration = parseMapNarrative(currentStep.narration);
     const caption = parseMapNarrative(currentStep.caption).text;
-    const missionId = system.focusMode?.missionId;
-    const focusIds = currentStep.focusIds;
-    const revealDelay = currentStep.narrationDelay ?? 800;
-    const scheduleReveal = (type: Parameters<typeof system.revealElement>[0], id?: string, offset = 0) => {
-      revealTimers.push(setTimeout(() => {
-        system.revealElement(type, id);
-        if (type === 'aircraft' && id && missionId) window.dispatchEvent(new CustomEvent('aircommand:arc-viewer', { detail: { entityType: 'aircraft', entityId: id, missionId } }));
-      }, revealDelay + offset));
-    };
-    if (focusIds) {
-      if (focusIds.target) scheduleReveal('target', focusIds.target === '$mission' ? missionId ?? undefined : focusIds.target);
-      const aircraftIds = focusIds.aircraft?.flatMap((id) => id === '$assigned'
-        ? (system.focusMode?.assignedAircraftIds ?? []).map((assignedId) => system.aircraft.find((item) => item.id === assignedId)?.tailNumber).filter((tail): tail is string => Boolean(tail))
-        : [id]) ?? [];
-      aircraftIds.forEach((id, index) => scheduleReveal('aircraft', id, index * 300));
-      const threatIds = focusIds.threats?.flatMap((id) => id === '$route' ? system.focusMode?.routeThreatIds ?? [] : [id]) ?? [];
-      threatIds.forEach((id, index) => scheduleReveal('threat', id, index * 300));
-      focusIds.layers?.forEach((layer, index) => scheduleReveal(layer, undefined, index * 300));
-    }
+    window.dispatchEvent(new CustomEvent('aircommand:tour-target', { detail: currentStep.element ?? '[data-tour="map"]' }));
 
-    window.dispatchEvent(new CustomEvent('aircommand:focus', {
+    requestAnimationFrame(() => window.dispatchEvent(new CustomEvent('aircommand:focus', {
       detail: { selector: currentStep.element ?? '[data-tour="map"]', duration: currentStep.duration || 5000, text: caption },
-    }));
+    })));
 
     // Dispatch caption event
     if (!voiceEnabled) window.dispatchEvent(
@@ -170,7 +147,6 @@
     document.body.classList.remove('demo-active');
     // Clear focus pointer
     window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
-    revealTimers.forEach(clearTimeout); revealTimers = []; system.exitFocusMode();
     onClose?.();
   }
 
@@ -221,8 +197,7 @@
     if (!open) return;
     switch (e.key) {
       case 'Escape':
-        if (system.focusMode?.active) { system.exitFocusMode(); e.stopImmediatePropagation(); }
-        else stopDemo();
+        stopDemo();
         break;
       case ' ':
         e.preventDefault();
@@ -251,7 +226,6 @@
     window.removeEventListener('keydown', handleKeydown);
     clearTimeout(stepTimer);
     clearTimeout(actionTimer);
-    revealTimers.forEach(clearTimeout); system.exitFocusMode();
     window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
   });
 
@@ -279,7 +253,6 @@
       stopVoice();
       document.body.classList.remove('demo-active');
       window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
-      revealTimers.forEach(clearTimeout); revealTimers = []; system.exitFocusMode();
     }
   });
 </script>
@@ -391,7 +364,7 @@
           >
             {voiceEnabled ? '◉ VOICE ON' : '○ VOICE OFF'}
           </button>
-          <button class="control-btn" class:active={simSpeed === 2} onclick={() => onSpeedChange?.(simSpeed === 2 ? 1 : 2)} aria-label="Toggle 2x speed">⏩ {simSpeed === 2 ? '2x ON' : '2x'}</button>
+          <span class="control-speed">{simSpeed === 0 ? 'PAUSED' : `${simSpeed}X PLAYBACK`}</span>
           <button
             class="control-btn"
             onclick={togglePause}
