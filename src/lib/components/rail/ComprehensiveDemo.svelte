@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { COMPREHENSIVE_DEMO_STEPS, getStepGlossaryTerms } from '../../demo/comprehensiveDemoScript';
+  import { DEMO_STEPS, getStepGlossaryTerms } from '../../demo/comprehensiveDemoScript';
 import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } from '../../engine/voice';
   import { parseMapNarrative } from '../../engine/mapNarrative';
   import { system } from '../../stores/systemStore.svelte';
@@ -24,8 +24,8 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
   }
 
   // Current step data
-  let currentStep = $derived(COMPREHENSIVE_DEMO_STEPS[currentStepIndex] ?? null);
-  let progress = $derived(Math.round(((currentStepIndex + 1) / COMPREHENSIVE_DEMO_STEPS.length) * 100));
+  let currentStep = $derived(DEMO_STEPS[currentStepIndex] ?? null);
+  let progress = $derived(Math.round(((currentStepIndex + 1) / DEMO_STEPS.length) * 100));
   let glossaryTerms = $derived(currentStep ? getStepGlossaryTerms(currentStep) : []);
 
   // Voice enabled state
@@ -136,7 +136,7 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
   // Advance to next step
   function advanceStep() {
     if (!sessionIsCurrent()) return;
-    if (currentStepIndex < COMPREHENSIVE_DEMO_STEPS.length - 1) {
+    if (currentStepIndex < DEMO_STEPS.length - 1) {
       currentStepIndex++;
       executeStep();
     } else {
@@ -319,7 +319,7 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
           <div class="progress-fill" style="width: {progress}%"></div>
         </div>
         <div class="progress-text">
-          Step {currentStepIndex + 1} of {COMPREHENSIVE_DEMO_STEPS.length} ({progress}%)
+          Step {currentStepIndex + 1} of {DEMO_STEPS.length} ({progress}%)
         </div>
       </div>
 
@@ -347,7 +347,7 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
 
       <!-- Step Navigation -->
       <div class="step-list">
-        {#each COMPREHENSIVE_DEMO_STEPS as step, index}
+        {#each DEMO_STEPS as step, index}
           <button
             class="step-item"
             class:active={index === currentStepIndex}
@@ -383,7 +383,7 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
           <button
             class="control-btn"
             onclick={advanceStep}
-            disabled={currentStepIndex === COMPREHENSIVE_DEMO_STEPS.length - 1 || isComplete}
+            disabled={currentStepIndex === DEMO_STEPS.length - 1 || isComplete}
             aria-label="Skip to next"
           >
             SKIP ▶

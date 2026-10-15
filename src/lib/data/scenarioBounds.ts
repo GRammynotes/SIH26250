@@ -1,6 +1,6 @@
 import type { LngLatBoundsLike } from 'maplibre-gl';
 
-export const EXPERIENCE_BOUNDS: Record<string, LngLatBoundsLike> = {
+const EXPERIENCE_BOUNDS: Record<string, LngLatBoundsLike> = {
   deep_strike: [[72, 30], [80, 36]],
   sead_campaign: [[73, 30], [78, 35]],
   air_superiority: [[68, 20], [78, 30]],

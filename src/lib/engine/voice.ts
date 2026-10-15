@@ -18,7 +18,6 @@ const MAX_DEDUPE_ENTRIES = 250;
 
 export function setNarrationSpeed(speed: 1 | 2 | 4): void { narrationSpeed = speed; }
 export function clearVoiceDedupe(): void { lastAccepted.clear(); }
-export function getVoiceOwner(): VoiceOwner { return activeOwner; }
 export function isVoiceEnabled(): boolean { return enabled; }
 export function isVoiceTierMuted(tier: VoiceTier): boolean { return mutedTiers.has(tier); }
 

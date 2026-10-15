@@ -2,7 +2,7 @@ import type { WeatherSystem } from '../types';
 
 const validUntil = () => new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
 
-export const WEATHER_SYSTEMS: WeatherSystem[] = [
+const WEATHER_SYSTEMS: WeatherSystem[] = [
   {
     id: 'cirrus-7', type: 'fog', severity: 4, visibility_km: 1.2, ceiling_ft: 700, windDir_deg: 310, windSpeed_kt: 12, validUntil: validUntil(),
     polygon: [{ lat: 33.55, lng: 75.85 }, { lat: 34.08, lng: 75.85 }, { lat: 34.08, lng: 76.75 }, { lat: 33.55, lng: 76.75 }],

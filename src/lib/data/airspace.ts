@@ -1,6 +1,6 @@
 import type { AirspaceZone } from '../types';
 
-export const AIRSPACE_ZONES: AirspaceZone[] = [
+const AIRSPACE_ZONES: AirspaceZone[] = [
   {
     id: 'punjab-corridor-alpha', name: 'PUNJAB CORRIDOR ALPHA', type: 'corridor', status: 'OPEN',
     polygon: [{ lat: 31.2, lng: 73.6 }, { lat: 31.75, lng: 74.0 }, { lat: 32.4, lng: 75.5 }, { lat: 31.95, lng: 75.9 }, { lat: 31.35, lng: 74.5 }],

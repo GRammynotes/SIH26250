@@ -21,7 +21,7 @@ export interface DemoStep {
  * This script demonstrates the complete AIR COMMAND workflow from planning to execution.
  * The demo locks the system and guides the commander through each component.
  */
-export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
+export const DEMO_STEPS: DemoStep[] = [
   // ==================================================================
   // INTRODUCTION
   // ==================================================================
@@ -423,12 +423,10 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
   },
 ];
 
-export const DEMO_STEPS = COMPREHENSIVE_DEMO_STEPS;
-
 /**
  * Get glossary definition for a term
  */
-export function getGlossaryDefinition(term: string): string | null {
+function getGlossaryDefinition(term: string): string | null {
   const entry = GLOSSARY.find((g) => g.term.toLowerCase() === term.toLowerCase());
   return entry ? entry.definition : null;
 }
