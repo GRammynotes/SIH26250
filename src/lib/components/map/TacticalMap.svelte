@@ -308,7 +308,7 @@
     ],
   };
 
-  const densityOpacity = (): maplibregl.ExpressionSpecification => ['step', ['zoom'], ['case', ['<=', ['get', 'tier'], 50], 1, 0], 6, ['case', ['<=', ['get', 'tier'], 90], 1, 0], 8, 1];
+  const densityOpacity = (opacity: maplibregl.ExpressionSpecification = 1): maplibregl.ExpressionSpecification => ['step', ['zoom'], ['*', opacity, ['case', ['<=', ['get', 'tier'], 50], 1, 0]], 6, ['*', opacity, ['case', ['<=', ['get', 'tier'], 90], 1, 0]], 8, opacity];
 
   function ensureAircraftLayer() {
     if (!map) return;
@@ -356,7 +356,7 @@
     if (!map) return;
     const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
     for (const id of ['bases-gl', 'missions-gl', 'assets-gl']) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: empty });
-    if (!map.getLayer('bases-gl-symbols')) map.addLayer({ id: 'bases-gl-symbols', type: 'symbol', source: 'bases-gl', minzoom: 3, layout: { 'icon-image': 'symbol-base', 'icon-size': ['interpolate', ['linear'], ['zoom'], 3, .28, 8, .52], 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': ['*', ['get', 'opacity'], densityOpacity()] } });
+    if (!map.getLayer('bases-gl-symbols')) map.addLayer({ id: 'bases-gl-symbols', type: 'symbol', source: 'bases-gl', minzoom: 3, layout: { 'icon-image': 'symbol-base', 'icon-size': ['interpolate', ['linear'], ['zoom'], 3, .28, 8, .52], 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': densityOpacity(['get', 'opacity']) } });
     if (!map.getLayer('bases-gl-labels')) map.addLayer({ id: 'bases-gl-labels', type: 'symbol', source: 'bases-gl', layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.2] }, paint: labelPaint() });
     if (!map.getLayer('missions-gl-symbols')) map.addLayer({ id: 'missions-gl-symbols', type: 'symbol', source: 'missions-gl', minzoom: 4, layout: { 'icon-image': ['match', ['get', 'priority'], 1, 'symbol-mission-p1', 2, 'symbol-mission-p2', 'symbol-mission-p3'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 4, .25, 9, .45], 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': densityOpacity() } });
     if (!map.getLayer('missions-gl-labels')) map.addLayer({ id: 'missions-gl-labels', type: 'symbol', source: 'missions-gl', layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.3] }, paint: labelPaint() });
@@ -364,7 +364,7 @@
       const image = family === 'ground'
         ? ['match', ['get', 'type'], 'tank', 'symbol-tank', 'uav', 'symbol-uav', 'sam', 'symbol-sam', 'radar', 'symbol-radar', 'symbol-tank']
         : ['match', ['get', 'type'], 'aircraft', 'symbol-hostile-aircraft', 'radar', 'symbol-radar', 'c2-node', 'symbol-c2', 'symbol-sam'];
-      if (!map.getLayer(id)) map.addLayer({ id, type: 'symbol', source: 'assets-gl', minzoom, filter: ['==', ['get', 'family'], family], layout: { 'icon-image': image, 'icon-size': ['interpolate', ['linear'], ['zoom'], minzoom, .25, 9, .46], 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': ['*', ['get', 'opacity'], densityOpacity()] } });
+      if (!map.getLayer(id)) map.addLayer({ id, type: 'symbol', source: 'assets-gl', minzoom, filter: ['==', ['get', 'family'], family], layout: { 'icon-image': image, 'icon-size': ['interpolate', ['linear'], ['zoom'], minzoom, .25, 9, .46], 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': densityOpacity(['get', 'opacity']) } });
       const labelsId = id.replace('symbols', 'labels');
       if (!map.getLayer(labelsId)) map.addLayer({ id: labelsId, type: 'symbol', source: 'assets-gl', filter: ['==', ['get', 'family'], family], layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.2] }, paint: labelPaint() });
     }
@@ -1671,4 +1671,5 @@
     100% { transform: scale(1.6); opacity: 0; }
   }
 </style>
+
 
