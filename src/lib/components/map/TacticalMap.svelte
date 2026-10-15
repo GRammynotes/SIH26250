@@ -1183,7 +1183,12 @@
     } else {
       lines.push(...Object.entries(props).slice(0, 8).map(([key, value]) => `${key.toUpperCase()} ${String(value)}`));
       selectedMapCard = { kind, id, title: String(props.label ?? props.code ?? props.type ?? kind.toUpperCase()), lines };
+      const coordinates = feature.geometry.type === 'Point' ? feature.geometry.coordinates : [point.lng, point.lat];
+      map.flyTo({ center: [coordinates[0], coordinates[1]], zoom: 8, duration: 800 });
     }
+    if (feature.geometry.type === 'Point') map.flyTo({ center: [feature.geometry.coordinates[0], feature.geometry.coordinates[1]], zoom: 8, duration: 800 });
+    else map.flyTo({ center: [point.lng, point.lat], zoom: 8, duration: 800 });
+    window.dispatchEvent(new CustomEvent('aircommand:entity-detail', { detail: { type: kind, id } }));
     mapTooltip = null;
   }
 
