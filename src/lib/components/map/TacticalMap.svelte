@@ -1529,16 +1529,14 @@
 
   .degraded {
     position: absolute;
-    top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 6px 16px;
-    background: color-mix(in srgb, var(--accent-red) 15%, transparent);
-    border: 1px solid var(--accent-red);
-    color: var(--accent-red);
+    top: 60px;
+    right: 10px;
+    padding: 4px 7px;
+    background: color-mix(in srgb, var(--accent-amber) 12%, rgba(5,8,15,.85));
+    border: 1px solid color-mix(in srgb, var(--accent-amber) 55%, transparent);
+    color: var(--accent-amber);
     font-size: 10px;
-    letter-spacing: 0.18em;
-    animation: pulse 1.2s ease-in-out infinite;
+    letter-spacing: 0.1em;
     z-index: 6;
   }
   .mono { font-family: var(--font-mono); }
