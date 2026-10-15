@@ -51,7 +51,7 @@
   </svg>
   {/if}
   <div class="legend"><span>INGRESS</span><span>WEZ</span><span>RELEASE</span><span>EGRESS</span></div>
-  <div class="data-card"><span><b>{aircraft?.type ?? entityType.toUpperCase()}</b><small>{weapon?.name ?? activeMission?.weaponId ?? 'WEAPON TBD'}</small></span><span>FUEL <b>{aircraft ? `${aircraft.fuel}%` : '—'}</b></span><span>ETA <b>{eta}</b></span></div>
+  <div class="data-card"><span><b>{aircraft?.type ?? entityType.toUpperCase()}</b><small>{weapon?.name ?? activeMission?.weaponId ?? 'NO WEAPON ASSIGNED'}</small></span><span>FUEL <b>{aircraft ? `${aircraft.fuel}%` : '—'}</b></span><span>ETA <b>{eta}</b></span></div>
 </section>
 
 <style>
@@ -63,3 +63,4 @@
   .waypoint{fill:var(--bg-base);stroke:var(--accent-cyan);stroke-width:2}.target{fill:var(--accent-red);stroke:var(--text-primary);stroke-width:1.5}text{fill:var(--text-muted);font:7px var(--font-mono)}.traveler{fill:var(--text-primary);stroke:var(--accent-cyan);stroke-width:2}
   .legend{display:flex;justify-content:space-between;color:var(--text-muted);font-size:6px;letter-spacing:.05em}.data-card{display:flex;justify-content:space-between;gap:6px;border-top:1px solid var(--border-subtle);padding-top:6px;margin-top:5px;font-size:7px;color:var(--text-muted)}.data-card span{display:grid;gap:3px}.data-card b{color:var(--text-primary);font-size:8px}.data-card small{color:var(--accent-amber);font-size:6px}
 </style>
+

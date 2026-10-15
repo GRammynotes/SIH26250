@@ -106,7 +106,7 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
     side: 'left',
     title: 'GENERATING COURSES OF ACTION',
     narration: 'The system ranks three Courses of Action using weighted rules for aircraft readiness, weapon compatibility, route risk, fuel, and crew status.',
-    caption: 'COA GENERATION - Multi-objective optimization running',
+    caption: 'COA GENERATION - Weighted rules scoring',
     glossaryTerms: ['COA'],
     action: () => {
       system.generateCOAs();
@@ -409,7 +409,7 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
   {
     id: 'end-1',
     title: 'DEMO COMPLETE',
-    narration: 'You have now seen the complete AIR COMMAND workflow. The system integrates data fusion, multi-objective optimization, weaponeering, historical doctrine, and human-in-the-loop decision support into a unified console.',
+    narration: 'You have now seen the complete AIR COMMAND workflow. The system combines synthetic exercise inputs, weighted COA scoring, weapon compatibility checks, historical context, and human controlled decision support in one console.',
     caption: 'DEMO COMPLETE - Full system demonstrated',
     duration: 9000,
   },
@@ -445,3 +445,4 @@ export function getStepGlossaryTerms(step: DemoStep): Array<{ term: string; defi
     })
     .filter((item): item is { term: string; definition: string } => item !== null);
 }
+
