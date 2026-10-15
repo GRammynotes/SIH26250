@@ -57,7 +57,7 @@ export const SCENARIOS: Record<string, ScenarioStep[]> = {
     { delay: 0,    action: 'log',        payload: { source: 'INTEL',   msg: 'NEW SAM SITE DETECTED · GRID 34.15N/77.55E',            level: 'alert' } },
     { delay: 700,  action: 'add_threat', payload: { threat: { id: 'th-999', type: 'SAM', position: { lat: 34.15, lng: 77.55 }, radius: 60, probability: 85, confidence: 78 } as Threat } },
     { delay: 1200, action: 'close_airspace', payload: { id: 'kashmir-corridor-bravo' } },
-    { delay: 1400, action: 'add_weather', payload: { system: { id: 'cirrus-7', type: 'fog', severity: 5, visibility_km: 0.8, ceiling_ft: 500, windDir_deg: 310, windSpeed_kt: 18, validUntil: '2026-10-14T18:00:00+05:30', polygon: [{ lat: 33.55, lng: 75.85 }, { lat: 34.08, lng: 75.85 }, { lat: 34.08, lng: 76.75 }, { lat: 33.55, lng: 76.75 }] } } },
+    { delay: 1400, action: 'add_weather', payload: { system: { id: 'cirrus-7', type: 'fog', severity: 5, visibility_km: 0.8, ceiling_ft: 500, windDir_deg: 310, windSpeed_kt: 18, validUntil: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(), polygon: [{ lat: 33.55, lng: 75.85 }, { lat: 34.08, lng: 75.85 }, { lat: 34.08, lng: 76.75 }, { lat: 33.55, lng: 76.75 }] } } },
     { delay: 2100, action: 'log',        payload: { source: 'HUMS',    msg: 'HYDRAULIC PRESSURE DROP · TAIL TEZ-105',               level: 'warn'  } },
     { delay: 2800, action: 'set_status', payload: { id: 'ac-005', status: 'PMC' as AircraftStatus } },
     { delay: 3500, action: 'recompute',  payload: {} },

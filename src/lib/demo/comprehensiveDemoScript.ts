@@ -105,9 +105,9 @@ export const COMPREHENSIVE_DEMO_STEPS: DemoStep[] = [
     element: '[data-tour="generate-coa"]',
     side: 'left',
     title: 'GENERATING COURSES OF ACTION',
-    narration: 'The system generates multiple Courses of Action using multi-objective optimization. This algorithm, inspired by NSGA-II, evaluates hundreds of possible allocations and finds the Pareto-optimal set - plans where improving one objective requires compromising another.',
+    narration: 'The system ranks three Courses of Action using weighted rules for aircraft readiness, weapon compatibility, route risk, fuel, and crew status.',
     caption: 'COA GENERATION - Multi-objective optimization running',
-    glossaryTerms: ['COA', 'NSGA-II', 'Pareto front'],
+    glossaryTerms: ['COA'],
     action: () => {
       system.generateCOAs();
     },

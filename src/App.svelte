@@ -8,6 +8,7 @@
   import MissionPanel from './lib/components/panels/MissionPanel.svelte';
   import BaseDetailPanel from './lib/components/panels/BaseDetailPanel.svelte';
   import COAPanel from './lib/components/panels/COAPanel.svelte';
+  import PSMapPanel from './lib/components/panels/PSMapPanel.svelte';
   import ExecutionPanel from './lib/components/panels/ExecutionPanel.svelte';
   import DecisionPrompt from './lib/components/panels/DecisionPrompt.svelte';
   import EventLog from './lib/components/panels/EventLog.svelte';
@@ -15,6 +16,7 @@
   import { PaneGroup, Pane, PaneResizer } from 'paneforge';
   import ShortcutHelp from './lib/components/panels/ShortcutHelp.svelte';
   import GlossaryModal from './lib/components/panels/GlossaryModal.svelte';
+  import ROEDocument from './lib/components/panels/ROEDocument.svelte';
   import CommandPalette, { type PaletteCommand } from './lib/components/panels/CommandPalette.svelte';
   import { IAF_BASES } from './lib/data/bases';
   import ModalLayer from './lib/components/panels/ModalLayer.svelte';
@@ -65,6 +67,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
   let trackLossOpen = $state(false);
   let shortcutHelpOpen = $state(false);
   let glossaryOpen = $state(false);
+  let roeOpen = $state(false);
   let demoCompleteOpen = $state(false);
   let demoActive = $state(false);
   let comprehensiveDemoOpen = $state(false);
@@ -90,7 +93,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
   let panelVisibility = $state({ forceRoster: true, missions: true, theaterMap: true, coa: true, missionLog: true, commandStatus: true, scenarioBar: true });
   let savedLeftSize = 18;
   let savedRightSize = 22;
-  let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution' | 'weapons' | 'cyber' | 'flow'>('coa');
+  let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution' | 'weapons' | 'cyber' | 'flow' | 'psmap'>('coa');
   let focusMode = $state(false);
   let leftPanelTab = $state<'roster' | 'missions'>('roster');
   let leftPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
@@ -123,7 +126,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
     ...(flowOpen ? ['mission-flow'] : []), ...(loadoutOpen ? ['loadout'] : []),
     ...(referenceOpen ? ['reference'] : []), ...(briefingMissionId ? ['briefing'] : []),
     ...(aarMissionId ? ['aar'] : []), ...(metricsOpen ? ['metrics'] : []),
-    ...(shortcutHelpOpen ? ['shortcuts'] : []), ...(glossaryOpen ? ['glossary'] : []),
+    ...(shortcutHelpOpen ? ['shortcuts'] : []), ...(glossaryOpen ? ['glossary'] : []), ...(roeOpen ? ['roe'] : []),
     ...(demoCompleteOpen ? ['demo-complete'] : []), ...(commandPaletteOpen ? ['command-palette'] : []),
     ...(comprehensiveDemoOpen ? ['comprehensive-demo'] : []),
   ]);
@@ -135,7 +138,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
   let dockedModalIds = $derived(activeModalIds.filter((id) => minimizedModals.includes(id) || !visibleModalIds.includes(id)));
   let dockVisibleIds = $derived(dockedModalIds.slice(-5));
   let dockOverflowIds = $derived(dockedModalIds.slice(0, Math.max(0, dockedModalIds.length - 5)));
-  const modalLabels: Record<string, string> = { decision: 'DECISION', 'track-loss': 'TRACK LOSS', 'mission-flow': 'MISSION FLOW', loadout: 'LOADOUT', reference: 'REFERENCE', briefing: 'BRIEFING', aar: 'AFTER ACTION', metrics: 'METRICS', shortcuts: 'SHORTCUTS', glossary: 'GLOSSARY', 'demo-complete': 'DEMO COMPLETE', 'command-palette': 'COMMAND PALETTE', simulation: 'SIMULATION', 'probabilistic-sim': 'PROBABILITY SIMULATION', 'comprehensive-demo': 'COMPREHENSIVE DEMO' };
+  const modalLabels: Record<string, string> = { decision: 'DECISION', 'track-loss': 'TRACK LOSS', 'mission-flow': 'MISSION FLOW', loadout: 'LOADOUT', reference: 'REFERENCE', briefing: 'BRIEFING', aar: 'AFTER ACTION', metrics: 'METRICS', shortcuts: 'SHORTCUTS', glossary: 'GLOSSARY', roe: 'RULES OF ENGAGEMENT', 'demo-complete': 'DEMO COMPLETE', 'command-palette': 'COMMAND PALETTE', simulation: 'SIMULATION', 'probabilistic-sim': 'PROBABILITY SIMULATION', 'comprehensive-demo': 'COMPREHENSIVE DEMO' };
 
   $effect(() => {
     const open = activeModalIds;
@@ -199,17 +202,19 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
     else if (id === 'simulation') { simulationOpen = false; demoActive = false; }
     else if (id === 'shortcuts') shortcutHelpOpen = false;
     else if (id === 'glossary') glossaryOpen = false;
+    else if (id === 'roe') roeOpen = false;
     else if (id === 'demo-complete') demoCompleteOpen = false;
     else if (id === 'command-palette') commandPaletteOpen = false;
   }
 
   function readCollapsedState() {
-    try { return JSON.parse(localStorage.getItem('aircommand.panels.v1') ?? '{}') as { left?: boolean; right?: boolean; log?: boolean; visibility?: Partial<typeof panelVisibility> }; }
+    try { return JSON.parse(localStorage.getItem('aircommand.session.v1') ?? localStorage.getItem('aircommand.panels.v1') ?? '{}') as { left?: boolean; right?: boolean; log?: boolean; visibility?: Partial<typeof panelVisibility> }; }
     catch { return {}; }
   }
 
   function persistCollapsedState() {
     localStorage.setItem('aircommand.panels.v1', JSON.stringify({ left: leftCollapsed, right: rightCollapsed, visibility: panelVisibility }));
+    localStorage.setItem('aircommand.session.v1', JSON.stringify({ left: leftCollapsed, right: rightCollapsed, visibility: panelVisibility }));
   }
 
   function setPanelVisibility(key: keyof typeof panelVisibility, visible: boolean) {
@@ -447,7 +452,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
     const analysis = system.trackLossAnalysis;
     
     if (option.id === 'investigate') {
-      system.pushEvent('COMMAND', `RE-TASK AIRCRAFT TO INVESTIGATE · ${analysis.trackId}`, 'info');
+      system.pushEvent('COMMAND', `DYNAMIC RE-TASKING · AIRCRAFT TO INVESTIGATE · ${analysis.trackId}`, 'info');
       system.addThreat({
         id: `th-investigate-${Date.now()}`,
         type: 'RADAR',
@@ -647,6 +652,21 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
   function toggleMapLayer(layer: string) {
     window.dispatchEvent(new CustomEvent('aircommand:map-layer', { detail: layer }));
   }
+  function showMapLayer(layer: string) {
+    window.dispatchEvent(new CustomEvent('aircommand:map-layer-set', { detail: { layer, visible: true } }));
+  }
+
+  function navigatePSCategory(category: 'aircraft' | 'crew' | 'weapons' | 'airspace' | 'weather' | 'threats' | 'missions') {
+    if (category === 'aircraft' || category === 'crew' || category === 'weapons') {
+      setPanelVisibility('forceRoster', true); leftPanelTab = 'roster'; leftCollapsed = false;
+    }
+    if (category === 'missions') {
+      setPanelVisibility('missions', true); leftPanelTab = 'missions'; leftCollapsed = false;
+    }
+    if (category === 'weapons') rightTab = 'weapons';
+    if (category === 'threats') { rightTab = 'red'; showMapLayer('threats'); }
+    if (category === 'airspace' || category === 'weather') showMapLayer(category);
+  }
 
   function setMapFocusLock(locked: boolean) {
     mapFocusLocked = locked;
@@ -679,6 +699,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
     onSimulationClick={startSimulation}
     onProbabilisticSimulationClick={startProbabilisticSimulation}
     onGlossaryClick={() => glossaryOpen = true}
+    onRoeClick={() => roeOpen = true}
     onShortcutHelpClick={() => shortcutHelpOpen = true}
     onGuideClick={() => { systemGuideOpen = !systemGuideOpen; narrateUtterance(systemGuideOpen ? 'System guide opened.' : 'System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }}
     onReplayWelcome={replayWelcome}
@@ -743,7 +764,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
       <Pane defaultSize={mapFullscreen ? 100 : 54} minSize={40}>
         <section class="center">
           {#if TacticalMap}<TacticalMap onBaseSelect={(id) => system.selectBase(id)} onLoadoutClick={openLoadout} onFullscreenClick={toggleMapFullscreen} onToggleTheaterVisibility={() => setPanelVisibility('theaterMap', !panelVisibility.theaterMap)} theaterMapVisible={panelVisibility.theaterMap} fullscreen={mapFullscreen} />{:else}<div class="map-loading mono">INITIALISING TACTICAL MAP · SECURE DATA LINK</div>{/if}
-          {#if system.computing}<div class="computing mono">◢ COMPUTING COA · NSGA-II · 4 OBJECTIVES</div>{/if}
+          {#if system.computing}<div class="computing mono">◢ COMPUTING COA · WEIGHTED RULES</div>{/if}
         </section>
       </Pane>
       {#if !mapFullscreen}<PaneResizer class="pane-resizer" />
@@ -758,6 +779,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
             <button role="tab" aria-selected={rightTab === 'metrics'} class:active={rightTab === 'metrics'} onclick={() => rightTab = 'metrics'}>METRICS</button>
             <button role="tab" aria-selected={rightTab === 'execution'} class:active={rightTab === 'execution'} onclick={() => rightTab = 'execution'}>EXECUTION</button>
             <button role="tab" aria-selected={rightTab === 'flow'} class:active={rightTab === 'flow'} onclick={() => rightTab = 'flow'}>FLOW</button>
+            <button role="tab" aria-selected={rightTab === 'psmap'} class:active={rightTab === 'psmap'} onclick={() => rightTab = 'psmap'}>◈ PS MAP</button>
             <button class="right-collapse" aria-label="Collapse right panel" title="Collapse right panel" onclick={toggleRightPane}>›</button>
           </div>
           <div class="right-tab-content">
@@ -769,6 +791,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
             {:else if rightTab === 'execution'}<ExecutionPanel />
             {:else if rightTab === 'weapons'}<div class="weapon-workspace"><WeaponMatrix /><PrioritizationSlider /></div>
             {:else if rightTab === 'flow'}<MissionIOFlow />
+            {:else if rightTab === 'psmap'}<PSMapPanel onGo={navigatePSCategory} />
             {:else}<CyberPanel />{/if}
           </div>
         </div>{/if}
@@ -807,7 +830,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
     context={system.trackLossAnalysis.context}
     message={`Bayesian hypothesis analysis indicates ${system.trackLossAnalysis.topHypothesis} with ${Math.round(system.trackLossAnalysis.confidence * 100)}% confidence. Hypotheses: CRASH ${Math.round(system.trackLossAnalysis.hypotheses.CRASH * 100)}%, ELECTRONIC JAMMING ${Math.round(system.trackLossAnalysis.hypotheses.ELECTRONIC_JAMMING * 100)}%, STEALTH MANEUVER ${Math.round(system.trackLossAnalysis.hypotheses.STEALTH_MANEUVER * 100)}%, TERRAIN MASKING ${Math.round(system.trackLossAnalysis.hypotheses.TERRAIN_MASKING * 100)}%.`}
     options={[
-      { id: 'investigate', label: 'Re-task aircraft to investigate', description: 'Dispatch nearest asset to last known position for visual confirmation.' },
+      { id: 'investigate', label: 'Dynamic re-tasking: investigate track', description: 'Dispatch nearest asset to last known position for visual confirmation.' },
       { id: 'backup', label: 'Activate backup radar', description: 'Bring secondary surveillance radar online to search the sector.' },
       { id: 'reallocate', label: 'Assume hostile penetration', description: 'Reallocate defensive assets assuming track represents hostile aircraft.' },
     ]}
@@ -836,6 +859,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
 {#if metricsOpen}<ModalLayer label={modalLabels.metrics} zIndex={modalZ('metrics')} visible={isModalVisible('metrics')} onMinimize={() => minimizeModal('metrics')}>{#if MetricsDashboard}<MetricsDashboard open={metricsOpen} onClose={() => (metricsOpen = false)} />{:else if metricsImportError}<div class="map-loading mono">METRICS FAILED TO LOAD · RELOAD TO RETRY</div>{:else}<div class="map-loading mono">LOADING METRICS</div>{/if}</ModalLayer>{/if}
 {#if shortcutHelpOpen}<ModalLayer label={modalLabels.shortcuts} zIndex={modalZ('shortcuts')} visible={isModalVisible('shortcuts')} onMinimize={() => minimizeModal('shortcuts')}><ShortcutHelp open={shortcutHelpOpen} onClose={() => shortcutHelpOpen = false} /></ModalLayer>{/if}
 {#if glossaryOpen}<ModalLayer label={modalLabels.glossary} zIndex={modalZ('glossary')} visible={isModalVisible('glossary')} onMinimize={() => minimizeModal('glossary')}><GlossaryModal open={glossaryOpen} onClose={() => glossaryOpen = false} /></ModalLayer>{/if}
+{#if roeOpen}<ModalLayer label={modalLabels.roe} zIndex={modalZ('roe')} visible={isModalVisible('roe')} onMinimize={() => minimizeModal('roe')}><ROEDocument onClose={() => roeOpen = false} /></ModalLayer>{/if}
 {#if commandPaletteOpen}<ModalLayer label={modalLabels['command-palette']} zIndex={modalZ('command-palette')} visible={isModalVisible('command-palette')} onMinimize={() => minimizeModal('command-palette')}><CommandPalette open={commandPaletteOpen} commands={paletteCommands} onClose={() => commandPaletteOpen = false} onSelect={selectPaletteCommand} /></ModalLayer>{/if}
 <SystemGuide open={systemGuideOpen} onClose={() => { systemGuideOpen = false; narrateUtterance('System guide closed.', { source: 'SYSTEM', speaker: 'agent' }); }} onNavigate={navigateGuide} />
 {#if demoCompleteOpen}

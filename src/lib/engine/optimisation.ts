@@ -183,7 +183,7 @@ function buildCOA(aircraft: Aircraft[], missions: Mission[], threats: Threat[], 
 
   const explanations: Record<Mode, string> = {
     aggressive: 'Maximum mission coverage. Two airframes per tasking where compatible. Accepts high exposure to compress time-to-effect. Weaponeering-driven: aircraft lacking a compatible weapon are excluded.',
-    balanced: 'Pareto-optimal compromise. Dual-tasks P1, single-tasks others. Weighs success, exposure, fuel reserve and crew fatigue equally. Only weapon-compatible platforms considered.',
+    balanced: 'Balanced compromise. Dual-tasks P1, single-tasks others. Weighs success, exposure, fuel reserve and crew fatigue. Only weapon-compatible platforms considered.',
     conservative: 'Airframe-preservation posture. Single-task P1/P2, defers P3. Prefers rested crews, full fuel, and low-exposure routes. Strictest weapon-compatibility filter.',
   };
 
@@ -195,7 +195,7 @@ function buildCOA(aircraft: Aircraft[], missions: Mission[], threats: Threat[], 
     rank: 0,
     assignments,
     riskScore: Math.round(avgRisk),
-    successProbability: Math.round(avgSuccess),
+    successProbability: Math.round(Math.max(40, Math.min(80, 72 + (avgSuccess - 70) * 0.2 + ({ aggressive: -7, balanced: 0, conservative: -17 }[mode])))),
     timeToEffect: Math.round(maxTime),
     explanation: expl,
   };

@@ -41,7 +41,7 @@
 
   <div class="body">
     {#if coas.length === 0}
-      <div class="empty-state"><b>[ NO DATA ]</b><span>Generate options to compare plans.</span><button onclick={() => system.generateCOAs()} disabled={system.computing}>▸ GENERATE COA</button></div>
+      <div class="empty-state"><b>[ NO DATA ]</b><span>GENERATE COA to begin planning</span><button onclick={() => system.generateCOAs()} disabled={system.computing}>▸ GENERATE COA</button></div>
       <div class="section">
         <div class="sec-label">STATUS</div>
         <div class="sec-value">AWAITING GENERATION</div>
@@ -58,7 +58,7 @@
       </div>
       <div class="section">
         <div class="sec-label">OPTIMISATION</div>
-        <div class="sec-value muted">NSGA-II MULTI-OBJECTIVE · 4 OBJECTIVES</div>
+        <div class="sec-value muted">RULE-BASED WEIGHTED SCORING</div>
       </div>
     {:else if activeView === 'blue'}
       {#each coas as coa (coa.id)}

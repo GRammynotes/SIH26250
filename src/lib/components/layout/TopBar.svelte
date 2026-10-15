@@ -8,7 +8,7 @@
     onFlowClick, onReferenceClick, onMetricsClick, onDemoClick, onSimulationClick, onProbabilisticSimulationClick,
     onGlossaryClick, onShortcutHelpClick, onGuideClick, onReplayWelcome, onGenerate, onReset, onDegradedToggle,
     onLayerToggle, demoActive = false, modalCount = 0, onResetLayout, onToggleFocusLock, focusLocked = true, railActive = false, panelVisibility = {},
-    onPanelToggle, onShowAllPanels, onHideAllPanels, onBottomToggle, bottomExpanded = false, unreadLogCount = 0,
+    onPanelToggle, onShowAllPanels, onHideAllPanels, onBottomToggle, bottomExpanded = false, unreadLogCount = 0, onRoeClick,
   }: {
     aircraftCount?: number; missionCount?: number; threatCount?: number;
     onFlowClick?: () => void; onReferenceClick?: () => void; onMetricsClick?: () => void;
@@ -18,6 +18,7 @@
     onPanelToggle?: (key: string, visible: boolean) => void; onShowAllPanels?: () => void; onHideAllPanels?: () => void;
     onBottomToggle?: () => void; bottomExpanded?: boolean; unreadLogCount?: number;
     onResetLayout?: () => void; onToggleFocusLock?: () => void; focusLocked?: boolean; railActive?: boolean; panelVisibility?: Record<string, boolean>;
+    onRoeClick?: () => void;
   } = $props();
 
   let zulu = $state('00:00:00');
@@ -28,6 +29,7 @@
   let voiceMenuOpen = $state(false);
   let captionsOn = $state(true);
   let toggleToast = $state('');
+  let iaccsOpen = $state(false);
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   const menus = ['EXPERIENCE', 'VIEW', 'TOOLS', 'HELP', 'SYSTEM'];
   const layers = [
@@ -38,6 +40,8 @@
   let layerChecked = $state({ terrain:false, airspace:true, weather:true, enemy:true, ground:true, trails:true, grid:true, threats:true });
   const securityStatus = $derived(system.spoofedTrackId ? 'LINK COMPROMISED' : system.mode === 'DEGRADED' ? 'KEY ROTATION DUE' : 'LINK SECURE');
   const voiceOwnerLabel = $derived(system.activeExperience === 'idle' ? 'SYSTEM' : system.activeExperience.toUpperCase());
+  const iaccsLost = $derived(system.activeScenarioFilter === 'radar_loss');
+  const iaccsState = $derived(iaccsLost ? 'LOST' : system.mode === 'DEGRADED' ? 'DEGRADED' : 'CONNECTED');
 
   onMount(() => {
     voiceOn = isVoiceEnabled();
@@ -98,6 +102,7 @@
               <button role="menuitem" onclick={() => action(onReferenceClick)}>◈ REFERENCE <kbd>R</kbd></button>
               <button role="menuitem" onclick={() => action(onFlowClick)}>◈ MISSION FLOW <kbd>F</kbd></button>
             {:else if menu === 'HELP'}
+              <button role="menuitem" onclick={() => action(onRoeClick)}>◈ VIEW CURRENT ROE</button>
               <div class="menu-divider"></div>
               <button role="menuitem" onclick={() => action(onShortcutHelpClick)}>⌨ KEYBOARD SHORTCUTS <kbd>?</kbd></button>
               <button role="menuitem" onclick={() => action(onGlossaryClick)}>◈ GLOSSARY <kbd>⌘</kbd></button>
@@ -133,6 +138,7 @@
     {#if modalCount > 0}<span class="modal-count" title="Open modals">{modalCount}</span>{/if}
   </span>
   <span class="security-status" class:warn={system.mode === 'DEGRADED' && !system.spoofedTrackId} class:bad={Boolean(system.spoofedTrackId)} aria-live="polite"><i>{system.spoofedTrackId ? '×' : system.mode === 'DEGRADED' ? '△' : '✓'}</i>{securityStatus}</span>
+  <div class="iaccs-wrap"><button class="iaccs" class:degraded={iaccsState === 'DEGRADED'} class:lost={iaccsState === 'LOST'} aria-expanded={iaccsOpen} onclick={(event) => { event.stopPropagation(); iaccsOpen = !iaccsOpen; }}><i></i>IACCS · {iaccsState}</button>{#if iaccsOpen}<section class="iaccs-panel" aria-label="IACCS and supporting feeds"><b>IACCS STATUS · EXERCISE</b><span><i class="good"></i>IACCS FEED · RADAR + AWACS + UAV <em>[LIVE]</em></span><span><i class="good"></i>SATELLITE INTEL · IMAGERY + SIGINT <em>[LIVE]</em></span><span><i class="sim"></i>WEATHER SERVICE · METOC DATA <em>[SIMULATED]</em></span><span><i class="sim"></i>AIRSPACE AUTHORITY · CORRIDOR STATUS <em>[SIMULATED]</em></span><span><i class="good"></i>BASE OPS · AIRCRAFT STATUS <em>[LIVE]</em></span><span><i class="good"></i>CREW SCHEDULING · REST + QUALIFICATION <em>[LIVE]</em></span></section>{/if}</div>
   <span class="date">{utcDate}</span><span class="time">{zulu}Z</span><span class="operator">OPR: EXERCISE-01</span>
 </header>
 
@@ -160,5 +166,6 @@
   .menu-divider { height:1px; background:var(--border-subtle); margin:4px 0; }.panel-visibility { max-height:260px; overflow:auto; }
   .indicators { display:flex; align-items:center; gap:6px; margin:0 4px; } .indicator { font-size:8px; font-weight:700; animation:indicator-pulse 1.5s infinite; } .indicator.link { color:var(--accent-green); } .indicator.recompute { color:var(--accent-amber); } .indicator.degraded { color:var(--accent-red); } .indicator.demo { color:var(--accent-cyan); } kbd { margin-left:7px; padding:1px 3px; border:1px solid var(--border-strong); color:var(--accent-cyan); font:8px var(--font-mono); }
   .security-status { display:flex; align-items:center; gap:4px; color:var(--accent-green); white-space:nowrap; font-size:8px; }.security-status i { display:grid; place-items:center; width:12px; height:12px; border:1px solid currentColor; font-style:normal; font-weight:700; }.security-status.warn { color:var(--accent-amber); }.security-status.bad { color:var(--accent-red); }.operator { white-space:nowrap; color:var(--accent-cyan); font-size:8px; }
+  .iaccs-wrap { position:relative; }.iaccs { display:flex; align-items:center; gap:5px; border:0; background:transparent; color:var(--accent-green); font:8px var(--font-mono); white-space:nowrap; cursor:pointer; }.iaccs i,.iaccs-panel i { width:6px; height:6px; border-radius:50%; background:var(--accent-green); }.iaccs.degraded { color:var(--accent-amber); }.iaccs.degraded i { background:var(--accent-amber); }.iaccs.lost { color:var(--accent-red); }.iaccs.lost i { background:var(--accent-red); animation:indicator-pulse .8s infinite; }.iaccs-panel { position:absolute; z-index:90; top:26px; right:0; width:340px; display:grid; gap:9px; padding:12px; border:1px solid var(--accent-cyan); background:var(--bg-panel); box-shadow:0 8px 24px rgba(0,0,0,.6); font:8px var(--font-mono); }.iaccs-panel>b { color:var(--accent-cyan); letter-spacing:.12em; }.iaccs-panel span { display:flex; align-items:center; gap:7px; color:var(--text-secondary); }.iaccs-panel i { flex:none; }.iaccs-panel i.sim { background:var(--accent-amber); }.iaccs-panel em { margin-left:auto; color:var(--text-muted); font-style:normal; }
   .modal-count { color:var(--accent-cyan); font-size:8px; border:1px solid var(--accent-cyan); padding:1px 3px; } @keyframes indicator-pulse { 50% { opacity:.45; } }
 </style>

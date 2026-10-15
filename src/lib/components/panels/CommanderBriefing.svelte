@@ -224,7 +224,7 @@
       <!-- HEADER -->
       <header>
         <div class="hdr-main">
-          <div class="eyebrow">COMMANDER DECISION-SUPPORT BRIEFING</div>
+          <div class="eyebrow">MISSION CMDR DECISION-SUPPORT BRIEFING · AUTHORITY: AOC-IN-C · TASKING AUTHORITY: WING CDR</div>
           <div class="title-row">
             <h2>MISSION BRIEFING · {mission.name}</h2>
             <div class="badges">
@@ -239,6 +239,8 @@
         </div>
         <button class="close-btn" onclick={() => onClose?.()} aria-label="Close">✕</button>
       </header>
+
+      <div class="roe-strip" role="note">ROE: POSITIVE ID REQUIRED · COLLATERAL LIMIT: LOW · WEAPONS FREE: NO</div>
 
       <!-- CONTENT BODY -->
       <div class="content-scroll">
@@ -509,6 +511,7 @@
     background: color-mix(in srgb, var(--accent-cyan) 4%, transparent);
   }
   .hdr-main { display: flex; flex-direction: column; gap: 4px; }
+  .roe-strip { padding:9px 20px; color:var(--accent-amber); border-bottom:1px solid var(--border-subtle); background:color-mix(in srgb,var(--accent-amber) 6%,transparent); font:8px var(--font-mono); letter-spacing:.1em; }
   .eyebrow {
     font-size: 8px; letter-spacing: 0.24em; color: var(--accent-cyan);
     text-transform: uppercase;

@@ -3,7 +3,7 @@
   let { onToggleVisibility }: { onToggleVisibility?: () => void } = $props();
   const maxThreat = $derived(Math.max(0, ...system.threats.map((threat) => threat.probability)));
   const threatLevel = $derived(maxThreat >= 80 ? 'ELEVATED' : maxThreat >= 60 ? 'HIGH' : 'GUARDED');
-  const nextDecision = $derived(system.activeMissions.find((mission) => mission.pendingDecision)?.missionName ?? (system.activeMissions.length ? 'MONITOR ACTIVE TASKING' : 'AWAITING COMMANDER TASKING'));
+  const nextDecision = $derived(system.activeMissions.find((mission) => mission.pendingDecision)?.missionName ?? (system.activeMissions.length ? 'MONITOR ACTIVE TASKING' : 'AWAITING AOC-IN-C TASKING'));
   const link = $derived(system.spoofedTrackId ? 'COMPROMISED' : system.mode === 'DEGRADED' ? 'DEGRADED' : 'SIMULATED · SECURE');
 </script>
 

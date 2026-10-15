@@ -175,7 +175,7 @@
       <!-- HEADER -->
       <header>
         <div class="hdr-left">
-          <span class="eyebrow">POST-MISSION INTELLIGENCE & EVALUATION</span>
+          <span class="eyebrow">POST-MISSION ISR CYCLE & EVALUATION</span>
           <div class="title-row">
             <h2>AFTER-ACTION REVIEW · {activeMission.missionName}</h2>
             <span class="outcome-badge" style="color:{outcomeColor}; border-color:{outcomeColor};">
@@ -291,7 +291,7 @@
           <div class="sec-hdr">
             <span class="sec-num">04</span>
             <h3>RISK POSTURE & DOCTRINAL COMPARISON</h3>
-            <span class="sec-meta">NSGA-II EVALUATION</span>
+            <span class="sec-meta">COA SCORE REVIEW</span>
           </div>
           <div class="risk-grid">
             <div class="risk-card">

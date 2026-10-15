@@ -8,7 +8,7 @@ export function bestResponseToCOA(coa: COA, assets: EnemyAsset[]): EnemyResponse
   const aggressive = active.filter((asset) => asset.behaviour === 'aggressive').length;
   const mobile = active.filter((asset) => asset.behaviour === 'shoot-and-scoot').length;
   const expectedDamage = Math.min(95, Math.round(coa.riskScore * 0.55 + aggressive * 8 + mobile * 5));
-  const action = coa.timeToEffect < 90 ? 'SURGE CAP + ILLUMINATE SAMS' : mobile > aggressive ? 'DISPLACE EMITTERS + AMBUSH' : 'LAYERED AIR DEFENCE POSTURE';
+  const action = coa.id === 'coa-aggressive' ? 'SURGE CAP + ILLUMINATE SAMS' : coa.id === 'coa-balanced' ? 'DISPLACE EMITTERS + AMBUSH' : 'LAYERED AIR DEFENCE POSTURE';
   return { action, rationale: `${active.length} emitting assets detected; RED maximises attrition against the selected ${coa.id.replace('coa-', '').toUpperCase()} posture.`, expectedDamage, confidence: active.length >= 5 ? 'HIGH' : active.length >= 3 ? 'MEDIUM' : 'LOW' };
 }
 

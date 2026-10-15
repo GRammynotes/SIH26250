@@ -20,7 +20,7 @@
         <span>N2 · INTEL GATE</span>
         <span>N3 · WEAPONEERING</span>
         <span>N4 · COA GENERATION</span>
-        <span>N5 · COMMANDER DECISION</span>
+        <span>N5 · AOC-IN-C DECISION</span>
         <span>N6 · EXECUTION</span>
       </footer>
     </div>

@@ -38,11 +38,13 @@
     <section class="panel" role={rail ? 'group' : 'dialog'} aria-modal={!rail ? 'true' : undefined} aria-label={title}>
       <header>
         <div class="hdr-left">
-          <span class="eyebrow">COMMANDER DECISION</span>
+          <span class="eyebrow">MISSION CMDR DECISION</span>
           <h2>{title}</h2>
         </div>
         <button type="button" disabled={processing} onclick={() => onClose?.()} aria-label="Close">×</button>
       </header>
+
+      <div class="roe-strip" role="note">ROE ACTIVE · POSITIVE ID REQUIRED · COLLATERAL LIMIT LOW · WEAPONS FREE: NO</div>
 
       {#if context}
         <div class="context">{context}</div>
@@ -151,6 +153,7 @@
     background: color-mix(in srgb, var(--accent-amber) 5%, transparent);
     border-bottom: 1px solid var(--border-subtle);
   }
+  .roe-strip { padding:9px 20px; color:var(--accent-amber); border-bottom:1px solid var(--border-subtle); background:color-mix(in srgb,var(--accent-amber) 6%,transparent); font:8px var(--font-mono); letter-spacing:.1em; }
 
   .message {
     padding: 14px 20px;

@@ -9,7 +9,7 @@
   ];
   const processing = [
     ['MULTI-SOURCE FUSION', '6 → 1 unified picture'], ['WEAPONEERING ENGINE', '14 weapons × 6 platforms'],
-    ['NSGA-II OPTIMISATION', '3 Pareto-optimal COAs'], ['BAYESIAN THREAT ASSESS', 'enemy intent posterior'],
+    ['RULE-BASED ALLOCATION', '3 ranked COAs'], ['BAYESIAN THREAT ASSESS', 'enemy intent posterior'],
     ['GAME-THEORY COMPARISON', 'enemy best-response'],
   ];
   const outputs = [

@@ -529,6 +529,14 @@
       };
       toggles[layer]?.();
     };
+    const handleLayerSet = (event: Event) => {
+      const { layer, visible } = (event as CustomEvent<{ layer: string; visible: boolean }>).detail;
+      const ids: Record<string, string[]> = { airspace: ['airspace-fill', 'airspace-line'], weather: ['weather-fill', 'weather-line'], threats: ['threat-fill-outer', 'threat-fill-mid', 'threat-fill-inner', 'threat-outline-outer', 'threat-outline-mid', 'threat-outline-inner'] };
+      if (layer === 'airspace') showAirspace = visible;
+      else if (layer === 'weather') showWeather = visible;
+      else if (layer === 'threats') showThreats = visible;
+      for (const id of ids[layer] ?? []) if (map?.getLayer(id)) map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+    };
     const handleTerrain3d = (event: Event) => {
       const enabled = (event as CustomEvent<boolean>).detail;
       if (!map) return;
@@ -566,6 +574,7 @@
       source.setData({ type: 'FeatureCollection', features });
     };
     window.addEventListener('aircommand:map-layer', handleLayerToggle);
+    window.addEventListener('aircommand:map-layer-set', handleLayerSet);
     window.addEventListener('aircommand:terrain-3d', handleTerrain3d);
     window.addEventListener('aircommand:matrix-highlight', handleMatrixHighlight);
     // Expose global loadout handler for popup clicks
@@ -766,6 +775,7 @@
       if (mapFocusTimer) clearTimeout(mapFocusTimer);
       if (mapFocusClearTimer) clearTimeout(mapFocusClearTimer);
       window.removeEventListener('aircommand:map-layer', handleLayerToggle);
+      window.removeEventListener('aircommand:map-layer-set', handleLayerSet);
       window.removeEventListener('aircommand:terrain-3d', handleTerrain3d);
       window.removeEventListener('aircommand:matrix-highlight', handleMatrixHighlight);
       delete (window as any).__airCommandLoadout;

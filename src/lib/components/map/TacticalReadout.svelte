@@ -1,6 +1,7 @@
 <script lang="ts">
   import { system } from '../../stores/systemStore.svelte';
   import { SCENARIO_LABELS, SCENARIO_AREAS } from '../../engine/scenario';
+  let legendOpen = $state(false);
 
   const selectedCoa = $derived(system.coas.find((coa) => coa.id === system.selectedCoaId) ?? null);
   const contextMissionIds = $derived(selectedCoa ? Object.keys(selectedCoa.assignments) : system.scenarioMissions.map((mission) => mission.id));
@@ -43,10 +44,11 @@
 
 <section class="readout" aria-label="Map tactical picture">
   <header>
-    <div class="eyebrow"><span class="live-dot"></span> TACTICAL PICTURE <span class="classification">EXERCISE</span></div>
+    <div class="eyebrow"><span class="live-dot"></span> TACTICAL PICTURE <button class="legend-toggle" aria-expanded={legendOpen} onclick={() => legendOpen = !legendOpen}>◈ LEGEND</button><span class="classification">EXERCISE</span></div>
     <strong>{title}</strong>
     <div class="sector">{#if area}AO GRID {area[0][1].toFixed(2)}N/{area[0][0].toFixed(2)}E — {area[1][1].toFixed(2)}N/{area[1][0].toFixed(2)}E{:else}THEATER GRID 78 · SECTOR NORTH{/if}</div>
   </header>
+  {#if legendOpen}<div class="map-legend" aria-label="Tactical map symbol legend"><span>◆ FRIENDLY AIRCRAFT</span><span>▲ HOSTILE AIR TRACK</span><span>✚ AIR DEFENCE / RADAR</span><span>▧ AIRSPACE / WEATHER AREA</span></div>{/if}
 
   {#if selectedCoa}<div class="coa-summary"><span>SUCCESS</span><b>{Math.round(selectedCoa.successProbability)}%</b><span>RISK POSTURE</span><b class:risk-high={selectedCoa.riskScore >= 70} class:risk-low={selectedCoa.riskScore < 40}>{riskLabel(selectedCoa.riskScore)}</b><span>MISSION COVERAGE</span><b>{coaCoverage} / {system.scenarioMissions.length}</b><span>ASSIGNED AIRCRAFT</span><b>{assets.length}</b></div>{/if}
 
@@ -78,6 +80,8 @@
   header { padding:10px 11px 9px; border-bottom:1px solid var(--border-subtle); background:linear-gradient(110deg,color-mix(in srgb, var(--accent-cyan) 7.000000000000001%, transparent),transparent 72%); }
   .eyebrow,.section-head,.force-line,.threat-line,footer { display:flex; align-items:center; justify-content:space-between; }
   .eyebrow { gap:6px; color:var(--accent-cyan); font-size:8px; letter-spacing:.13em; }
+  .legend-toggle { margin-left:auto; border:1px solid var(--border-strong); background:transparent; color:var(--accent-cyan); font:7px var(--font-mono); cursor:pointer; padding:3px 4px; }
+  .map-legend { display:grid; gap:5px; padding:8px 10px; border-bottom:1px solid var(--border-subtle); color:var(--text-secondary); font:7px var(--font-mono); }
   .live-dot { width:6px; height:6px; background:var(--accent-green); border-radius:50%; box-shadow:0 0 7px var(--accent-green); animation:blink 1.6s ease-in-out infinite; }
   .classification { margin-left:auto; color:var(--accent-amber); font-size:7px; border:1px solid var(--accent-amber); padding:2px 4px; }
   header strong { display:block; margin-top:7px; color:var(--text-primary); font-size:12px; letter-spacing:.13em; }
