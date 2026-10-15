@@ -10,7 +10,7 @@ Dynamic air operations decision-support console for SIH 2026 (MoD PS 26250).
 Planning and re-tasking air operations in contested environments is slowed by fragmented data. Aircraft availability, crew status, weapon loads, airspace, weather, and threat intelligence are spread across multiple systems. Commanders lack a unified real-time picture and lose time to manual coordination. This latency can be critical in high-tempo operations where conditions change rapidly. The Ministry of Defence's PS 26250 seeks a solution that fuses these data streams and generates actionable options in real time.
 
 ## What We Built
-AIR COMMAND combines multi-source inputs into a unified operational picture and generates ranked Courses of Action (COAs) using multi-objective optimisation. The system includes a weaponeering engine that enforces weapon-target compatibility, an NSGA-II-inspired allocator that produces three strategic options (aggressive, balanced, conservative), a Bayesian threat assessment module, and a game-theory comparison framework for evaluating COAs against adversary response models. Historical decision templates from real operations like Balakot and Sindoor provide doctrinal context. A voice-guided comprehensive demo walks evaluators through the complete workflow from mission briefing to after-action review.
+AIR COMMAND combines simulated multi-source inputs into a unified operational picture and generates ranked Courses of Action (COAs) using multi-objective optimisation. The system includes a weaponeering engine that enforces weapon-target compatibility, an NSGA-II-inspired allocator that produces three strategic options (aggressive, balanced, conservative), a Bayesian threat assessment module, and a game-theory comparison framework for evaluating COAs against adversary response models. Public-domain historical context informs training cases; interactive decision branches are simulations, not claims about decisions made during those operations. A voice-guided comprehensive demo walks evaluators through the workflow from mission briefing to after-action review.
 
 ## Evaluation Alignment
 
@@ -59,7 +59,7 @@ public/                      (Static assets)
 | After-Action Review | Opens automatically after mission completion | Complete decision trail, mission narrative, force recovery status, battle damage assessment |
 | Metrics Dashboard | Select Metrics tab in right panel | Analytics on force utilization, mission success rates, risk accounting |
 | Comprehensive Demo | Press D on keyboard | Full guided walkthrough of system features with voice narration and synchronized captions |
-| Historical Simulation | Click Simulation button | Training mode based on real operations (Balakot, Sindoor, SEAD) with historical decision points |
+| Historical Simulation | Click Simulation button | Public-context case studies for Balakot, Kargil, the 2016 Army Para-SF raid, and Operation Sindoor, plus an undated hypothetical SEAD template. Decision branches are simulated. |
 | Reference Library | Click Reference button | Doctrinal diagrams, mission planning flowcharts, aircraft loadout diagrams, strike geometry |
 
 ## Tech Stack
@@ -69,6 +69,7 @@ public/                      (Static assets)
 - **Backend:** Express health endpoint with CORS
 - **State:** Svelte 5 reactive stores
 - **Routing:** @turf/great-circle for geospatial calculations
+- **3D:** `three`, `@threlte/core`, and `@threlte/extras` for local GLB views
 - **Demo:** Svelte-guided walkthrough, Web Speech API for voice narration
 - **Panels:** PaneForge for panel management
 - **Symbols:** Built-in canvas and SVG tactical symbols
@@ -82,7 +83,7 @@ npm run build
 npm run server
 ```
 
-The development server starts on http://localhost:5173. The optional backend health endpoint starts on http://localhost:3001/api/health.
+The development server starts on http://localhost:5173. The optional Express server exposes `GET /api/health` on http://localhost:3001. It does not provide event streaming, persistence, or operational data ingestion.
 
 ## Deployment
 
@@ -91,19 +92,15 @@ Vercel auto-deploys from the main branch. The live demo is available at https://
 ## Scope
 
 ### What Is Real
-The algorithms and system architecture are fully implemented. The optimisation engine generates real COAs using multi-objective allocation with weapon compatibility enforcement. The threat assessment module calculates route risk scores using great-circle sampling against threat zones. The game-theory framework evaluates COAs against adversary response models. The decision templating system uses historical mission data with actual decision points from real operations. The weaponeering engine enforces platform-weapon-target compatibility rules. The trajectory calculation and route-blocking logic are functional.
+The algorithms and system architecture are implemented. The optimisation engine generates COAs using multi-objective allocation with weapon compatibility enforcement. The threat assessment module calculates route risk scores using great-circle sampling against threat zones. The game-theory framework evaluates COAs against adversary response models. Historical templates use public-domain context; their interactive choices and outcomes are simulated and are not presented as actual decisions from those operations. The weaponeering engine enforces platform-weapon-target compatibility rules. The trajectory calculation and route-blocking logic are functional.
 
 ### What Is Simulated
 The data feeds are simulated for demonstration purposes. Aircraft status changes, threat appearances, weather systems, and intelligence updates are scripted scenarios rather than live sensor feeds. Exercise markers on the map are synthetic. The voice narration uses the Web Speech API for accessibility, not operational voice communication. Historical mission narratives are based on public sources but adapted for the demonstration context.
 
 ## Limitations & Future Work
 
-- The backend is currently a scaffold; real data fusion would require integration with IAF systems (IACCS, HUMS, ATC, etc.)
+- The optional Express server provides only a CORS-enabled health endpoint; data fusion would require integration with IAF systems (IACCS, HUMS, ATC, etc.)
 - Threat intelligence is simulated; production deployment would need classified threat databases
 - Weapon performance parameters are simplified; operational use would require classified weaponeering data
 - The decision templates are based on public sources; full doctrinal integration would require access to classified operational records
 - Voice narration uses browser-based synthesis; operational use would require secure voice communication channels
-
-## Team
-
-[Team names to be added]
