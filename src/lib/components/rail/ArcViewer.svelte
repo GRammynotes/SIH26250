@@ -16,7 +16,7 @@
   const path = 'M26 156 C82 149 104 116 150 112 C190 108 192 68 228 66 C268 64 279 33 316 28';
   const aircraftLabel = $derived(aircraft?.tailNumber ?? entityId.toUpperCase());
   const eta = $derived(activeMission ? `${Math.max(1, Math.round((1 - activeMission.progress) * 22))} MIN` : '—');
-  const liveProgress = $derived(activeMission ? progressFraction(activeMission.phase, Math.max(0, (Date.now() - activeMission.phaseStartTime) / 60000), phaseDuration(activeMission.phase)) : null);
+  const liveProgress = $derived(activeMission ? progressFraction(activeMission.phase, Math.max(0, (Date.now() - activeMission.phaseStartTime) / 60000), phaseDuration(activeMission.phase, system.activeExperience === 'training')) : null);
   const trackPosition = $derived(activeMission ? (() => { const point = activeMission.positions[aircraft?.id ?? ''] ?? aircraft?.position; return point ? `${point.lat.toFixed(2)}N ${point.lng.toFixed(2)}E` : null; })() : null);
   const modelDesignation = $derived(entityType === 'missile' ? weapon?.name ?? activeMission?.weaponId ?? 'BrahMos-A' : aircraft?.type ?? '');
   const modelPath = $derived(MODEL_MAP[modelDesignation] ?? null);

@@ -78,7 +78,7 @@
         const flightFeatures: GeoJSON.Feature[] = [];
         for (const { path, mission } of flights.values()) {
           const elapsed = (now - mission.phaseStartTime) / 60000;
-          const fraction = progressFraction(mission.phase, elapsed, phaseDuration(mission.phase));
+          const fraction = progressFraction(mission.phase, elapsed, phaseDuration(mission.phase, system.activeExperience === 'training'));
           flightFeatures.push({ type: 'Feature', properties: { missionId: mission.id }, geometry: { type: 'Point', coordinates: pointAlongPath(path, fraction) } });
         }
         (map.getSource(flightSourceId) as maplibregl.GeoJSONSource | undefined)?.setData(fc(flightFeatures));

@@ -109,9 +109,7 @@
     }, scaledDelay(6000));
   }
   function weightedBranch(branches: DecisionBranch[]) {
-    const weighted = branches.map((branch) => ({ branch, weight: /recommended|optimal/i.test(branch.tag) ? 0.55 : branch.outcome === 'success' ? 0.24 : branch.outcome === 'partial' ? 0.13 : 0.08 }));
-    const total = weighted.reduce((sum, item) => sum + item.weight, 0); let roll = Math.random() * total;
-    return weighted.find((item) => (roll -= item.weight) <= 0)?.branch ?? branches[0];
+    return branches.find((branch) => /recommended|optimal/i.test(branch.tag)) ?? branches.find((branch) => branch.outcome === 'success') ?? branches[0];
   }
   function choose(branchId: string) {
     if (!sessionIsCurrent() || !pending || !branchId) return;

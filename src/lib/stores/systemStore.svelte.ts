@@ -469,7 +469,7 @@ class SystemStore {
 
       if (am.pendingDecision) { updated.push(am); continue; }
 
-      const dur = phaseDuration(am.phase);
+      const dur = phaseDuration(am.phase, this.activeExperience === 'training');
       am.elapsedMin += this.simSpeed / 60; // simulation time scales with the selected playback rate
       am.phaseStartTime -= (this.simSpeed - 1) * 1000;
       const phaseElapsed = (Date.now() - am.phaseStartTime) / 60000;

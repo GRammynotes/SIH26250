@@ -35,7 +35,8 @@ export function nextPhase(current: MissionPhase): MissionPhase {
   return idx >= 0 && idx < order.length - 1 ? order[idx + 1] : 'COMPLETE';
 }
 
-export function phaseDuration(phase: MissionPhase): number {
+export function phaseDuration(phase: MissionPhase, training = false): number {
+  const normalDuration = (() => {
   switch (phase) {
     case 'INGRESS': return 4;
     case 'WEZ':     return 2;
@@ -44,6 +45,8 @@ export function phaseDuration(phase: MissionPhase): number {
     case 'RTB':     return 5;
     default:        return 0;
   }
+  })();
+  return training ? normalDuration * 0.4 : normalDuration;
 }
 
 export function createActiveMission(

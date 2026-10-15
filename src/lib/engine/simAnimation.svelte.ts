@@ -48,7 +48,7 @@ function update(now: number) {
     if (mission.phase === 'COMPLETE' || mission.phase === 'ABORTED') continue;
     if (system.simSpeed === 0) continue;
     const elapsed = Math.max(0, (wallNow - mission.phaseStartTime) / 60000);
-    const fraction = progressFraction(mission.phase, elapsed, phaseDuration(mission.phase));
+    const fraction = progressFraction(mission.phase, elapsed, phaseDuration(mission.phase, system.activeExperience === 'training'));
     const origins = missionOrigins.get(mission.id) ?? mission.origins;
     if (!missionOrigins.has(mission.id)) missionOrigins.set(mission.id, origins);
     for (const id of mission.aircraftIds) {
