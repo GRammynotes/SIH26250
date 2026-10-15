@@ -1,14 +1,16 @@
 <script lang="ts">
   import { system } from '../../stores/systemStore.svelte';
   import { SCENARIO_LABELS } from '../../engine/scenario';
-  let { onToggleVisibility, collapsed = false }: { onToggleVisibility?: () => void; collapsed?: boolean } = $props();
+  let { onToggleVisibility, onRecommendedView, collapsed = false }: { onToggleVisibility?: () => void; onRecommendedView?: (tab: 'red' | 'weapons' | 'cyber') => void; collapsed?: boolean } = $props();
   let dropdownOpen = $state(false);
 
   const scenarios = Object.entries(SCENARIO_LABELS);
+  const recommendedTabs: Record<string, 'red' | 'weapons' | 'cyber'> = { deep_strike: 'weapons', air_superiority: 'red', multi_crisis: 'cyber', radar_loss: 'cyber', track_loss: 'cyber', data_poisoning: 'cyber', sead_campaign: 'weapons' };
   function select(key: string | null) {
     if (system.refuseScenarioChange()) return;
     if (key && system.activeScenarioFilter !== key) system.runScenario(key);
     else system.setScenarioFilter(null);
+    if (key && recommendedTabs[key]) onRecommendedView?.(recommendedTabs[key]);
   }
 </script>
 

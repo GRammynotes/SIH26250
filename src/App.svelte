@@ -94,6 +94,8 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
   let savedLeftSize = 18;
   let savedRightSize = 22;
   let rightTab = $state<'coa' | 'red' | 'metrics' | 'execution' | 'weapons' | 'cyber' | 'flow' | 'psmap'>('coa');
+  const recommendedScenarioTabs: Record<string, 'red' | 'weapons' | 'cyber'> = { deep_strike: 'weapons', air_superiority: 'red', multi_crisis: 'cyber', radar_loss: 'cyber', track_loss: 'cyber', data_poisoning: 'cyber', sead_campaign: 'weapons' };
+  const recommendedScenarioTab = $derived(system.activeScenarioFilter ? recommendedScenarioTabs[system.activeScenarioFilter] : undefined);
   let focusMode = $state(false);
   let leftPanelTab = $state<'roster' | 'missions'>('roster');
   let leftPane = $state<{ resize: (size: number) => void; getSize?: () => number }>();
@@ -747,7 +749,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
           </section>
         {:else if system.selectedBaseId}<BaseDetailPanel onLoadoutClick={openLoadout} />
         {:else}<aside class="left">
-          {#if system.activeExperience === 'idle' && panelVisibility.scenarioBar}<ScenarioBar collapsed={true} />{/if}
+          {#if system.activeExperience === 'idle' && panelVisibility.scenarioBar}<ScenarioBar collapsed={true} onRecommendedView={(tab) => rightTab = tab} />{/if}
           {#if system.activeExperience === 'mission'}
             <div class="mission-experience-header"><span>MISSION ACTIVE</span><button onclick={closeExperienceRail}>EXIT</button></div>
             <MissionPanel onMissionSelect={(id) => (briefingMissionId = id)} onCollapse={toggleLeftPane} onToggleVisibility={() => setPanelVisibility('missions', false)} />
@@ -782,6 +784,7 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
             <button role="tab" aria-selected={rightTab === 'psmap'} class:active={rightTab === 'psmap'} onclick={() => rightTab = 'psmap'}>◈ PS MAP</button>
             <button class="right-collapse" aria-label="Collapse right panel" title="Collapse right panel" onclick={toggleRightPane}>›</button>
           </div>
+          {#if recommendedScenarioTab}<button class="recommended-view" onclick={() => rightTab = recommendedScenarioTab}>RECOMMENDED VIEW: {recommendedScenarioTab.toUpperCase()} <span>↗ JUMP</span></button>{/if}
           <div class="right-tab-content">
             {#if entityDetail}<EntityDetail entityType={entityDetail.type} entityId={entityDetail.id} onBack={closeEntityDetail} />
             {:else if weaponDetail}<WeaponDetail weaponId={weaponDetail} onClose={closeWeaponDetail} />
@@ -945,6 +948,8 @@ import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
   .right-tabs button.active { border-bottom-color:var(--accent-cyan); }
   .right-tabs button.right-collapse { flex:none; padding:0 8px; font-size:14px; }
   .right-tab-content { flex:1; min-height:0; overflow:hidden; position:relative; }
+  .recommended-view { flex:none; width:100%; display:flex; justify-content:space-between; padding:5px 9px; border:0; border-bottom:1px solid var(--border-subtle); background:color-mix(in srgb,var(--accent-cyan) 5%,var(--bg-panel)); color:var(--text-secondary); font:7px var(--font-mono); letter-spacing:.1em; cursor:pointer; }
+  .recommended-view span { color:var(--accent-cyan); }
   .weapon-workspace { display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; }
   .weapon-workspace > :global(.matrix-panel) { flex:1; min-height:0; }
   .weapon-workspace > :global(.priority-control) { flex:none; }
