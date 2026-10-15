@@ -40,13 +40,13 @@
       {@const weapon = am.weaponId ? WEAPONS[am.weaponId] : null}
       <div class="mission-card" class:pending={am.pendingDecision !== null}>
         <div class="top">
-          <span class="name">{am.missionName}</span>
+          <button class="name" title="Open mission brief" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:mission-brief', { detail: am.missionId }))}>{am.missionName}</button>
           <span class="phase">{am.phase}</span>
         </div>
 
         <div class="ref">
           {template?.reference ?? 'TEMPLATE N/A'}
-          {#if weapon}· <span class="wpn">{weapon.name}</span>{/if}
+          {#if weapon}· <button class="wpn" title="Open {weapon.name} specification" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:weapon-detail', { detail: weapon.id }))}>{weapon.name}</button>{/if}
         </div>
 
         <div class="timeline">
@@ -75,13 +75,6 @@
           <div class="pending-banner">AWAITING COMMAND · {am.pendingDecision.title}</div>
         {/if}
 
-        {#if am.narrative.length > 1}
-          <div class="narrative">
-            {#each am.narrative.slice(1).slice(-2) as line}
-              <div class="n-line">› {line}</div>
-            {/each}
-          </div>
-        {/if}
       </div>
     {/each}
   </div>
@@ -118,10 +111,11 @@
   .mission-card.pending { background: color-mix(in srgb, var(--accent-red) 6%, transparent); }
 
   .top { display: flex; justify-content: space-between; align-items: center; }
-  .name { color: var(--accent-amber); font-size: 11px; letter-spacing: 0.1em; }
+  .name { padding:0; border:0; background:transparent; color: var(--accent-amber); font:11px var(--font-mono); letter-spacing: 0.1em; cursor:pointer; text-align:left; }
+  .name:hover,.wpn:hover { text-decoration:underline; }
   .phase { font-size: 9px; color: var(--accent-cyan); letter-spacing: 0.18em; }
   .ref { font-size: 9px; color: var(--text-muted); margin-top: 4px; }
-  .wpn { color: var(--accent-green); }
+  .wpn { padding:0; border:0; background:transparent; color: var(--accent-green); font:inherit; cursor:pointer; }
 
   .timeline {
     display: flex;

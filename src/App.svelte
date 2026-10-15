@@ -30,6 +30,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   import ComprehensiveDemo from './lib/components/rail/ComprehensiveDemo.svelte';
   import ArcViewer from './lib/components/rail/ArcViewer.svelte';
   import EntityDetail from './lib/components/rail/EntityDetail.svelte';
+  import WeaponDetail from './lib/components/panels/WeaponDetail.svelte';
   import { preloadModelAssets } from './lib/three/modelAssets';
   import { narrateUtterance } from './lib/engine/voice';
   import { distanceKm, focusMapElements } from './lib/engine/mapNarrative';
@@ -69,6 +70,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let railMode = $state<'demo' | 'training' | 'sim' | null>(null);
   let arcViewer = $state<{ entityType: 'aircraft' | 'missile'; entityId: string; missionId: string } | null>(null);
   let entityDetail = $state<{ type: string; id: string } | null>(null);
+  let weaponDetail = $state<string | null>(null);
   let detailPreviousRail = $state<'demo' | 'training' | 'sim' | null>(null);
   let railExitTimer: ReturnType<typeof setTimeout> | undefined;
   type PastDecision = { at: number; title: string; choice: string };
@@ -265,7 +267,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     resetConfirm = false;
     cleanupExperience();
     system.reset();
-    entityDetail = null; detailPreviousRail = null; arcViewer = null;
+    entityDetail = null; weaponDetail = null; detailPreviousRail = null; arcViewer = null;
     briefingMissionId = null; aarMissionId = null; assignedAircraftId = null;
     trackLossOpen = false; shortcutHelpOpen = false; glossaryOpen = false;
     flowOpen = false; referenceOpen = false; metricsOpen = false; loadoutOpen = false;
@@ -319,7 +321,12 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       const detail = (event as CustomEvent<{ type: string; id: string }>).detail;
       if (!detail?.type || !detail.id) return;
       entityDetail = detail;
+      weaponDetail = null;
       arcViewer = null;
+    };
+    const handleWeaponDetail = (event: Event) => {
+      weaponDetail = String((event as CustomEvent<string>).detail ?? '');
+      entityDetail = null;
     };
     const handleSelectRightTab = (event: Event) => rightTab = (event as CustomEvent<typeof rightTab>).detail;
     const handleMapOpenPanel = (event: Event) => {
@@ -337,6 +344,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
     };
     window.addEventListener('aircommand:mission-brief', handleMissionBrief);
     window.addEventListener('aircommand:entity-detail', handleEntityDetail);
+    window.addEventListener('aircommand:weapon-detail', handleWeaponDetail);
     window.addEventListener('aircommand:select-right-tab', handleSelectRightTab);
     window.addEventListener('aircommand:map-open-panel', handleMapOpenPanel);
     window.addEventListener('aircommand:tour-target', handleTourTarget);
@@ -351,10 +359,11 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       if (leftCollapsed) leftPane?.resize(3);
       if (rightCollapsed) rightPane?.resize(3);
     });
-    return () => { window.removeEventListener('aircommand:busy-toast', handleBusyToast); window.removeEventListener('aircommand:reset-request', handleResetRequest); window.removeEventListener('aircommand:mission-brief', handleMissionBrief); window.removeEventListener('aircommand:entity-detail', handleEntityDetail); window.removeEventListener('aircommand:select-right-tab', handleSelectRightTab); window.removeEventListener('aircommand:map-open-panel', handleMapOpenPanel); window.removeEventListener('aircommand:tour-target', handleTourTarget); window.removeEventListener('aircommand:arc-viewer', handleArcViewer); window.removeEventListener('aircommand:arc-viewer-clear', clearArcViewer); };
+    return () => { window.removeEventListener('aircommand:busy-toast', handleBusyToast); window.removeEventListener('aircommand:reset-request', handleResetRequest); window.removeEventListener('aircommand:mission-brief', handleMissionBrief); window.removeEventListener('aircommand:entity-detail', handleEntityDetail); window.removeEventListener('aircommand:weapon-detail', handleWeaponDetail); window.removeEventListener('aircommand:select-right-tab', handleSelectRightTab); window.removeEventListener('aircommand:map-open-panel', handleMapOpenPanel); window.removeEventListener('aircommand:tour-target', handleTourTarget); window.removeEventListener('aircommand:arc-viewer', handleArcViewer); window.removeEventListener('aircommand:arc-viewer-clear', clearArcViewer); };
   });
 
   function closeEntityDetail() { entityDetail = null; arcViewer = null; detailPreviousRail = null; }
+  function closeWeaponDetail() { weaponDetail = null; }
 
   function toggleLeftPane() { leftCollapsed = !leftCollapsed; persistCollapsedState(); leftPane?.resize(leftCollapsed ? 3 : 15); }
   function toggleRightPane() { rightCollapsed = !rightCollapsed; persistCollapsedState(); rightPane?.resize(rightCollapsed ? 3 : 28); }
@@ -707,16 +716,13 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
                 <button class="rail-close" aria-label="Exit experience" title="Exit experience" onclick={closeExperienceRail}>EXIT</button>
               </div>
             </header>
-            {#if entityDetail}<EntityDetail entityType={entityDetail.type} entityId={entityDetail.id} onBack={closeEntityDetail} />{:else}
-              {#if arcViewer}<ArcViewer {...arcViewer} />{/if}
+            {#if arcViewer}<ArcViewer {...arcViewer} />{/if}
               {#if railMode === 'demo'}<ComprehensiveDemo open={comprehensiveDemoOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} onComplete={() => { if (railExitTimer) clearTimeout(railExitTimer); railExitTimer = setTimeout(closeExperienceRail, 5000); }} />
               {:else if railMode === 'training'}<div class="experience-content">{#if SimulationModal}<SimulationModal open={simulationOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>
               {:else if railMode === 'sim'}<div class="experience-content">{#if ProbabilisticSimulation}<ProbabilisticSimulation open={probabilisticSimOpen} simSpeed={system.simSpeed} onSpeedChange={(speed) => system.setSimSpeed(speed)} onClose={closeExperienceRail} />{/if}</div>{/if}
               {#if railMode !== 'demo' && pending?.pendingDecision}<div class="rail-decision"><DecisionPrompt open={true} rail title={pending.pendingDecision.title} context={pending.pendingDecision.context} message={pending.pendingDecision.message} options={decisionOptions()} processing={decisionProcessing} onSelect={handleRailDecision} onClose={() => system.dismissDecision(pending!.id)} /></div>{/if}
               {#if railMode !== 'demo' && pastDecisions.length}<section class="past-decisions" aria-label="Past decisions"><button aria-expanded={pastDecisionsExpanded} onclick={() => pastDecisionsExpanded = !pastDecisionsExpanded}>DECISIONS MADE ({pastDecisions.length}) {pastDecisionsExpanded ? '▴' : '▾'}</button>{#if pastDecisionsExpanded}<ol>{#each pastDecisions as decision, index (`${decision.at}-${index}`)}<li><span>{['①','②','③','④','⑤','⑥','⑦','⑧'][index] ?? `${index + 1}.`}</span><b>{decision.title}</b><i>→ {decision.choice}</i></li>{/each}</ol>{/if}</section>{/if}
-            {/if}
           </section>
-        {:else if entityDetail}<EntityDetail entityType={entityDetail.type} entityId={entityDetail.id} onBack={closeEntityDetail} />
         {:else if system.selectedBaseId}<BaseDetailPanel onLoadoutClick={openLoadout} />
         {:else}<aside class="left">
           {#if system.activeExperience === 'idle' && panelVisibility.scenarioBar}<ScenarioBar collapsed={true} />{/if}
@@ -754,7 +760,9 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
             <button class="right-collapse" aria-label="Collapse right panel" title="Collapse right panel" onclick={toggleRightPane}>›</button>
           </div>
           <div class="right-tab-content">
-            {#if rightTab === 'coa' && panelVisibility.coa}<COAPanel mode="blue" onToggleVisibility={() => setPanelVisibility('coa', false)} />
+            {#if entityDetail}<EntityDetail entityType={entityDetail.type} entityId={entityDetail.id} onBack={closeEntityDetail} />
+            {:else if weaponDetail}<WeaponDetail weaponId={weaponDetail} onClose={closeWeaponDetail} />
+            {:else if rightTab === 'coa' && panelVisibility.coa}<COAPanel mode="blue" onToggleVisibility={() => setPanelVisibility('coa', false)} />
             {:else if rightTab === 'red'}<COAPanel mode="red" />
             {:else if rightTab === 'metrics'}{#if MetricsDashboard}<MetricsDashboard open={true} inline={true} />{:else}<div class="map-loading mono">LOADING ANALYTICS</div>{/if}
             {:else if rightTab === 'execution'}<ExecutionPanel />

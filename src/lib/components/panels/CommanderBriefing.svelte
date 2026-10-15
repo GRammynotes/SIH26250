@@ -351,7 +351,7 @@
                     {#if pair.assessment}
                       <div class="pairing-row">
                         <span class="pairing-label">PRIMARY WEAPON:</span>
-                        <span class="pairing-wpn">{pair.assessment.weaponName}</span>
+                        <button class="pairing-wpn" title="Open {pair.assessment.weaponName} specification" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:weapon-detail', { detail: Object.values(WEAPONS).find((weapon) => weapon.name === pair.assessment!.weaponName)?.id ?? pair.assessment!.weaponName }))}>{pair.assessment.weaponName}</button>
                         <span class="pairing-envelope">
                           LAUNCH RANGE {pair.assessment.launchRangeKm} KM · DIST TO TGT {pair.assessment.distanceToTargetKm} KM
                         </span>
@@ -369,9 +369,9 @@
                       <div class="wez-rings-row">
                         <span class="wez-title">WEZ ENVELOPE:</span>
                         {#each pair.rings as r}
-                          <span class="wez-pill" style="border-color:{r.color}; color:{r.color};">
+                          <button class="wez-pill" style="border-color:{r.color}; color:{r.color};" title="Open {r.weaponName} specification" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:weapon-detail', { detail: Object.values(WEAPONS).find((weapon) => weapon.name === r.weaponName)?.id ?? r.weaponName }))}>
                             {r.weaponName} · {r.rangeKm} KM · {r.type.toUpperCase()}
-                          </span>
+                          </button>
                         {/each}
                       </div>
                     {/if}
@@ -664,7 +664,7 @@
     font-size: 9px;
   }
   .pairing-label { color: var(--text-muted); font-size: 8px; letter-spacing: 0.12em; }
-  .pairing-wpn { color: var(--accent-amber); font-weight: 700; letter-spacing: 0.08em; }
+  .pairing-wpn { padding:0; border:0; background:transparent; color: var(--accent-amber); font:inherit; font-weight: 700; letter-spacing: 0.08em; cursor:pointer; }
   .pairing-envelope { color: var(--text-secondary); letter-spacing: 0.08em; }
   .pairing-mode {
     font-size: 8px; padding: 1px 6px; border: 1px solid; letter-spacing: 0.1em;
@@ -687,7 +687,7 @@
   }
   .wez-title { font-size: 8px; color: var(--text-muted); letter-spacing: 0.12em; }
   .wez-pill {
-    font-size: 7.5px; padding: 1px 6px; border: 1px solid; letter-spacing: 0.08em;
+    background:transparent; font:7.5px var(--font-mono); cursor:pointer; padding: 1px 6px; border: 1px solid; letter-spacing: 0.08em;
   }
 
   /* PRECEDENT */

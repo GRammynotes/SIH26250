@@ -41,7 +41,7 @@
 
   <div class="body">
     {#if coas.length === 0}
-      <div class="empty-state"><b>[ NO DATA ]</b><span>Click GENERATE COA to create options.</span><button onclick={() => system.generateCOAs()} disabled={system.computing}>▸ GENERATE COA</button></div>
+      <div class="empty-state"><b>[ NO DATA ]</b><span>Generate options to compare plans.</span><button onclick={() => system.generateCOAs()} disabled={system.computing}>▸ GENERATE COA</button></div>
       <div class="section">
         <div class="sec-label">STATUS</div>
         <div class="sec-value">AWAITING GENERATION</div>
@@ -93,25 +93,26 @@
           <div class="coa-missions">
             {#each Object.entries(coa.assignments) as [mid, ids]}
               {#if (ids as string[]).length > 0}
+                {@const mission = system.scenarioMissions.find((item) => item.id === mid)}
                 <div class="assign-row">
-                  <span class="mid mono">{mid.toUpperCase()}</span>
+                  <button class="mid mono" title="Open mission brief" onclick={(event) => { event.stopPropagation(); if (mission) window.dispatchEvent(new CustomEvent('aircommand:mission-brief', { detail: mission.id })); }}>{mission?.name ?? mid.toUpperCase()}</button>
                   <span class="ids mono">{(ids as string[]).length} AC</span>
                 </div>
               {/if}
             {/each}
           </div>
-          <div class="coa-expl">{coa.explanation}</div>
+          <div class="coa-expl" title={coa.explanation}>{coa.explanation.length > 40 ? `${coa.explanation.slice(0, 37)}…` : coa.explanation}</div>
           {:else}<div class="detail-hint">ENTER / SELECT FOR BREAKDOWN</div>{/if}
         </div>
       {/each}
     {:else}
-      <div class="red-summary">RED FORCE MODEL · {ENEMY_ASSETS.length} ASSETS · DYNAMIC BAYESIAN THREAT BELIEF</div>
+      <div class="red-summary" title="RED FORCE MODEL · DYNAMIC BAYESIAN THREAT BELIEF">RED FORCE · {ENEMY_ASSETS.length} ASSETS · BAYESIAN RESPONSE</div>
       {#each coas as coa (coa.id)}
         {@const response = bestResponseToCOA(coa, ENEMY_ASSETS)}
         <div class="red-card">
         <div class="red-hdr"><span>OPTION {coa.rank} · {getModeLabel(coa)}</span><span>{system.mode === 'DEGRADED' ? degradeConfidence(response.confidence) : response.confidence} CONF</span></div>
           <div class="red-action">{response.action}</div>
-          <p>{response.rationale}</p>
+          <p title={response.rationale}>{response.rationale.length > 40 ? `${response.rationale.slice(0, 37)}…` : response.rationale}</p>
           <div class="red-metrics"><span>EXPECTED RED DAMAGE <b>{response.expectedDamage}</b></span><span>BLUE PAYOFF <b>{expectedPayoff(coa, response)}</b></span></div>
         </div>
       {/each}
@@ -164,7 +165,8 @@
   .mvalue { font-family: var(--font-mono); font-size: 13px; font-weight: 500; }
   .coa-missions { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
   .assign-row { display: flex; justify-content: space-between; font-size: 9px; }
-  .mid { color: var(--accent-amber); letter-spacing: 0.1em; }
+  .mid { padding:0; border:0; background:transparent; color: var(--accent-amber); letter-spacing: 0.1em; cursor:pointer; text-align:left; font:inherit; }
+  .mid:hover { text-decoration:underline; }
   .ids { color: var(--text-muted); }
   .coa-expl { font-family: var(--font-mono); font-size: 9px; line-height: 1.6; color: var(--text-secondary); }
   .detail-hint { color:var(--text-muted); font:7px var(--font-mono); letter-spacing:.1em; }

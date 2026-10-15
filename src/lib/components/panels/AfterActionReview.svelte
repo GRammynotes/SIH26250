@@ -279,7 +279,7 @@
 
           <div class="weapon-expended-bar">
             <span class="w-label">ORDNANCE EXPENDITURE:</span>
-            <span class="w-name">{weaponExpended.name}</span>
+            {#if weapon}<button class="w-name" title="Open {weapon.name} specification" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:weapon-detail', { detail: weapon.id }))}>{weaponExpended.name}</button>{:else}<span class="w-name">{weaponExpended.name}</span>{/if}
             <span class="w-status {activeMission.outcome === 'ABORTED' ? 'retained' : 'released'}">
               {weaponExpended.status}
             </span>
@@ -527,7 +527,7 @@
     padding: 9px 12px; display: flex; align-items: center; gap: 10px; font-size: 9px;
   }
   .w-label { color: var(--text-muted); font-size: 8px; letter-spacing: 0.14em; }
-  .w-name { color: var(--accent-amber); font-weight: 700; }
+  .w-name { padding:0; border:0; background:transparent; color: var(--accent-amber); font:inherit; font-weight: 700; cursor:pointer; }
   .w-status { font-size: 8px; padding: 2px 7px; border: 1px solid; margin-left: auto; letter-spacing: 0.1em; }
   .w-status.released { color: var(--accent-green); border-color: var(--accent-green); background: color-mix(in srgb, var(--accent-green) 6%, transparent); }
   .w-status.retained { color: var(--accent-amber); border-color: var(--accent-amber); background: rgba(255, 170, 0, 0.06); }

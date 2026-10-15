@@ -12,10 +12,10 @@
   <div class="status-card" class:bad={system.spoofedTrackId} class:warn={!system.spoofedTrackId && system.mode === 'DEGRADED'}>
     <span class="glyph" aria-hidden="true">{linkGlyph}</span><div><small>LINK STATUS</small><b>{linkStatus}</b></div>
   </div>
-  <div class="readout"><span>ENCRYPTION</span><b>SIMULATED · AES-GCM</b></div>
-  <div class="readout"><span>SENSOR MESH</span><b>{sensorState}</b></div>
+  <div class="readout"><span>ENCRYPTION</span><b title="Simulated AES-GCM encryption">🔒 SIMULATED</b></div>
+  <div class="readout"><span>SENSOR MESH</span><b title={sensorState}>⌘ {system.mode === 'DEGRADED' ? 'DEGRADED' : 'NOMINAL'}</b></div>
   <div class="readout"><span>SPOOFED TRACKS</span><b class:bad-text={spoofCount > 0}>{spoofCount} · {spoofCount > 0 ? 'FLAGGED' : 'NONE'}</b></div>
-  <div class="footnote">EXERCISE INDICATORS ONLY · NO LIVE NETWORK OR SENSOR CONNECTION</div>
+  <div class="footnote" title="EXERCISE INDICATORS ONLY · NO LIVE NETWORK OR SENSOR CONNECTION">EXERCISE DATA · NO LIVE LINK</div>
 </section>
 
 <style>

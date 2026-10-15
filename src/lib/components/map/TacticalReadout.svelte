@@ -52,7 +52,7 @@
     {#each missions as mission (mission.id)}
       <div class="target-row">
         <span class="priority">P{mission.priority}</span>
-        <div class="target-meta"><strong>{mission.name}</strong><span>{mission.targetType.toUpperCase().replaceAll('-', ' ')} · {mission.target.lat.toFixed(2)}N / {mission.target.lng.toFixed(2)}E</span></div>
+        <div class="target-meta"><button title="Open mission brief" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:mission-brief', { detail: mission.id }))}>{mission.name}</button><span>{mission.targetType.toUpperCase().replaceAll('-', ' ')} · {mission.target.lat.toFixed(2)}N / {mission.target.lng.toFixed(2)}E</span></div>
         <span class="range">{nearestRange(mission.target.lat, mission.target.lng) ?? '—'}<small>KM</small></span>
       </div>
     {:else}<div class="empty">NO TARGETS IN ACTIVE FILTER</div>{/each}
@@ -80,7 +80,7 @@
   .targets { padding:8px 0 2px; }.section-head { padding:0 11px 5px; color:var(--accent-cyan); font-size:7px; letter-spacing:.1em; }
   .target-row { display:grid; grid-template-columns:20px 1fr auto; gap:6px; align-items:center; padding:6px 10px; border-top:1px solid rgba(42,52,71,.55); }
   .priority { display:grid; place-items:center; height:16px; border:1px solid var(--accent-amber); color:var(--accent-amber); font-size:7px; }
-  .target-meta { min-width:0; }.target-meta strong,.target-meta span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.target-meta strong { color:var(--text-secondary); font-size:8px; letter-spacing:.04em; }.target-meta span { margin-top:3px; color:var(--text-muted); font-size:6px; }
+  .target-meta { min-width:0; }.target-meta button,.target-meta span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.target-meta button { padding:0; border:0; background:transparent; color:var(--text-secondary); font:8px var(--font-mono); letter-spacing:.04em; cursor:pointer; text-align:left; }.target-meta button:hover { text-decoration:underline; }.target-meta span { margin-top:3px; color:var(--text-muted); font-size:6px; }
   .range { color:var(--accent-cyan); font-size:9px; text-align:right; }.range small { display:block; color:var(--text-muted); font-size:6px; }
   .empty { padding:10px; color:var(--text-muted); font-size:8px; }
   footer { padding:6px 10px; border-top:1px solid var(--border-subtle); color:var(--text-muted); font-size:6px; letter-spacing:.07em; }.sync { color:var(--accent-green); }

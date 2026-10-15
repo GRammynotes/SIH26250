@@ -55,7 +55,7 @@
           <div class="weapons">
             {#each weaponsForAircraft(ac.type).slice(0, 4) as w (w.id)}
               <div class="w-pill" class:standoff={w.standoff}>
-                <span>{w.name}</span>
+                <button class="weapon-link" title="Open {w.name} specification" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:weapon-detail', { detail: w.id }))}>{w.name}</button>
                 <span class="w-range">{w.rangeKm}km</span>
               </div>
             {/each}
@@ -65,9 +65,9 @@
           <div class="missions">
             {#each missionFit(ac.type) as f (f.mission.id)}
               <div class="m-row">
-                <span class="m-name">{f.mission.name}</span>
+                <button class="m-name" title="Open mission brief" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:mission-brief', { detail: f.mission.id }))}>{f.mission.name}</button>
                 <span class="m-target">{getTargetLabel(f.mission.targetType)}</span>
-                <span class="m-weapon">{f.weapon!.name}</span>
+                <button class="m-weapon" title="Open {f.weapon!.name} specification" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:weapon-detail', { detail: f.weapon!.id }))}>{f.weapon!.name}</button>
               </div>
             {/each}
           </div>
@@ -143,7 +143,8 @@
   .w-range { color: var(--text-muted); font-size: 8px; }
   .missions { display: flex; flex-direction: column; gap: 2px; }
   .m-row { display: flex; gap: 6px; font-size: 9px; align-items: center; }
-  .m-name { color: var(--accent-amber); letter-spacing: 0.08em; flex: 1; }
+  .m-name { border:0; padding:0; background:transparent; color: var(--accent-amber); letter-spacing: 0.08em; flex: 1; text-align:left; font:inherit; cursor:pointer; }
   .m-target { color: var(--text-muted); font-size: 8px; }
-  .m-weapon { color: var(--accent-cyan); }
+  .m-weapon,.weapon-link { border:0; padding:0; background:transparent; color: var(--accent-cyan); font:inherit; cursor:pointer; }
+  .m-name:hover,.m-weapon:hover,.weapon-link:hover { text-decoration:underline; }
 </style>

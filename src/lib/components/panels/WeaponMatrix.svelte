@@ -1,6 +1,7 @@
 <script lang="ts">
   import { system } from '../../stores/systemStore.svelte';
   import { assessSingleAssignment } from '../../engine/weaponeering';
+  import { WEAPONS } from '../../data/weapons';
 
   const selectedCoa = $derived(system.coas.find((coa) => coa.id === system.selectedCoaId) ?? system.coas[0]);
   const coverage = $derived([1, 2, 3].map((priority) => {
@@ -34,7 +35,7 @@
   <header class="matrix-heading"><strong>PLATFORM × TARGET</strong><span>HOVER / FOCUS TO LOCATE</span></header>
   <div class="matrix-scroll">
     <table>
-      <thead><tr><th>TAIL</th>{#each system.scenarioMissions as mission (mission.id)}<th title="{mission.name} · P{mission.priority}">P{mission.priority}<br />{mission.name.slice(0, 3)}</th>{/each}</tr></thead>
+      <thead><tr><th>TAIL</th>{#each system.scenarioMissions as mission (mission.id)}<th title="{mission.name} · P{mission.priority}"><button class="mission-head" aria-label="Brief {mission.name}" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:mission-brief', { detail: mission.id }))}>P{mission.priority}<br />{mission.name.slice(0, 3)}</button></th>{/each}</tr></thead>
       <tbody>
         {#each system.scenarioAircraft as aircraft (aircraft.id)}
           <tr><th>{aircraft.tailNumber}</th>
@@ -42,7 +43,7 @@
               {@const result = assessment(aircraft.id, mission.id)}
               <td>
                 {#if result}
-                  <button class="cell" class:optimal={result.assessment === 'OPTIMAL'} class:feasible={result.assessment === 'FEASIBLE' || result.assessment === 'MARGINAL'} class:infeasible={result.assessment === 'INFEASIBLE'} aria-label="{aircraft.tailNumber} to {mission.name}: {result.assessment}, {result.weaponName}" title="{result.assessment} · {result.weaponName} · {result.distanceToTargetKm} km" onmouseenter={() => highlight(aircraft.id, mission.id)} onmouseleave={() => highlight(aircraft.id, null)} onfocus={() => highlight(aircraft.id, mission.id)} onblur={() => highlight(aircraft.id, null)}>{result.assessment === 'OPTIMAL' ? '◆' : result.assessment === 'INFEASIBLE' ? '×' : '◇'}</button>
+                  <button class="cell" class:optimal={result.assessment === 'OPTIMAL'} class:feasible={result.assessment === 'FEASIBLE' || result.assessment === 'MARGINAL'} class:infeasible={result.assessment === 'INFEASIBLE'} aria-label="{aircraft.tailNumber} to {mission.name}: {result.assessment}, {result.weaponName}" title="{result.assessment} · {result.weaponName} · {result.distanceToTargetKm} km" onmouseenter={() => highlight(aircraft.id, mission.id)} onmouseleave={() => highlight(aircraft.id, null)} onfocus={() => highlight(aircraft.id, mission.id)} onblur={() => highlight(aircraft.id, null)} onclick={() => window.dispatchEvent(new CustomEvent('aircommand:weapon-detail', { detail: Object.values(WEAPONS).find((weapon) => weapon.name === result.weaponName)?.id ?? result.weaponName }))}>{result.assessment === 'OPTIMAL' ? '◆' : result.assessment === 'INFEASIBLE' ? '×' : '◇'}</button>
                 {:else}<span class="unassigned" aria-label="Unassigned">·</span>{/if}
               </td>
             {/each}
@@ -75,6 +76,7 @@
   table { width:max-content; min-width:100%; border-collapse:collapse; font-size:7px; }
   th,td { border:1px solid var(--border-subtle); padding:3px; text-align:center; }
   thead th { color:var(--text-muted); font-weight:400; white-space:nowrap; }
+  .mission-head { padding:0; border:0; background:transparent; color:inherit; font:inherit; cursor:pointer; }
   tbody th { color:var(--text-secondary); text-align:left; white-space:nowrap; font-weight:400; }
   .cell { width:21px; height:20px; border:1px solid currentColor; background:transparent; font:10px var(--font-mono); cursor:crosshair; }
   .cell.optimal { color:var(--accent-green); background:color-mix(in srgb, var(--accent-green) 9%, transparent); }.cell.feasible { color:var(--accent-amber); background:color-mix(in srgb, var(--accent-amber) 8%, transparent); }.cell.infeasible { color:var(--accent-red); background:color-mix(in srgb, var(--accent-red) 7.000000000000001%, transparent); }

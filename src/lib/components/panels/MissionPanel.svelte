@@ -74,10 +74,10 @@
 
 {#snippet missionRow(m: Mission)}
   <div class="row" class:expanded={expandedMission === m.id} style="border-left:3px solid {priColor(m.priority)}" tabindex="-1" role="group" aria-label="Mission {m.name}, priority {m.priority}" onkeydown={(event) => handleMissionRowKeydown(event, m.id)} onclick={(event) => { if (!(event.target as HTMLElement).closest('button')) onMissionSelect?.(m.id); }}>
-    <div class="line1"><span class="name">{m.name}</span><div class="line1-right">{#if !m.feasible}<span class="infeasible-badge">INFEASIBLE</span>{/if}<span class="pri" style="color:{priColor(m.priority)};border-color:{priColor(m.priority)};">P{m.priority}</span></div></div>
+    <div class="line1"><button class="name" title="Open mission brief" onclick={() => onMissionSelect?.(m.id)}>{m.name}</button><div class="line1-right">{#if !m.feasible}<span class="infeasible-badge">INFEASIBLE</span>{/if}<span class="pri" style="color:{priColor(m.priority)};border-color:{priColor(m.priority)};">P{m.priority}</span></div></div>
     {#if expandedMission === m.id}<div class="line2"><span class="coords">{m.target.lat.toFixed(3)}N · {m.target.lng.toFixed(3)}E</span><span class="risk">RISK {m.riskLevel}</span></div><div class="riskbar"><div class="fill" style="width:{m.riskLevel}%;background:{priColor(m.priority)};"></div></div><div class="type-row"><span class="target-type">{m.targetType.toUpperCase().replace('-', ' ')}</span>{#if m.status === 'PLANNED' && system.coas.length > 0}<span class="state-planned">PLANNED</span>{:else if m.status === 'ACTIVE'}<span class="state-active">● IN FLIGHT</span>{:else if m.status === 'COMPLETE'}<span class="state-complete">✓ COMPLETE</span>{/if}</div>{/if}
     <div class="quick-actions"><button onclick={() => onMissionSelect?.(m.id)}>BRIEF</button>{#if m.status === 'PLANNED'}<button class="execute-action" disabled={!system.coas.length || !m.feasible} onclick={() => handleExecute(m.id)}>EXECUTE</button>{/if}<button onclick={() => expandedMission = expandedMission === m.id ? null : m.id} aria-expanded={expandedMission === m.id}>DETAILS</button></div>
-    {#if expandedMission === m.id}<div class="detail-row">ID {m.id} · STATUS {m.status} · TARGET {m.targetType.toUpperCase()} · FEASIBLE {m.feasible ? 'YES' : 'NO'}</div>{/if}
+    {#if expandedMission === m.id}<div class="detail-grid"><span title="Mission identifier">{m.id}</span><span>{m.status}</span><span>{m.targetType.toUpperCase()}</span><span>RISK {m.riskLevel}%</span><span>{m.feasible ? 'FEASIBLE' : 'NOT FEASIBLE'}</span></div>{/if}
   </div>
 {/snippet}
 
@@ -127,12 +127,13 @@
   .quick-actions button { padding:3px 5px; border:1px solid var(--border-strong); color:var(--accent-cyan); background:transparent; font:7px var(--font-mono); cursor:pointer; }
   .quick-actions button:disabled { opacity:.35; cursor:not-allowed; }
   .quick-actions button.execute-action { color:var(--accent-green); }
-  .detail-row { padding-top:5px; color:var(--text-muted); font-size:8px; line-height:1.5; }
+  .detail-grid { display:flex; flex-wrap:wrap; gap:4px 8px; padding-top:5px; color:var(--text-muted); font-size:8px; line-height:1.5; }
   .state-planned { color:var(--text-muted); font-size:8px; }
   .empty { min-height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:18px 12px; color:var(--text-muted); text-align:center; font:8px var(--font-mono); letter-spacing:.08em; }
   .empty b { color:var(--accent-cyan); font-size:10px; }
   .line1 { display: flex; justify-content: space-between; align-items: center; }
-  .name { color: var(--accent-amber); font-size: 10px; letter-spacing: 0.08em; }
+  .name { padding:0; border:0; background:transparent; color: var(--accent-amber); font:10px var(--font-mono); letter-spacing: 0.08em; text-align:left; cursor:pointer; }
+  .name:hover { text-decoration:underline; }
   .line1-right { display: flex; gap: 6px; align-items: center; }
   .infeasible-badge {
     font-size: 7px; padding: 1px 5px; border: 1px solid var(--accent-red);

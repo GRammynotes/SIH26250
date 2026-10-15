@@ -16,7 +16,7 @@
     ['RANKED COAs', '3 options · trade-offs explained'], ['MISSION TASKING', 'aircraft-to-target assignment'],
     ['EXECUTION ORDER', 'ATO-like briefing'], ['AFTER-ACTION', 'decisions · BDA · metrics'],
   ];
-  let openInputs = $state(true); let openProcessing = $state(true); let openOutputs = $state(true);
+  let openInputs = $state(false); let openProcessing = $state(false); let openOutputs = $state(false);
   let now = $state(Date.now());
   const mission = $derived(system.activeMissions.at(-1) ?? null);
   const missionName = $derived(mission?.missionName ?? system.missions[0]?.name ?? 'NO MISSION SELECTED');
@@ -29,12 +29,12 @@
 </script>
 
 <section class="flow" aria-label="Mission input and output flow">
-  <header><span>MISSION SYSTEM FLOW</span><small>{missionName.toUpperCase()}</small></header>
+  <header><span>MISSION SYSTEM FLOW</span><small title={missionName}>{missionName.toUpperCase()}</small></header>
   <details open={openInputs} ontoggle={(e) => openInputs = (e.currentTarget as HTMLDetailsElement).open}><summary>INPUT SOURCES <span>6 CONNECTED</span></summary><div class="rows">{#each inputs as [name, value]}<div class="row"><i class:warn={degraded && name === 'IACCS FEED'}></i><div class="detail"><b>{name}</b><span>{value}</span></div><strong class:warn={degraded && name === 'IACCS FEED'}>{degraded && name === 'IACCS FEED' ? 'DEGRADED' : 'LIVE'}</strong></div>{/each}</div></details>
   <details open={openProcessing} ontoggle={(e) => openProcessing = (e.currentTarget as HTMLDetailsElement).open}><summary>SYSTEM PROCESSING <span>5 ENGINES</span></summary><div class="rows">{#each processing as [name, value]}<div class="row"><i></i><div class="detail"><b>{name}</b><span>{value}</span></div><strong>READY</strong></div>{/each}</div></details>
   <details open={openOutputs} ontoggle={(e) => openOutputs = (e.currentTarget as HTMLDetailsElement).open}><summary>COMMANDER OUTPUTS <span>4 PRODUCTS</span></summary><div class="rows">{#each outputs as [name, value]}<div class="row"><i></i><div class="detail"><b>{name}</b><span>{value}</span></div><strong>{name === 'RANKED COAs' ? system.coas.length + ' OPTIONS' : 'AVAILABLE'}</strong></div>{/each}</div></details>
   <section class="timeline"><h3>MISSION EXECUTION TIMELINE <span>{clock}</span></h3><div class="steps">{#each phases as phase, i}<div class="step" class:complete={phaseState(i)==='complete'} class:active={phaseState(i)==='active'}><i></i><b>{phase}</b><small>{phaseState(i)==='complete'?'COMPLETE':phaseState(i)==='active'?'ACTIVE':'PENDING'}</small></div>{/each}</div></section>
-  <footer>SIMULATED TRAINING DATA · ACTIVE SCENARIO: {SCENARIO_LABELS[system.activeScenarioFilter ?? ''] ?? 'GLOBAL VIEW'}</footer>
+  <footer title={`SIMULATED TRAINING DATA · ACTIVE SCENARIO: ${SCENARIO_LABELS[system.activeScenarioFilter ?? ''] ?? 'GLOBAL VIEW'}`}>EXERCISE · {SCENARIO_LABELS[system.activeScenarioFilter ?? ''] ?? 'GLOBAL'}</footer>
 </section>
 
 <style>

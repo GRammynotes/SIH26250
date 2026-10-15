@@ -1,6 +1,7 @@
 ﻿<script lang="ts">
   import SvelteVirtualList from '@humanspeak/svelte-virtual-list';
   import { system } from '../../stores/systemStore.svelte';
+  import { WEAPONS } from '../../data/weapons';
   import type { Aircraft } from '../../types';
   let { onCollapse, onToggleVisibility, onLoadout, onAssign }: { onCollapse?: () => void; onToggleVisibility?: () => void; onLoadout?: (type: string, tail: string) => void; onAssign?: (aircraftId: string, missionId: string) => void } = $props();
 
@@ -40,15 +41,20 @@
       expandedId = expandedId === aircraftId ? null : aircraftId;
     }
   }
+
+  function openAircraft(aircraftId: string) {
+    window.dispatchEvent(new CustomEvent('aircommand:entity-detail', { detail: { type: 'aircraft', id: aircraftId } }));
+  }
 </script>
 
 {#snippet aircraftRow(ac: Aircraft)}
+  {@const weapons = ac.weapons.map((id) => WEAPONS[id] ?? Object.values(WEAPONS).find((weapon) => weapon.name === id)).filter((weapon) => !!weapon)}
   <div class="row" tabindex="-1" role="group" aria-label="Aircraft {ac.tailNumber}, {ac.status}" onkeydown={(event) => handleAircraftRowKeydown(event, ac.id)}>
-    <div class="line1"><span class="tail">{ac.tailNumber}</span><span class="status" style="color:{statusColor(ac.status)};" aria-label="{ac.status === 'FMC' ? 'Fully mission capable' : ac.status === 'PMC' ? 'Partially mission capable' : 'Not mission capable'}"><span class="status-glyph" aria-hidden="true">{ac.status === 'FMC' ? '✓' : ac.status === 'PMC' ? '◐' : '×'}</span>{ac.status}</span></div>
-    <div class="line2" aria-label="Fuel remaining {ac.fuel} percent">{#if expandedId === ac.id}<span class="type">{ac.type}</span>{/if}<span class="fuel"><span class="track"><span class="bar" style="width:{ac.fuel}%;background:{statusColor(ac.status)};"></span></span>{#if expandedId === ac.id}<span class="txt">{ac.fuel}%</span>{/if}</span></div>
+    <div class="line1"><div class="identity"><span class="aircraft-thumb" title={ac.type} aria-hidden="true">✈</span><button class="tail" title="Open aircraft detail" onclick={() => openAircraft(ac.id)}>{ac.tailNumber}</button></div><span class="status" title={ac.status === 'FMC' ? 'Fully mission capable' : ac.status === 'PMC' ? 'Partially mission capable' : 'Not mission capable'} style="color:{statusColor(ac.status)};" aria-label="{ac.status === 'FMC' ? 'Fully mission capable' : ac.status === 'PMC' ? 'Partially mission capable' : 'Not mission capable'}"><span class="status-glyph" aria-hidden="true">{ac.status === 'FMC' ? '✓' : ac.status === 'PMC' ? '◐' : '×'}</span>{ac.status}</span></div>
+    <div class="line2" aria-label="Fuel remaining {ac.fuel} percent"><button class="type" title="Open aircraft detail" onclick={() => openAircraft(ac.id)}>{ac.type}</button><button class="base-link" title="Show base detail" onclick={() => system.selectBase(ac.base)}>{ac.base.toUpperCase()}</button><span class="fuel"><span class="track"><span class="bar" style="width:{ac.fuel}%;background:{statusColor(ac.status)};"></span></span><span class="txt">{ac.fuel}%</span></span></div>
     <div class="quick-actions"><button onclick={() => onLoadout?.(ac.type, ac.tailNumber)}>LOADOUT</button><button onclick={() => assigningId = assigningId === ac.id ? null : ac.id} aria-expanded={assigningId === ac.id}>ASSIGN</button><button onclick={() => expandedId = expandedId === ac.id ? null : ac.id} aria-expanded={expandedId === ac.id}>DETAILS</button></div>
-    {#if assigningId === ac.id}<div class="mission-choices" aria-label="Choose mission for {ac.tailNumber}">{#each system.missions.filter((mission) => mission.status === 'PLANNED') as mission (mission.id)}<button onclick={() => { onAssign?.(ac.id, mission.id); assigningId = null; }}>{mission.name}</button>{:else}<span>NO PLANNED MISSIONS</span>{/each}</div>{/if}
-    {#if expandedId === ac.id}<div class="details">{ac.callsign ?? 'EXERCISE FLIGHT'} · {ac.type} · BASE {ac.base.toUpperCase()} · FUEL {ac.fuel}% · CREW REST {ac.crewRest}H · HEADING {ac.heading}° · EXERCISE LOAD {ac.weapons.join(', ')}</div>{/if}
+    {#if assigningId === ac.id}<div class="mission-choices" aria-label="Choose mission for {ac.tailNumber}">{#each system.missions.filter((mission) => mission.status === 'PLANNED') as mission (mission.id)}<div><button class="mission-brief" title="Open mission brief" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:mission-brief', { detail: mission.id }))}>{mission.name}</button><button title="Assign aircraft to mission" onclick={() => { onAssign?.(ac.id, mission.id); assigningId = null; }}>ASSIGN</button></div>{:else}<span>NO PLANNED MISSIONS</span>{/each}</div>{/if}
+    {#if expandedId === ac.id}<div class="details"><span title="Callsign">{ac.callsign ?? 'EXERCISE FLIGHT'}</span><span>CREW {ac.crewRest}H · HDG {ac.heading}°</span><div class="weapon-glyphs" aria-label="Loaded weapons">{#each weapons as weapon (weapon!.id)}<button title="{weapon!.name} · {weapon!.rangeKm} km" aria-label="Weapon detail: {weapon!.name}" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:weapon-detail', { detail: weapon!.id }))}>⌖</button>{/each}</div></div>{/if}
   </div>
 {/snippet}
 
@@ -102,14 +108,24 @@
   .row:hover .quick-actions,.row:focus-within .quick-actions { opacity:1; }
   @media (max-width:1100px) { .hdr { gap:3px; padding:8px 6px 5px; font-size:7px; letter-spacing:.08em; white-space:nowrap; }.hdr .count { display:none; }.hdr-actions { gap:1px; }.chevron { padding:2px; }.sub { justify-content:space-between; gap:3px; padding:0 6px 6px; font-size:6px; letter-spacing:0; }.asset-tools { justify-content:flex-start; }.chips { flex-wrap:wrap; gap:2px; }.chips button,.sort-toggle { padding:3px; font-size:6px; } }
   .quick-actions button,.mission-choices button { padding:3px 5px; border:1px solid var(--border-strong); color:var(--accent-cyan); background:transparent; font:7px var(--font-mono); cursor:pointer; }
-  .mission-choices { display:flex; flex-wrap:wrap; gap:4px; padding-top:5px; }
+  .mission-choices { display:flex; flex-direction:column; gap:4px; padding-top:5px; }
+  .mission-choices>div { display:flex; justify-content:space-between; align-items:center; gap:6px; }
+  .mission-choices button.mission-brief { flex:1; text-align:left; }
   .mission-choices span,.details { color:var(--text-muted); font:8px var(--font-mono); padding-top:5px; }
+  .details { display:grid; grid-template-columns:1fr auto; gap:5px; }
+  .weapon-glyphs { grid-column:1/-1; display:flex; gap:4px; }
+  .weapon-glyphs button { width:23px; height:21px; border:1px solid var(--border-strong); color:var(--accent-cyan); background:transparent; cursor:pointer; }
   .line1 { display: flex; justify-content: space-between; align-items: center; }
-  .tail { color: var(--accent-cyan); font-size: 11px; letter-spacing: 0.08em; }
+  .identity { display:flex; align-items:center; gap:7px; }
+  .aircraft-thumb { display:grid; place-items:center; width:36px; height:28px; border:1px solid var(--border-subtle); color:var(--accent-cyan); font-size:17px; }
+  .tail { padding:0; border:0; background:transparent; color:var(--accent-cyan); font:11px var(--font-mono); letter-spacing:.08em; cursor:pointer; }
   .status { display: flex; align-items: center; gap: 5px; font-size: 9px; letter-spacing: 0.12em; }
   .status-glyph { display:grid; place-items:center; width:12px; height:12px; border:1px solid currentColor; font:9px/1 var(--font-mono); }
-  .line2 { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
-  .type { color: var(--text-muted); font-size: 10px; }
+  .line2 { display: flex; justify-content: space-between; align-items: center; gap:5px; margin-top: 4px; }
+  .type { padding:0; border:0; background:transparent; color:var(--text-muted); font:8px var(--font-mono); cursor:pointer; text-align:left; }
+  .type:hover { text-decoration:underline; }
+  .base-link { padding:0; border:0; background:transparent; color:var(--text-muted); font:7px var(--font-mono); cursor:pointer; }
+  .base-link:hover,.tail:hover { text-decoration:underline; }
   .fuel { display: flex; align-items: center; gap: 6px; }
   .track { display: inline-block; width: 40px; height: 3px; background: var(--border-subtle); position: relative; }
   .bar { display: block; height: 100%; }
