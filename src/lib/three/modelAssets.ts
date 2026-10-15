@@ -53,9 +53,11 @@ export function loadModelAsset(path: string): Promise<ModelAsset> {
 
 export function createModelInstance(asset: ModelAsset): Group {
   const scene = clone(asset.gltf.scene);
-  scene.scale.setScalar(asset.scale);
-  scene.position.copy(asset.center).multiplyScalar(-asset.scale);
   const group = new Group();
+  // Keep the glTF root transform intact and apply framing from an outer group.
+  // Overwriting the glTF root position can offset models whose source scene has a transform.
+  group.scale.setScalar(asset.scale);
+  group.position.copy(asset.center).multiplyScalar(-asset.scale);
   group.add(scene);
   return group;
 }

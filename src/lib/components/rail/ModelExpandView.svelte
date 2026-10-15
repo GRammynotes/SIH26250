@@ -27,6 +27,7 @@
   let interactionTimer: ReturnType<typeof setTimeout> | undefined;
   let loadFailed = $state(false);
   let loadTimer: ReturnType<typeof setTimeout> | undefined;
+  let overlayElement: HTMLElement;
   const createRenderer = (canvas: HTMLCanvasElement) => { const renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true }); renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); renderer.shadowMap.enabled = false; return renderer; };
 
   $effect(() => {
@@ -50,6 +51,8 @@
   function close() { onClose?.(); }
 
   onMount(() => {
+    // The entity detail panel clips overflow; mount the full-screen view at the document root.
+    document.body.appendChild(overlayElement);
     const activeMission = system.activeMissions.find((mission) => !['COMPLETE', 'ABORTED'].includes(mission.phase));
     if (!system.focusMode?.active && activeMission) {
       system.enterFocusMode(activeMission.missionId);
@@ -65,11 +68,12 @@
       if (ownsFocus) system.exitFocusMode();
       window.dispatchEvent(new CustomEvent('aircommand:focus-lock', { detail: false }));
       window.removeEventListener('keydown', onKeydown);
+      overlayElement.remove();
     };
   });
 </script>
 
-<section class="overlay" role="dialog" aria-modal="true" aria-label={`${designation} 3D focus view`} onpointerdown={markInteraction} onwheel={markInteraction}>
+<section bind:this={overlayElement} class="overlay" role="dialog" aria-modal="true" aria-label={`${designation} 3D focus view`} onpointerdown={markInteraction} onwheel={markInteraction}>
   <div class="frame" onclick={(event) => event.stopPropagation()} role="presentation">
     <header>
       <span>◈ ENTITY FOCUS · {entityType.toUpperCase()}</span>

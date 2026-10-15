@@ -71,8 +71,6 @@
   let showWeather = $state(true);
   let showEnemy = $state(true);
   let showRadarOverlay = $state(false);
-  let overviewAircraft = $derived(system.activeScenarioFilter ? system.scenarioAircraft : system.aircraft);
-  let overviewFmcCount = $derived(overviewAircraft.filter((item) => item.status === 'FMC').length);
 
   const palette = getComputedStyle(document.documentElement);
   const C = {
@@ -314,7 +312,7 @@
   function ensureAircraftLayer() {
     if (!map) return;
     if (!map.getSource('aircraft-gl')) map.addSource('aircraft-gl', {
-      type: 'geojson', data: { type: 'FeatureCollection', features: [] }, cluster: true, clusterMaxZoom: 5, clusterRadius: 50,
+      type: 'geojson', data: { type: 'FeatureCollection', features: [] }, cluster: true, clusterMaxZoom: 5, clusterRadius: 28,
       clusterProperties: {
         fmc: ['+', ['case', ['==', ['get', 'status'], 'FMC'], 1, 0]],
         pmc: ['+', ['case', ['==', ['get', 'status'], 'PMC'], 1, 0]],
@@ -323,11 +321,11 @@
     });
     if (!map.getLayer('aircraft-clusters')) map.addLayer({
       id: 'aircraft-clusters', type: 'circle', source: 'aircraft-gl', minzoom: 3, maxzoom: 5, filter: ['has', 'point_count'],
-      paint: { 'circle-color': C.cyan, 'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'], 2, 11, 50, 18, 200, 24], 'circle-opacity': 0.2 },
+      paint: { 'circle-color': C.cyan, 'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'], 2, 9, 50, 14, 200, 18], 'circle-opacity': 0.14 },
     });
     if (!map.getLayer('aircraft-cluster-count')) map.addLayer({
       id: 'aircraft-cluster-count', type: 'symbol', source: 'aircraft-gl', filter: ['has', 'point_count'],
-      layout: { ...labelLayout(['step', ['zoom'], '', 3, ['to-string', ['get', 'point_count']]]), 'symbol-sort-key': 100 },
+      layout: { ...labelLayout(['step', ['zoom'], '', 3, ['concat', ['to-string', ['get', 'point_count']], ' AC']]), 'symbol-sort-key': 100 },
       paint: labelPaint(),
     });
     if (!map.getLayer('active-aircraft-halo')) map.addLayer({ id: 'active-aircraft-halo', type: 'circle', source: 'aircraft-gl', minzoom: 3, filter: ['==', ['get', 'missionActive'], true], paint: { 'circle-radius': 11, 'circle-color': C.cyan, 'circle-opacity': 0, 'circle-stroke-color': C.cyan, 'circle-stroke-width': 2, 'circle-stroke-opacity': .7 } });
@@ -491,7 +489,7 @@
     set('ground-assets-labels', active ? combine(['==', ['get', 'family'], 'ground'], byId(groundIds)) : ['==', ['get', 'family'], 'ground']);
     set('enemy-assets-symbols', active ? combine(['==', ['get', 'family'], 'enemy'], byId(enemyIds)) : ['==', ['get', 'family'], 'enemy']);
     set('enemy-assets-labels', active ? combine(['==', ['get', 'family'], 'enemy'], byId(enemyIds)) : ['==', ['get', 'family'], 'enemy']);
-    for (const [id, radiusLevel] of [['threat-fill-outer', 'outer'], ['threat-outline-outer', 'outer'], ['threat-fill-mid', 'mid'], ['threat-outline-mid', 'mid'], ['threat-fill-inner', 'inner'], ['threat-outline-inner', 'inner']] as const) {
+    for (const [id, radiusLevel] of [['threat-fill-outer', 'outer'], ['threat-outline-outer', 'outer']] as const) {
       const radiusFilter = ['==', ['get', 'radiusLevel'], radiusLevel] as maplibregl.FilterSpecification;
       set(id, active ? combine(radiusFilter, byId(threatIds)) : radiusFilter);
     }
@@ -534,7 +532,7 @@
     };
     const handleLayerSet = (event: Event) => {
       const { layer, visible } = (event as CustomEvent<{ layer: string; visible: boolean }>).detail;
-      const ids: Record<string, string[]> = { airspace: ['airspace-fill', 'airspace-line'], weather: ['weather-fill', 'weather-line'], threats: ['threat-fill-outer', 'threat-fill-mid', 'threat-fill-inner', 'threat-outline-outer', 'threat-outline-mid', 'threat-outline-inner'] };
+      const ids: Record<string, string[]> = { airspace: ['airspace-fill', 'airspace-line'], weather: ['weather-fill', 'weather-line'], threats: ['threat-fill-outer', 'threat-outline-outer'] };
       if (layer === 'airspace') showAirspace = visible;
       else if (layer === 'weather') showWeather = visible;
       else if (layer === 'threats') showThreats = visible;
@@ -834,11 +832,7 @@
     const vis = showThreats ? 'visible' : 'none';
     const threatLayers = [
       'threat-fill-outer',
-      'threat-fill-mid',
-      'threat-fill-inner',
       'threat-outline-outer',
-      'threat-outline-mid',
-      'threat-outline-inner',
       'threat-spoofed-outline',
       'threat-spoofed-x',
       'threat-center-labels',
@@ -934,11 +928,7 @@
     // Clean previous threat layers & source
     const threatLayers = [
       'threat-fill-outer',
-      'threat-fill-mid',
-      'threat-fill-inner',
       'threat-outline-outer',
-      'threat-outline-mid',
-      'threat-outline-inner',
       'threat-spoofed-outline',
       'threat-spoofed-x',
       'threat-center-labels',
@@ -1003,90 +993,45 @@
         },
       });
 
-      // Mid ring: 66% radius
-      threatFeatures.push({
-        type: 'Feature',
-        properties: { id: t.id, type: t.type, radius: t.radius, probability: t.probability, confidence: t.confidence, radiusLevel: 'mid' },
-        geometry: {
-          type: 'Polygon',
-          coordinates: [polygons.mid],
-        },
-      });
-
-      // Inner ring: 33% radius
-      threatFeatures.push({
-        type: 'Feature',
-        properties: { id: t.id, type: t.type, radius: t.radius, probability: t.probability, confidence: t.confidence, radiusLevel: 'inner' },
-        geometry: {
-          type: 'Polygon',
-          coordinates: [polygons.inner],
-        },
-      });
     }
 
     setGeoJSONSource('threat-zones', { type: 'FeatureCollection', features: threatFeatures });
     setGeoJSONSource('threat-centers', { type: 'FeatureCollection', features: threatCenterFeatures });
 
     map.addLayer({
-      id: 'threat-center-labels', type: 'symbol', source: 'threat-centers',
+      id: 'threat-center-labels', type: 'symbol', source: 'threat-centers', minzoom: 6,
       layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.2] },
       paint: labelPaint(),
     });
 
     const threatVis = showThreats ? 'visible' : 'none';
 
-    // 1. Outer ring: fill 0.06
+    // Threat envelopes stay hidden at theater scale and use a single quiet outline when zoomed in.
     map.addLayer({
       id: 'threat-fill-outer',
       type: 'fill',
       source: 'threat-zones',
-      minzoom: 5,
+      minzoom: 6,
       filter: ['==', 'radiusLevel', 'outer'],
       layout: { visibility: threatVis },
-      paint: { 'fill-color': threatFillColor, 'fill-opacity': 0.05 },
+      paint: { 'fill-color': threatFillColor, 'fill-opacity': 0.025 },
     });
 
-    // 2. Mid ring: fill 0.10
-    map.addLayer({
-      id: 'threat-fill-mid',
-      type: 'fill',
-      source: 'threat-zones',
-      minzoom: 5,
-      filter: ['==', 'radiusLevel', 'mid'],
-      layout: { visibility: threatVis },
-      paint: { 'fill-color': threatFillColor, 'fill-opacity': 0.10 },
-    });
-
-    // 3. Inner ring: fill 0.16
-    map.addLayer({
-      id: 'threat-fill-inner',
-      type: 'fill',
-      source: 'threat-zones',
-      minzoom: 5,
-      filter: ['==', 'radiusLevel', 'inner'],
-      layout: { visibility: threatVis },
-      paint: { 'fill-color': threatFillColor, 'fill-opacity': 0.15 },
-    });
-
-    // Outer dashed outline 1px, opacity 0.45
+    // One dashed outer boundary replaces the three overlapping threat rings.
     map.addLayer({
       id: 'threat-outline-outer',
       type: 'line',
       source: 'threat-zones',
-      minzoom: 5,
+      minzoom: 6,
       filter: ['==', 'radiusLevel', 'outer'],
       layout: { visibility: threatVis },
       paint: {
         'line-color': C.red,
         'line-width': 1,
-        'line-opacity': 0.35,
-        'line-dasharray': [4, 3],
+        'line-opacity': 0.24,
+        'line-dasharray': [3, 4],
       },
     });
-
-    for (const [radiusLevel, layerId] of [['mid', 'threat-outline-mid'], ['inner', 'threat-outline-inner']] as const) {
-      map.addLayer({ id: layerId, type: 'line', source: 'threat-zones', minzoom: 5, filter: ['==', 'radiusLevel', radiusLevel], layout: { visibility: threatVis }, paint: { 'line-color': C.red, 'line-width': 0.5, 'line-opacity': 0.4 } });
-    }
 
     // Spoofed track marker: hollow red outline with X
     map.addLayer({
@@ -1368,7 +1313,6 @@
 
 <div class="map-wrap" data-tour="map">
   <div class="map-canvas" class:impact-shake={getSimulationFrame().impacts.some((impact) => impact.flash)} bind:this={container}></div>
-  {#if !system.focusMode?.active && mapZoom < 5 && overviewFmcCount > 0}<div class="theater-aircraft-count" title={`${overviewFmcCount} FMC aircraft in this theater view`}>{overviewFmcCount}</div>{/if}
   {#each narrativeMarkers as marker, index (`${marker.label}-${index}`)}<div class="narrative-focus-marker" role="img" aria-label={`Map focus: ${marker.label}`} style={`left:${marker.x}px;top:${marker.y}px;opacity:${marker.opacity}`}><span aria-hidden="true">{marker.label}</span></div>{/each}
   {#if mapReady && map}<TrajectoryLayer {map} />{/if}
   {#if mapReady && map}<MapNarrativePointer {map} />{/if}
@@ -1429,7 +1373,6 @@
     position: absolute;
     inset: 0;
   }
-  .theater-aircraft-count { position:absolute; z-index:7; top:50%; left:50%; transform:translate(-50%,-50%); width:50px; height:50px; display:grid; place-items:center; border:2px solid var(--accent-cyan); border-radius:50%; background:rgba(5,24,34,.94); box-shadow:0 0 16px color-mix(in srgb,var(--accent-cyan) 40%,transparent); color:var(--text-primary); font:700 15px var(--font-mono); pointer-events:none; }
   .narrative-focus-marker { position:absolute; z-index:8; width:80px; height:80px; transform:translate(-50%,-50%); border:2px dashed var(--accent-cyan); border-radius:50%; box-shadow:0 0 14px color-mix(in srgb,var(--accent-cyan) 35%,transparent); pointer-events:none; transition:opacity .45s ease; }
   .narrative-focus-marker span { position:absolute; left:50%; top:-18px; transform:translateX(-50%); padding:2px 4px; background:var(--bg-base); color:var(--accent-cyan); font:8px var(--font-mono); white-space:nowrap; text-shadow:0 0 4px var(--bg-base); }
 
