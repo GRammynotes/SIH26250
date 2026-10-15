@@ -29,6 +29,7 @@
   }
 
   const mission = $derived(system.missions.find((m) => m.id === missionId) ?? null);
+  const canLaunch = $derived(!!mission?.feasible && assignedAircraft.length > 0);
 
   const selectedCoa = $derived(
     system.coas.find((c) => c.id === system.selectedCoaId) ?? system.coas[0] ?? null
@@ -454,7 +455,8 @@
           </button>
           <button
             class="btn btn-approve"
-            disabled={assignedAircraft.length === 0}
+            disabled={!canLaunch}
+            title={mission && !mission.feasible ? 'NO PLATFORM CAN ENGAGE WITHIN WEAPON ENVELOPE' : undefined}
             onclick={() => onApprove?.()}
           >
             ✓ APPROVE & LAUNCH

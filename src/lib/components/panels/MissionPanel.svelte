@@ -28,13 +28,13 @@
   }
 
   function launch(missionId: string) {
+    const mission = system.scenarioMissions.find((m) => m.id === missionId);
+    if (!mission?.feasible) return;
     const coa = system.coas.find((c) => c.id === system.selectedCoaId) ?? system.coas[0];
     if (!coa) return;
     const ids = coa.assignments[missionId] ?? [];
     if (ids.length === 0) return;
     // Pick the template based on the target type
-    const mission = system.scenarioMissions.find((m) => m.id === missionId);
-    if (!mission) return;
     const map: Record<string, string> = {
       'hardened-bunker': 'sindoor_deep',
       'radar-site': 'sead_template',
@@ -51,6 +51,7 @@
   }
 
   function handleExecute(missionId: string) {
+    if (!system.scenarioMissions.find((mission) => mission.id === missionId)?.feasible) return;
     if (onMissionSelect) {
       onMissionSelect(missionId);
     } else {
@@ -74,9 +75,9 @@
 
 {#snippet missionRow(m: Mission)}
   <div class="row" class:expanded={expandedMission === m.id} style="border-left:3px solid {priColor(m.priority)}" tabindex="-1" role="group" aria-label="Mission {m.name}, priority {m.priority}" onkeydown={(event) => handleMissionRowKeydown(event, m.id)} onclick={(event) => { if (!(event.target as HTMLElement).closest('button')) onMissionSelect?.(m.id); }}>
-    <div class="line1"><button class="name" title="Open mission brief" onclick={() => onMissionSelect?.(m.id)}>{m.name}</button><div class="line1-right">{#if !m.feasible}<span class="infeasible-badge">INFEASIBLE</span>{/if}<span class="pri" style="color:{priColor(m.priority)};border-color:{priColor(m.priority)};">P{m.priority}</span></div></div>
+    <div class="line1"><button class="name" title="Open mission brief" onclick={() => onMissionSelect?.(m.id)}>{m.name}</button><div class="line1-right">{#if !m.feasible}<span class="infeasible-badge">INFEASIBLE</span><span class="blocked-badge">BLOCKED</span>{/if}<span class="pri" style="color:{priColor(m.priority)};border-color:{priColor(m.priority)};">P{m.priority}</span></div></div>
     {#if expandedMission === m.id}<div class="line2"><span class="coords">{m.target.lat.toFixed(3)}N · {m.target.lng.toFixed(3)}E</span><span class="risk">RISK {m.riskLevel}</span></div><div class="riskbar"><div class="fill" style="width:{m.riskLevel}%;background:{priColor(m.priority)};"></div></div><div class="type-row"><span class="target-type">{m.targetType.toUpperCase().replace('-', ' ')}</span>{#if m.status === 'PLANNED' && system.coas.length > 0}<span class="state-planned">PLANNED</span>{:else if m.status === 'ACTIVE'}<span class="state-active">● IN FLIGHT</span>{:else if m.status === 'COMPLETE'}<span class="state-complete">✓ COMPLETE</span>{/if}</div>{/if}
-    <div class="quick-actions"><button onclick={() => onMissionSelect?.(m.id)}>BRIEF</button>{#if m.status === 'PLANNED'}<button class="execute-action" disabled={!system.coas.length || !m.feasible} onclick={() => handleExecute(m.id)}>EXECUTE</button>{/if}<button onclick={() => expandedMission = expandedMission === m.id ? null : m.id} aria-expanded={expandedMission === m.id}>DETAILS</button></div>
+    <div class="quick-actions"><button onclick={() => onMissionSelect?.(m.id)}>BRIEF</button>{#if m.status === 'PLANNED'}<button class="execute-action" disabled={!system.coas.length || !m.feasible} title={!m.feasible ? 'NO PLATFORM CAN ENGAGE WITHIN WEAPON ENVELOPE' : undefined} aria-label={!m.feasible ? 'EXECUTE disabled: NO PLATFORM CAN ENGAGE WITHIN WEAPON ENVELOPE' : 'EXECUTE'} onclick={() => handleExecute(m.id)}>EXECUTE</button>{/if}<button onclick={() => expandedMission = expandedMission === m.id ? null : m.id} aria-expanded={expandedMission === m.id}>DETAILS</button></div>
     {#if expandedMission === m.id}<div class="detail-grid"><span title="Mission identifier">{m.id}</span><span>{m.status}</span><span>{m.targetType.toUpperCase()}</span><span>RISK {m.riskLevel}%</span><span>{m.feasible ? 'FEASIBLE' : 'NOT FEASIBLE'}</span></div>{/if}
   </div>
 {/snippet}
@@ -127,6 +128,7 @@
   .quick-actions button { padding:3px 5px; border:1px solid var(--border-strong); color:var(--accent-cyan); background:transparent; font:7px var(--font-mono); cursor:pointer; }
   .quick-actions button:disabled { opacity:.35; cursor:not-allowed; }
   .quick-actions button.execute-action { color:var(--accent-green); }
+  .quick-actions button.execute-action:disabled { color:var(--text-muted); border-color:var(--border-subtle); opacity:.55; }
   .detail-grid { display:flex; flex-wrap:wrap; gap:4px 8px; padding-top:5px; color:var(--text-muted); font-size:8px; line-height:1.5; }
   .state-planned { color:var(--text-muted); font-size:8px; }
   .empty { min-height:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; padding:18px 12px; color:var(--text-muted); text-align:center; font:8px var(--font-mono); letter-spacing:.08em; }
@@ -140,6 +142,7 @@
     color: var(--accent-red); letter-spacing: 0.1em; font-weight: 700;
     background: color-mix(in srgb, var(--accent-red) 8%, transparent);
   }
+  .blocked-badge { font-size:7px; padding:1px 4px; color:var(--bg-base); background:var(--accent-red); letter-spacing:.08em; font-weight:700; }
   .pri { font-size: 9px; padding: 1px 5px; border: 1px solid; letter-spacing: 0.1em; }
   .line2 { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
   .coords { color: var(--text-muted); font-size: 9px; }
