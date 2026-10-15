@@ -1,106 +1,144 @@
 # AIR COMMAND
-Dynamic air operations decision-support console for SIH 2026 (MoD PS 26250).
 
-## Live Demo
-- URL: https://ps2-sih-26250.vercel.app/
-- Guided walkthrough: press D
-- Historical missions: select from scenario bar
+A browser based tactical air operations decision support exercise for SIH 2026 Ministry of Defence Problem Statement 26250.
 
-## The Problem
-Planning and re-tasking air operations in contested environments is slowed by fragmented data. Aircraft availability, crew status, weapon loads, airspace, weather, and threat intelligence are spread across multiple systems. Commanders lack a unified real-time picture and lose time to manual coordination. This latency can be critical in high-tempo operations where conditions change rapidly. The Ministry of Defence's PS 26250 seeks a solution that fuses these data streams and generates actionable options in real time.
+**Live demonstration:** https://ps2-sih-26250.vercel.app/  
+**Problem statement:** SIH 2026 · MoD PS 26250
 
-## What We Built
-AIR COMMAND combines simulated multi-source inputs into a unified operational picture and generates ranked Courses of Action (COAs) using multi-objective optimisation. The system includes a weaponeering engine that enforces weapon-target compatibility, an NSGA-II-inspired allocator that produces three strategic options (aggressive, balanced, conservative), a Bayesian threat assessment module, and a game-theory comparison framework for evaluating COAs against adversary response models. Public-domain historical context informs training cases; interactive decision branches are simulations, not claims about decisions made during those operations. A voice-guided comprehensive demo walks evaluators through the workflow from mission briefing to after-action review.
+## What it does
 
-## Evaluation Alignment
-
-| Rubric Criterion | What We Did | Where to See It |
-|------------------|-------------|----------------|
-| Innovation | Multi-objective COA generation with weapon compatibility enforcement, Bayesian threat assessment, game-theory adversary modeling, historical decision templates | Optimisation engine in `src/lib/engine/optimisation.ts`, threat assessment in `src/lib/engine/threatAssessment.ts`, game theory in `src/lib/engine/gameTheory.ts` |
-| Feasibility | Full working implementation with real algorithms, web-based architecture, local development and cloud deployment paths | Running `npm run dev` locally, deployed demo at https://ps2-sih-26250.vercel.app/ |
-| Impact | Addresses IAF operational latency problem, reduces manual coordination time, provides ranked options with trade-off explanations, human-in-the-loop decision authority | COA comparison panel showing three options with metrics, decision prompt during mission execution |
-| Technical Execution | Clean architecture with separation of concerns, TypeScript type safety, reactive state management, modular engine components, comprehensive test scenarios | Source structure in `src/lib/`, engine modules in `src/lib/engine/`, demo scenarios in `src/lib/demo/` |
-| Presentation | Professional tactical console UI, guided comprehensive demo with voice narration, interactive glossary, historical simulation mode, event log audit trail | Press D for comprehensive demo, glossary modal, simulation button, event log panel |
+AIR COMMAND presents synthetic aircraft, crew, weapons, airspace, weather, and threat information in a tactical console. Its rule based weighted scoring and compatibility checks produce three courses of action (COAs) with estimated success and risk values, and a separate RED VIEW presents the selected COA’s modeled adversary response. A training exercise lets a user review a briefing, approve or reject mission execution, respond to decision gates, follow a simulated mission, and inspect an after action review.
 
 ## Architecture
 
-```
-src/
-├── lib/
-│   ├── components/
-│   │   ├── layout/          (TopBar, ScenarioBar, TooltipLayer)
-│   │   ├── map/             (TacticalMap, MapContextMenu, TrajectoryLayer, TerrainToggle)
-│   │   ├── overlay/         (CaptionLayer, FocusPointer)
-│   │   ├── panels/          (COAPanel, WeaponMatrix, AfterActionReview, etc.)
-│   ├── data/                (aircraft, bases, weapons, historicalMissions, etc.)
-│   ├── demo/                (comprehensiveDemoScript)
-│   ├── engine/              (optimisation, threatAssessment, gameTheory, weaponeering, trajectory, voice)
-│   ├── stores/              (systemStore.svelte.ts - reactive state)
-│   ├── theme/               (tactical.css)
-│   └── types/               (index.ts - TypeScript definitions)
-├── main.ts                  (Application entry point)
-└── App.svelte               (Root component)
-
-server/
-└── index.js                 (Express health endpoint)
-
-public/                      (Static assets)
+```text
+AIR COMMAND
+├── Svelte 5 + TypeScript browser application
+│   ├── Top bar: exercise mode, system status, voice and help
+│   ├── Left panel: force roster and mission queue
+│   ├── Center: MapLibre tactical map and overlays
+│   └── Right panel: COA, RED VIEW, weapons, metrics, execution, PS MAP
+├── src/lib/data/       Seeded exercise aircraft, bases, weapons, scenarios
+├── src/lib/engine/     Weighted COA scoring, threat and route calculations,
+│                      weapon compatibility, mission execution and simulation
+├── src/lib/components/ User interface panels, dialogs, map and 3D views
+└── server/index.js     Optional Express health endpoint
 ```
 
-## Feature Tour
+## Screenshots
 
-| Feature | How to Access | What It Demonstrates |
-|---------|---------------|----------------------|
-| Mission Briefing | Click a mission in the mission queue | Complete target package with coordinates, threat analysis, assigned forces, weaponeering assessment, historical precedent |
-| Decision Prompt | During mission execution at phase boundaries | Human-in-the-loop control with multiple decision branches, each with different consequences |
-| COA Comparison | Click "Generate COAs" button | Three ranked options (aggressive, balanced, conservative) with success probability, risk score, and trade-off explanations |
-| RED VIEW | Select RED VIEW tab in right panel | Adversary response assumptions, threat geometry, engagement probabilities |
-| Weapon Matrix | Select Weapons tab in right panel | Platform-weapon-target compatibility matrix, launch envelope calculations |
-| After-Action Review | Opens automatically after mission completion | Complete decision trail, mission narrative, force recovery status, battle damage assessment |
-| Metrics Dashboard | Select Metrics tab in right panel | Analytics on force utilization, mission success rates, risk accounting |
-| Comprehensive Demo | Press D on keyboard | Full guided walkthrough of system features with voice narration and synchronized captions |
-| Historical Simulation | Click Simulation button | Public-context case studies for Balakot, Kargil, the 2016 Army Para-SF raid, and Operation Sindoor, plus an undated hypothetical SEAD template. Decision branches are simulated. |
-| Reference Library | Click Reference button | Doctrinal diagrams, mission planning flowcharts, aircraft loadout diagrams, strike geometry |
+The images below are captured from the local application at 1920×1080. They show exercise data and simulated states.
 
-## Tech Stack
+### 01 · Idle console
 
-- **Frontend:** Vite, Svelte 5, TypeScript
-- **Map:** MapLibre GL JS with OpenStreetMap raster tiles
-- **Backend:** Express health endpoint with CORS
-- **State:** Svelte 5 reactive stores
-- **Routing:** @turf/great-circle for geospatial calculations
-- **3D:** `three`, `@threlte/core`, and `@threlte/extras` for local GLB views
-- **Demo:** Svelte-guided walkthrough, Web Speech API for voice narration
-- **Panels:** PaneForge for panel management
-- **Symbols:** Built-in canvas and SVG tactical symbols
+![Idle console](docs/screenshots/submission/01-idle-console.png)
 
-## Running Locally
+### 02 · Deep strike scenario
+
+![Deep strike scenario](docs/screenshots/submission/02-scenario-deep-strike.png)
+
+### 03 · Force roster
+
+![Force roster](docs/screenshots/submission/03-force-roster.png)
+
+### 04 · Mission briefing with ROE
+
+![Mission briefing with ROE](docs/screenshots/submission/04-mission-briefing.png)
+
+### 05 · Generated COAs
+
+![Generated COAs](docs/screenshots/submission/05-coa-generated.png)
+
+### 06 · Differentiated RED VIEW predictions
+
+![RED VIEW predictions](docs/screenshots/submission/06-red-view-differentiated.png)
+
+### 07 · Weapon compatibility matrix
+
+![Weapon matrix](docs/screenshots/submission/07-weapon-matrix.png)
+
+### 08 · Training active at 2×
+
+![Training active](docs/screenshots/submission/08-training-active.png)
+
+### 09 · In-flight decision prompt
+
+![Decision prompt](docs/screenshots/submission/09-decision-prompt.png)
+
+### 10 · Mission execution
+
+![Mission executing](docs/screenshots/submission/10-mission-executing.png)
+
+### 11 · Expanded 3D entity view
+
+![3D entity view](docs/screenshots/submission/11-3d-expand-view.png)
+
+### 12 · Tactical picture and legend
+
+![Tactical picture](docs/screenshots/submission/12-tactical-picture.png)
+
+### 13 · After action review
+
+![After action review](docs/screenshots/submission/13-after-action-review.png)
+
+### 14 · Metrics dashboard
+
+![Metrics dashboard](docs/screenshots/submission/14-metrics-dashboard.png)
+
+### 15 · IACCS exercise status panel
+
+![IACCS status panel](docs/screenshots/submission/15-iaccs-panel.png)
+
+## Run locally
+
+Requirements: Node.js and npm.
 
 ```bash
 npm install
 npm run dev
-npm run build
-npm run server
 ```
 
-The development server starts on http://localhost:5173. The optional Express server exposes `GET /api/health` on http://localhost:3001. It does not provide event streaming, persistence, or operational data ingestion.
+Vite prints the local development URL. To check the production build:
+
+```bash
+npm run build
+```
+
+The optional Express health endpoint can be started with `npm run server`; it is not the source of the exercise data or mission simulation.
 
 ## Deployment
 
-Vercel auto-deploys from the main branch. The live demo is available at https://ps2-sih-26250.vercel.app/
+The Vercel project deploys from the `main` branch. The public demonstration is at https://ps2-sih-26250.vercel.app/.
 
-## Scope
+## Scope: implemented and simulated
 
-### What Is Real
-The algorithms and system architecture are implemented. The optimisation engine generates COAs using multi-objective allocation with weapon compatibility enforcement. The threat assessment module calculates route risk scores using great-circle sampling against threat zones. The game-theory framework evaluates COAs against adversary response models. Historical templates use public-domain context; their interactive choices and outcomes are simulated and are not presented as actual decisions from those operations. The weaponeering engine enforces platform-weapon-target compatibility rules. The trajectory calculation and route-blocking logic are functional.
+### Implemented in this repository
 
-### What Is Simulated
-The data feeds are simulated for demonstration purposes. Aircraft status changes, threat appearances, weather systems, and intelligence updates are scripted scenarios rather than live sensor feeds. Exercise markers on the map are synthetic. The voice narration uses the Web Speech API for accessibility, not operational voice communication. Historical mission narratives are based on public sources but adapted for the demonstration context.
+- Rule based weighted scoring for three COA postures, with success estimates constrained to 40–80% and a risk score.
+- Weapon and platform compatibility logic, route risk calculations against exercise threat zones, and scenario specific RED VIEW predictions.
+- User controlled mission briefing and execution flow, decision prompts, trajectory display, exercise AAR, and a metrics dashboard.
+- Crew rest and loaded weapon count badges in the force roster, plus a PS MAP tab linking the named problem statement categories to their UI surfaces.
 
-## Limitations & Future Work
+### Simulated exercise inputs and outcomes
 
-- The optional Express server provides only a CORS-enabled health endpoint; data fusion would require integration with IAF systems (IACCS, HUMS, ATC, etc.)
-- Threat intelligence is simulated; production deployment would need classified threat databases
-- Weapon performance parameters are simplified; operational use would require classified weaponeering data
-- The decision templates are based on public sources; full doctrinal integration would require access to classified operational records
-- Voice narration uses browser-based synthesis; operational use would require secure voice communication channels
+All aircraft readiness, crew, weapons inventory, airspace, weather, threat tracks, IACCS feed status, and mission outcomes are seeded or generated for the exercise. The IACCS label and feed list describe the simulated exercise status; the application does not connect to IACCS, radar, AWACS, UAV, satellite, or live base systems. Success values and battle damage outcomes are illustrative model results, not operational predictions or intelligence. The project does not generate or export an operational ATO, and it does not claim machine learning optimization.
+
+## Technology
+
+- Svelte 5 and TypeScript
+- Vite
+- MapLibre GL JS for the map
+- Three.js with Threlte for 3D entity views
+- Web Speech API for optional browser narration
+- Express for the optional health endpoint
+- Turf great-circle calculations for geospatial routes
+
+## Team and contact
+
+**Team:** AIR COMMAND, SIH 2026 submission team.  
+**Contact:** Use the SIH 2026 submission channel associated with this problem statement; this repository does not publish individual contact details.
+
+## Demo recording materials
+
+See [the 35 shot list](docs/demo/SHOT_LIST.md) and [narration script](docs/demo/NARRATION.md). Both describe the application as an exercise prototype and distinguish simulated inputs from live integrations.
+
