@@ -3,7 +3,7 @@
   import { OrbitControls } from '@threlte/extras';
   import { CatmullRomCurve3, Group, TubeGeometry, Vector3, type ColorRepresentation } from 'three';
 
-  let { modelInstance, trajectory }: { modelInstance: Group; trajectory: 'ingress' | 'wez' | 'release' | 'egress' | null } = $props();
+  let { modelInstance, trajectory, interactive = false, autoRotate = true, rotationOffset = 0 }: { modelInstance: Group; trajectory: 'ingress' | 'wez' | 'release' | 'egress' | null; interactive?: boolean; autoRotate?: boolean; rotationOffset?: number } = $props();
   let modelGroup: Group | undefined = $state();
   let elapsed = 0;
   const points = [
@@ -28,7 +28,12 @@
   useTask((delta) => {
     if (!modelGroup) return;
     elapsed += delta;
-    modelGroup.rotation.y += delta * 0.08;
+    if (interactive) {
+      modelGroup.rotation.y = rotationOffset;
+      modelGroup.position.y = 0;
+      return;
+    }
+    if (autoRotate) modelGroup.rotation.y += delta * 0.08;
     modelGroup.position.y = Math.sin(elapsed * Math.PI) * 0.5;
   });
 </script>
@@ -38,7 +43,7 @@
 <T.DirectionalLight position={[5, 10, 5]} intensity={1.2} color="#ffb800" />
 <T.DirectionalLight position={[-5, 5, -5]} intensity={0.4} color="#00d4ff" />
 <T.GridHelper args={[20, 20, 0x0a0e1a, 0x0a0e1a]} />
-<OrbitControls enableZoom={false} autoRotate autoRotateSpeed={0.8} />
+<OrbitControls enableZoom={interactive} enablePan={interactive} {autoRotate} autoRotateSpeed={0.8} />
 
 <T.Group bind:ref={modelGroup}>
   <T is={modelInstance} />
