@@ -1,4 +1,0 @@
-03 hover screenshot uses a rendered threat track, not aircraft: sampled aircraft symbol was not present at default zoom.
-05 aircraft arc screenshot uses the confirmed rendered threat selection because aircraft glyph was not hit.
-06-click-missile-countdown.png: no RELEASE-phase missile was active in the current mission state.
-07-click-target-all-arcs.png: no mission target feature at sampled point.
