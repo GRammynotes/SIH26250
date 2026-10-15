@@ -443,6 +443,7 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
 
 <style>
   :global(body.demo-active .shell) { pointer-events: none; }
+  :global(body.demo-active .shell .topbar) { opacity: .4; }
   :global(body.demo-active .demo-overlay), :global(body.demo-active .demo-panel), :global(body.demo-active .demo-panel button), :global(body.demo-active .captions) { pointer-events: auto; }
   :global(body.demo-active .focus-layer) { z-index: 501; }
 
@@ -505,8 +506,10 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
 
   /* Progress */
   .progress-section {
-    padding: 12px 20px;
+    flex:none;
+    padding: 5px 10px;
     border-bottom: 1px solid var(--border-subtle);
+    background:var(--bg-base);
   }
 
   .progress-bar {
@@ -514,7 +517,7 @@ import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } 
     background: var(--border-subtle);
     border-radius: 2px;
     overflow: hidden;
-    margin-bottom: 6px;
+    margin-bottom: 3px;
   }
 
   .progress-fill {
