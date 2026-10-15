@@ -163,7 +163,7 @@
 
   const MAP_STYLE: maplibregl.StyleSpecification = {
     version: 8,
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    glyphs: '/fonts/{fontstack}/{range}.pbf',
     sources: {
       osm: {
         type: 'raster',
@@ -266,7 +266,7 @@
     });
     if (!map.getLayer('aircraft-cluster-count')) map.addLayer({
       id: 'aircraft-cluster-count', type: 'symbol', source: 'aircraft-gl', minzoom: 3, maxzoom: 5, filter: ['has', 'point_count'],
-      layout: { 'text-field': ['get', 'point_count'], 'text-font': ['Open Sans Bold'], 'text-size': 14, 'text-allow-overlap': true },
+      layout: { 'text-field': ['get', 'point_count'], 'text-font': ['Noto Sans Regular'], 'text-size': 14, 'text-allow-overlap': true },
       paint: { 'text-color': C.text, 'text-halo-color': C.base, 'text-halo-width': 1 },
     });
     if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
@@ -276,7 +276,7 @@
     });
     if (!map.getLayer('aircraft-gl-labels')) map.addLayer({
       id: 'aircraft-gl-labels', type: 'symbol', source: 'aircraft-gl', minzoom: 8, filter: ['!', ['has', 'point_count']],
-      layout: { 'text-field': ['get', 'tailNumber'], 'text-font': ['Open Sans Bold'], 'text-size': 10, 'text-offset': [0, 1.7], 'text-anchor': 'top', 'text-allow-overlap': true, 'text-ignore-placement': true },
+      layout: { 'text-field': ['get', 'tailNumber'], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.7], 'text-anchor': 'top', 'text-allow-overlap': true, 'text-ignore-placement': true },
       paint: { 'text-color': C.cyan, 'text-halo-color': C.base, 'text-halo-width': 2 },
     });
     if (!aircraftLayerClickAttached) {
@@ -297,13 +297,13 @@
     const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
     for (const id of ['bases-gl', 'missions-gl', 'assets-gl']) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: empty });
     if (!map.getLayer('bases-gl-symbols')) map.addLayer({ id: 'bases-gl-symbols', type: 'circle', source: 'bases-gl', minzoom: 3, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 7], 'circle-color': C.cyan, 'circle-opacity': ['get', 'opacity'], 'circle-stroke-color': C.base, 'circle-stroke-width': 1.5 } });
-    if (!map.getLayer('bases-gl-labels')) map.addLayer({ id: 'bases-gl-labels', type: 'symbol', source: 'bases-gl', minzoom: 5, layout: { 'text-field': ['get', 'code'], 'text-font': ['Open Sans Bold'], 'text-size': 9, 'text-offset': [0, 1.2], 'text-allow-overlap': true }, paint: { 'text-color': C.cyan, 'text-opacity': ['get', 'opacity'], 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
+    if (!map.getLayer('bases-gl-labels')) map.addLayer({ id: 'bases-gl-labels', type: 'symbol', source: 'bases-gl', minzoom: 5, layout: { 'text-field': ['get', 'code'], 'text-font': ['Noto Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.2], 'text-allow-overlap': true }, paint: { 'text-color': C.cyan, 'text-opacity': ['get', 'opacity'], 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
     if (!map.getLayer('missions-gl-symbols')) map.addLayer({ id: 'missions-gl-symbols', type: 'circle', source: 'missions-gl', minzoom: 5, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 4, 9, 8], 'circle-color': ['match', ['get', 'priority'], 1, C.red, 2, C.amber, C.muted], 'circle-stroke-color': C.base, 'circle-stroke-width': 1.5 } });
-    if (!map.getLayer('missions-gl-labels')) map.addLayer({ id: 'missions-gl-labels', type: 'symbol', source: 'missions-gl', minzoom: 5, layout: { 'text-field': ['get', 'label'], 'text-font': ['Open Sans Bold'], 'text-size': 9, 'text-offset': [0, 1.3], 'text-allow-overlap': true }, paint: { 'text-color': C.amber, 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
+    if (!map.getLayer('missions-gl-labels')) map.addLayer({ id: 'missions-gl-labels', type: 'symbol', source: 'missions-gl', minzoom: 5, layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 9, 'text-offset': [0, 1.3], 'text-allow-overlap': true }, paint: { 'text-color': C.amber, 'text-halo-color': C.base, 'text-halo-width': 1.5 } });
     for (const [id, family, minzoom, color] of [['ground-assets-symbols', 'ground', 7, C.green], ['enemy-assets-symbols', 'enemy', 6, C.red]] as const) {
       if (!map.getLayer(id)) map.addLayer({ id, type: 'circle', source: 'assets-gl', minzoom, filter: ['==', ['get', 'family'], family], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], minzoom, 3, 9, 6], 'circle-color': color, 'circle-stroke-color': C.base, 'circle-stroke-width': 1, 'circle-opacity': ['get', 'opacity'] } });
       const labelsId = id.replace('symbols', 'labels');
-      if (!map.getLayer(labelsId)) map.addLayer({ id: labelsId, type: 'symbol', source: 'assets-gl', minzoom: family === 'ground' ? 8 : 8, filter: ['==', ['get', 'family'], family], layout: { 'text-field': ['get', 'label'], 'text-font': ['Open Sans Regular'], 'text-size': 8, 'text-offset': [0, 1.2], 'text-allow-overlap': true }, paint: { 'text-color': color, 'text-halo-color': C.base, 'text-halo-width': 1.3 } });
+      if (!map.getLayer(labelsId)) map.addLayer({ id: labelsId, type: 'symbol', source: 'assets-gl', minzoom: family === 'ground' ? 8 : 8, filter: ['==', ['get', 'family'], family], layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 8, 'text-offset': [0, 1.2], 'text-allow-overlap': true }, paint: { 'text-color': color, 'text-halo-color': C.base, 'text-halo-width': 1.3 } });
     }
     for (const layerId of ['bases-gl-symbols', 'missions-gl-symbols', 'ground-assets-symbols', 'enemy-assets-symbols']) {
       map.on('mouseenter', layerId, () => { if (map) map.getCanvas().style.cursor = 'pointer'; });
@@ -606,7 +606,7 @@
       m.addSource('aircraft-trails', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addSource('focus-aircraft', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'focus-aircraft-mark', type: 'circle', source: 'focus-aircraft', paint: { 'circle-radius': 8, 'circle-color': ['match', ['get', 'status'], 'FMC', C.green, 'PMC', C.amber, C.muted], 'circle-opacity': ['get', 'opacity'], 'circle-opacity-transition': { duration: 300 }, 'circle-stroke-color': C.text, 'circle-stroke-width': 1.5 } });
-      m.addLayer({ id: 'focus-aircraft-label', type: 'symbol', source: 'focus-aircraft', layout: { 'text-field': ['get', 'tailNumber'], 'text-font': ['Open Sans Bold'], 'text-size': 10, 'text-offset': [0, 1.5], 'text-allow-overlap': true }, paint: { 'text-color': C.cyan, 'text-opacity': ['get', 'opacity'], 'text-opacity-transition': { duration: 300 }, 'text-halo-color': C.base, 'text-halo-width': 2 } });
+      m.addLayer({ id: 'focus-aircraft-label', type: 'symbol', source: 'focus-aircraft', layout: { 'text-field': ['get', 'tailNumber'], 'text-font': ['Noto Sans Regular'], 'text-size': 10, 'text-offset': [0, 1.5], 'text-allow-overlap': true }, paint: { 'text-color': C.cyan, 'text-opacity': ['get', 'opacity'], 'text-opacity-transition': { duration: 300 }, 'text-halo-color': C.base, 'text-halo-width': 2 } });
       m.addSource('focus-route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({ id: 'focus-route-line', type: 'line', source: 'focus-route', paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-opacity': ['get', 'opacity'], 'line-opacity-transition': { duration: 300 }, 'line-dasharray': [1, 0] } });
       m.addLayer({ id: 'aircraft-trails-line', type: 'line', source: 'aircraft-trails', layout: { visibility: showTrails ? 'visible' : 'none' }, paint: { 'line-color': ['match', ['get', 'status'], 'FMC', C.green, 'PMC', C.amber, C.muted], 'line-width': 2, 'line-opacity': ['get', 'opacity'] } });
