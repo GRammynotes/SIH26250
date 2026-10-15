@@ -144,7 +144,9 @@
   const labelTextColor: maplibregl.ExpressionSpecification = ['case', ['==', ['get', 'tier'], 0], '#ff2d7c', ['==', ['get', 'tier'], 10], '#00d4ff', '#cbd5e1'];
   const labelTextSize: maplibregl.ExpressionSpecification = ['interpolate', ['linear'], ['zoom'], 4, 10, 7, 11, 10, 13, 14, 15];
   function labelTextOpacity(): maplibregl.ExpressionSpecification {
-    return ['case', ['==', ['get', 'tier'], 10], 1, ['*', ['interpolate', ['linear'], ['zoom'], 3, 0, 4, 1, 15, 1], selectionDimActive ? 0.4 : 1, ['coalesce', ['get', 'opacity'], 1]]];
+    const selected = ['==', ['get', 'tier'], 10];
+    const opacityAtVisibleZoom = ['case', selected, 1, ['*', selectionDimActive ? 0.4 : 1, ['coalesce', ['get', 'opacity'], 1]]];
+    return ['interpolate', ['linear'], ['zoom'], 3, ['case', selected, 1, 0], 4, opacityAtVisibleZoom, 15, opacityAtVisibleZoom];
   }
   const labelLayout = (field: unknown, size = labelTextSize) => ({ 'text-field': field, 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'text-font': ['Noto Sans Regular'], 'text-size': size, 'text-padding': 6, 'text-optional': true, 'text-allow-overlap': false });
   const labelPaint = (color: unknown = labelTextColor) => ({ 'text-color': color, 'text-opacity': labelTextOpacity(), 'text-halo-color': '#05080f', 'text-halo-width': 1.5, 'text-halo-blur': 0.5 });
@@ -882,6 +884,7 @@
       'threat-outline-inner',
       'threat-spoofed-outline',
       'threat-spoofed-x',
+      'threat-center-labels',
     ];
     for (const lid of threatLayers) {
       if (map.getLayer(lid)) map.removeLayer(lid);
