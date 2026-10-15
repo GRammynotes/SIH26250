@@ -19,6 +19,7 @@
   import MapContextMenu from './MapContextMenu.svelte';
   import { greatCircleCoordinates } from '../../engine/trajectory';
   import { WEAPONS } from '../../data/weapons';
+  import { registerTacticalSymbolSprites } from '../../data/symbol-sprites';
 
   let {
     onBaseSelect,
@@ -303,20 +304,10 @@
     ],
   };
 
+  const densityOpacity = (): maplibregl.ExpressionSpecification => ['step', ['zoom'], ['case', ['<=', ['get', 'tier'], 50], 1, 0], 6, ['case', ['<=', ['get', 'tier'], 90], 1, 0], 8, 1];
+
   function ensureAircraftLayer() {
     if (!map) return;
-    for (const [status, color] of [['FMC', C.green], ['PMC', C.amber], ['NMC', C.red]] as const) {
-      const imageId = `aircraft-${status}`;
-      if (map.hasImage(imageId)) continue;
-      const canvas = document.createElement('canvas'); canvas.width = 48; canvas.height = 48;
-      const ctx = canvas.getContext('2d'); if (!ctx) continue;
-      ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.beginPath(); ctx.moveTo(24, 5); ctx.lineTo(27, 19); ctx.lineTo(41, 27); ctx.lineTo(41, 31); ctx.lineTo(27, 27); ctx.lineTo(26, 40); ctx.lineTo(32, 44); ctx.lineTo(32, 46); ctx.lineTo(24, 44); ctx.lineTo(16, 46); ctx.lineTo(16, 44); ctx.lineTo(22, 40); ctx.lineTo(21, 27); ctx.lineTo(7, 31); ctx.lineTo(7, 27); ctx.lineTo(21, 19); ctx.closePath(); ctx.stroke();
-      map.addImage(imageId, ctx.getImageData(0, 0, 48, 48), { pixelRatio: 2 });
-      const triangle = document.createElement('canvas'); triangle.width = 24; triangle.height = 24;
-      const triangleCtx = triangle.getContext('2d');
-      if (triangleCtx) { triangleCtx.fillStyle = color; triangleCtx.strokeStyle = '#05080f'; triangleCtx.lineWidth = 1.5; triangleCtx.beginPath(); triangleCtx.moveTo(12, 2); triangleCtx.lineTo(22, 21); triangleCtx.lineTo(12, 17); triangleCtx.lineTo(2, 21); triangleCtx.closePath(); triangleCtx.fill(); triangleCtx.stroke(); map.addImage(`aircraft-triangle-${status}`, triangleCtx.getImageData(0, 0, 24, 24), { pixelRatio: 2 }); }
-    }
     if (!map.getSource('aircraft-gl')) map.addSource('aircraft-gl', {
       type: 'geojson', data: { type: 'FeatureCollection', features: [] }, cluster: true, clusterMaxZoom: 5, clusterRadius: 50,
       clusterProperties: {
@@ -336,8 +327,8 @@
     });
     if (!map.getLayer('aircraft-gl-symbols')) map.addLayer({
       id: 'aircraft-gl-symbols', type: 'symbol', source: 'aircraft-gl', minzoom: 5, filter: ['!', ['has', 'point_count']],
-      layout: { 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'icon-image': ['step', ['zoom'], ['match', ['get', 'status'], 'FMC', 'aircraft-triangle-FMC', 'PMC', 'aircraft-triangle-PMC', 'aircraft-triangle-NMC'], 8, ['match', ['get', 'status'], 'FMC', 'aircraft-FMC', 'PMC', 'aircraft-PMC', 'aircraft-NMC']], 'icon-size': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 7, 0.55, 8, 0.75, 11, 1], 'icon-rotate': ['coalesce', ['get', 'heading'], 0], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
-      paint: { 'icon-opacity': 1 },
+      layout: { 'symbol-sort-key': ['coalesce', ['get', 'tier'], 100], 'icon-image': ['match', ['get', 'status'], 'FMC', 'symbol-aircraft-fmc', 'PMC', 'symbol-aircraft-pmc', 'symbol-aircraft-nmc'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 5, .36, 8, .55, 11, .8], 'icon-rotate': ['coalesce', ['get', 'heading'], 0], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true },
+      paint: { 'icon-opacity': densityOpacity() },
     });
     if (!map.getLayer('aircraft-gl-labels')) map.addLayer({
       id: 'aircraft-gl-labels', type: 'symbol', source: 'aircraft-gl', filter: ['!', ['has', 'point_count']],
@@ -361,12 +352,15 @@
     if (!map) return;
     const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
     for (const id of ['bases-gl', 'missions-gl', 'assets-gl']) if (!map.getSource(id)) map.addSource(id, { type: 'geojson', data: empty });
-    if (!map.getLayer('bases-gl-symbols')) map.addLayer({ id: 'bases-gl-symbols', type: 'circle', source: 'bases-gl', minzoom: 3, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, 3, 8, 7], 'circle-color': C.cyan, 'circle-opacity': ['get', 'opacity'], 'circle-stroke-color': C.base, 'circle-stroke-width': 1.5 } });
+    if (!map.getLayer('bases-gl-symbols')) map.addLayer({ id: 'bases-gl-symbols', type: 'symbol', source: 'bases-gl', minzoom: 3, layout: { 'icon-image': 'symbol-base', 'icon-size': ['interpolate', ['linear'], ['zoom'], 3, .28, 8, .52], 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': ['*', ['get', 'opacity'], densityOpacity()] } });
     if (!map.getLayer('bases-gl-labels')) map.addLayer({ id: 'bases-gl-labels', type: 'symbol', source: 'bases-gl', layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.2] }, paint: labelPaint() });
-    if (!map.getLayer('missions-gl-symbols')) map.addLayer({ id: 'missions-gl-symbols', type: 'circle', source: 'missions-gl', minzoom: 5, paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 4, 9, 8], 'circle-color': ['match', ['get', 'priority'], 1, C.red, 2, C.amber, C.muted], 'circle-stroke-color': C.base, 'circle-stroke-width': 1.5 } });
+    if (!map.getLayer('missions-gl-symbols')) map.addLayer({ id: 'missions-gl-symbols', type: 'symbol', source: 'missions-gl', minzoom: 4, layout: { 'icon-image': ['match', ['get', 'priority'], 1, 'symbol-mission-p1', 2, 'symbol-mission-p2', 'symbol-mission-p3'], 'icon-size': ['interpolate', ['linear'], ['zoom'], 4, .25, 9, .45], 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': densityOpacity() } });
     if (!map.getLayer('missions-gl-labels')) map.addLayer({ id: 'missions-gl-labels', type: 'symbol', source: 'missions-gl', layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.3] }, paint: labelPaint() });
-    for (const [id, family, minzoom, color] of [['ground-assets-symbols', 'ground', 7, C.green], ['enemy-assets-symbols', 'enemy', 6, C.red]] as const) {
-      if (!map.getLayer(id)) map.addLayer({ id, type: 'circle', source: 'assets-gl', minzoom, filter: ['==', ['get', 'family'], family], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], minzoom, 3, 9, 6], 'circle-color': color, 'circle-stroke-color': C.base, 'circle-stroke-width': 1, 'circle-opacity': ['get', 'opacity'] } });
+    for (const [id, family, minzoom] of [['ground-assets-symbols', 'ground', 6], ['enemy-assets-symbols', 'enemy', 6]] as const) {
+      const image = family === 'ground'
+        ? ['match', ['get', 'type'], 'tank', 'symbol-tank', 'uav', 'symbol-uav', 'sam', 'symbol-sam', 'radar', 'symbol-radar', 'symbol-tank']
+        : ['match', ['get', 'type'], 'aircraft', 'symbol-hostile-aircraft', 'radar', 'symbol-radar', 'c2-node', 'symbol-c2', 'symbol-sam'];
+      if (!map.getLayer(id)) map.addLayer({ id, type: 'symbol', source: 'assets-gl', minzoom, filter: ['==', ['get', 'family'], family], layout: { 'icon-image': image, 'icon-size': ['interpolate', ['linear'], ['zoom'], minzoom, .25, 9, .46], 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': ['*', ['get', 'opacity'], densityOpacity()] } });
       const labelsId = id.replace('symbols', 'labels');
       if (!map.getLayer(labelsId)) map.addLayer({ id: labelsId, type: 'symbol', source: 'assets-gl', filter: ['==', ['get', 'family'], family], layout: { ...labelLayout(selectedTierLabel(['get', 'label'])), 'text-offset': [0, 1.2] }, paint: labelPaint() });
     }
@@ -647,8 +641,10 @@
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 100, unit: 'metric' }), 'bottom-left');
 
-    map.on('load', () => {
+    map.on('load', async () => {
       const m = map!;
+      await registerTacticalSymbolSprites(m, C);
+      if (map !== m || !m.isStyleLoaded()) return;
       ensureOperationalPointLayers();
       m.addSource('interaction-route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addSource('interaction-impact', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
