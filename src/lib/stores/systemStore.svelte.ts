@@ -24,6 +24,7 @@ class SystemStore {
   experienceMissionId: string | null = null;
   experienceScenarioTimers: number[] = [];
   private experienceTimerCancelers = new Map<number, () => void>();
+  private trainingStateSnapshot: { activeMissions: ActiveMission[]; missions: Mission[]; aircraft: Aircraft[] } | null = null;
   focusMode = $state<{
     active: boolean;
     missionId: string | null;
@@ -78,6 +79,10 @@ class SystemStore {
       return false;
     }
     this.activeExperience = name;
+    if (name === 'training') {
+      this.trainingStateSnapshot = { activeMissions: [...this.activeMissions], missions: [...this.missions], aircraft: [...this.aircraft] };
+      this.activeMissions = [];
+    }
     setVoiceOwner(name);
     this.experienceSession += 1;
     this.reoptimizationEpoch += 1;
@@ -148,7 +153,14 @@ class SystemStore {
     this.cancelExperienceTimers();
     this.clearScenarioTimers();
     this.activeScenario = null;
-    if ((this.activeExperience === 'training' || this.activeExperience === 'mission') && this.experienceMissionId) this.abortMission(this.experienceMissionId);
+    if (this.activeExperience === 'training' && this.experienceMissionId) this.abortMission(this.experienceMissionId);
+    if (this.activeExperience === 'training' && this.trainingStateSnapshot) {
+      this.activeMissions = this.trainingStateSnapshot.activeMissions;
+      this.missions = this.trainingStateSnapshot.missions;
+      this.aircraft = this.trainingStateSnapshot.aircraft;
+      this.trainingStateSnapshot = null;
+    }
+    if (this.activeExperience === 'mission' && this.experienceMissionId) this.abortMission(this.experienceMissionId);
     if (owner !== 'idle') stopVoiceForOwner(owner);
     this.activeExperience = 'idle';
     setVoiceOwner('system');

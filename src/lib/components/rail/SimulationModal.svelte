@@ -40,7 +40,6 @@
     if (!current()) return;
     const firstAircraft = aircraft[0];
     system.revealElement('aircraft', firstAircraft.tailNumber);
-    system.startMission(missionId, aircraft.map((item) => item.id), 'sindoor_deep', true);
     say('OPS AGENT', `Aircraft ${firstAircraft.tailNumber} is assigned to ${missionName}.`);
     if (!await waitFor(4000)) return;
     if (!current()) return;
@@ -81,6 +80,7 @@
       return;
     }
     simMissionId = mission.id;
+    system.startMission(mission.id, aircraft.map((item) => item.id), 'sindoor_deep', true);
     const sequenceStart = performance.now();
     system.enterFocusMode(mission.id);
     system.revealElement('target', mission.id);
@@ -90,7 +90,8 @@
     void sequencedReveal(mission.id, mission.name, aircraft, system.focusMode?.routeThreatIds ?? [], sequenceStart);
   }
   function advanceToDecision() {
-    if (!sessionIsCurrent() || paused || busy || !active || active.phase === 'COMPLETE' || active.phase === 'ABORTED') return;
+    if (!sessionIsCurrent() || paused || !active || active.phase === 'COMPLETE' || active.phase === 'ABORTED') return;
+    if (runner) clearTimeout(runner);
     busy = true;
     say('OPS AGENT', `${active.phase}: advancing the exercise timeline and monitoring fuel, threat geometry, and mission status.`);
     runner = setTimeout(() => {
@@ -174,7 +175,7 @@
             {#if pending}<article class="decision-status"><small>DECISION REQUESTED · {pending.atPhase}</small><h3>{pending.title}</h3><p>{pending.message}</p><small class="auto">{autoDecision ? `AUTO SELECTS A WEIGHTED BRANCH IN ${simSpeed === 0 ? 'PAUSED' : `${6 / simSpeed} SECONDS`}` : 'AUTO OFF · SELECT AN OPTION IN THE DECISION PANEL BELOW'}</small></article>{/if}
             {#if active?.phase === 'COMPLETE'}<article class="decision"><small>AFTER ACTION</small><h3>EXERCISE COMPLETE · {active.outcome}</h3><p>Review the map, event log, and mission review for the recorded result.</p></article>{/if}
         </section>
-        <aside class="state" role="group" aria-label="Live exercise state"><span>LIVE EXERCISE STATE</span><b>{active?.phase ?? 'BRIEFING'}</b><div class="state-row">SCENARIO <strong>{system.activeScenarioFilter?.replaceAll('_', ' ').toUpperCase() ?? 'GLOBAL'}</strong></div><div class="state-row">AIRCRAFT <strong>{active?.aircraftIds.length ?? '—'}</strong></div><div class="state-row">THREATS <strong>{system.scenarioThreats.length}</strong></div><button onclick={togglePause}>{paused ? '▶ RESUME' : 'Ⅱ PAUSE'}</button><button onclick={advanceToDecision} disabled={!started || busy || !!pending}>ADVANCE EXERCISE</button></aside>
+        <aside class="state" role="group" aria-label="Live exercise state"><span>LIVE EXERCISE STATE</span><b>{active?.phase ?? 'BRIEFING'}</b><div class="state-row">SCENARIO <strong>{system.activeScenarioFilter?.replaceAll('_', ' ').toUpperCase() ?? 'GLOBAL'}</strong></div><div class="state-row">AIRCRAFT <strong>{active?.aircraftIds.length ?? '—'}</strong></div><div class="state-row">THREATS <strong>{system.scenarioThreats.length}</strong></div><button onclick={togglePause}>{paused ? '▶ RESUME' : 'Ⅱ PAUSE'}</button><button onclick={advanceToDecision} disabled={!active || !!pending}>ADVANCE EXERCISE</button></aside>
       </div>
       <footer><span>◈ SYSTEM-GUIDED · DECISIONS ARE REVERSIBLE WITHIN THIS TRAINING SESSION</span><button onclick={togglePause}>{paused ? '▶ RESUME' : 'Ⅱ PAUSE'}</button><button onclick={() => onClose?.()}>CLOSE EXERCISE</button></footer>
   </section>
