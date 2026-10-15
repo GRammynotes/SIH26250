@@ -1,5 +1,8 @@
 ﻿<script lang="ts">
   import { WEAPONS } from '../../data/weapons';
+  import ModelViewer3D from '../rail/ModelViewer3D.svelte';
+  import ArcViewer from '../rail/ArcViewer.svelte';
+  import { MODEL_MAP } from '../../three/modelAssets';
   let {
     open = false,
     aircraftType = 'Su-30MKI',
@@ -22,9 +25,12 @@
   };
 
   const diagram = $derived(LOADOUT_MAP[aircraftType] ?? null);
+  const modelPath = $derived(MODEL_MAP[aircraftType] ?? null);
   const stationWeaponId = $derived(aircraftType === 'Rafale' ? 'meteor' : aircraftType === 'Tejas' ? 'astra-mk1' : aircraftType === 'Mirage-2000' ? 'mica-rf' : 'r-77');
   const stationWeapon = $derived(WEAPONS[stationWeaponId]);
   let selectedStation = $state(false);
+  let modelFailed = $state(false);
+  $effect(() => { aircraftType; modelFailed = false; selectedStation = false; });
 </script>
 
 {#if open}
@@ -38,23 +44,34 @@
         <button onclick={() => onClose?.()} aria-label="Close">×</button>
       </header>
       <div class="body">
-        {#if diagram}
-          <img src={diagram} alt={`${aircraftType} loadout`} loading="lazy" decoding="async" />
-          <button class="station" class:selected={selectedStation} onclick={() => selectedStation = !selectedStation} aria-expanded={selectedStation}>
-            <span>ST05 · {stationWeapon.name.toUpperCase()}</span><span>VIEW SPEC ↗</span>
-          </button>
-          {#if selectedStation}
-            <section class="weapon-card" aria-label="Weapon specification">
-              <header><strong>WEAPON</strong><strong>RANGE</strong><strong>CEP</strong><strong>WARHEAD</strong><strong>TARGET TYPES</strong></header>
-              <div><span>{stationWeapon.name}</span><span>{stationWeapon.rangeKm} km</span><span>{stationWeapon.cepMeters ?? 'UNVERIFIED'}</span><span>{stationWeapon.warheadKg ?? 'UNVERIFIED'}</span><span>{stationWeapon.targetTypes.join(', ')}</span></div>
-            </section>
-          {/if}
-        {:else}
-          <div class="empty">
-            <div class="empty-label">DIAGRAM PENDING</div>
-            <div class="empty-msg">No reference loadout graphic is available for {aircraftType}. The platform remains available to the weaponeering engine.</div>
-          </div>
-        {/if}
+        <div class="loadout-split">
+          <section class="diagram-pane" aria-label="2D loadout diagram">
+            {#if diagram}
+              <img src={diagram} alt={`${aircraftType} loadout`} loading="lazy" decoding="async" />
+            {:else}
+              <div class="empty">
+                <div class="empty-label">DIAGRAM PENDING</div>
+                <div class="empty-msg">No reference loadout graphic is available for {aircraftType}. The platform remains available to the weaponeering engine.</div>
+              </div>
+            {/if}
+            <button class="station" class:selected={selectedStation} onclick={() => selectedStation = !selectedStation} aria-expanded={selectedStation}>
+              <span>ST05 · {stationWeapon.name.toUpperCase()}</span><span>VIEW SPEC ↗</span>
+            </button>
+            {#if selectedStation}
+              <section class="weapon-card" aria-label="Weapon specification">
+                <header><strong>WEAPON</strong><strong>RANGE</strong><strong>CEP</strong><strong>WARHEAD</strong><strong>TARGET TYPES</strong></header>
+                 <div><span>{stationWeapon.name}</span><span>{stationWeapon.rangeKm} km</span><span>{stationWeapon.cepMeters == null ? 'UNVERIFIED' : `${stationWeapon.cepMeters} m`}</span><span>{stationWeapon.warheadKg == null ? 'UNVERIFIED' : `${stationWeapon.warheadKg} kg`}</span><span>{stationWeapon.targetTypes.join(', ')}</span></div>
+              </section>
+            {/if}
+          </section>
+          <section class="model-pane" aria-label={`${aircraftType} model preview`}>
+            {#if modelPath && !modelFailed}
+              <ModelViewer3D modelPath={modelPath} designation={aircraftType} entityType="aircraft" trajectory={null} size={360} onLoadError={() => modelFailed = true} />
+            {:else}
+              <ArcViewer entityType="aircraft" entityId={tailNumber || aircraftType} missionId="" force2d={true} />
+            {/if}
+          </section>
+        </div>
       </div>
     </div>
   </div>
@@ -72,7 +89,7 @@
   @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 
   .frame {
-    width: min(900px, 94vw);
+    width: min(1120px, 96vw);
     max-height: 92vh;
     background: var(--bg-panel);
     border: 1px solid var(--accent-cyan);
@@ -108,17 +125,23 @@
 
   .body {
     flex: 1;
-    padding: 16px;
+    min-height: 0;
+    padding: 12px;
     overflow: auto;
     background: var(--bg-base);
-    display: grid; place-items: center;
-    gap: 12px;
   }
-  .body img { display: block; width: 100%; height: auto; max-height: 62vh; object-fit: contain; }
-  .station { display:flex; justify-content:space-between; width:min(100%,700px); padding:9px 12px; color:var(--text-secondary); background:transparent; border:1px dashed var(--accent-cyan); font:9px var(--font-mono); cursor:pointer; }
+  .loadout-split { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:stretch; gap:12px; min-height:min(560px,68vh); }
+  .diagram-pane,.model-pane { min-width:0; padding:8px; border:1px solid var(--border-subtle); background:var(--bg-panel); }
+  .diagram-pane { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
+  .model-pane { display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .model-pane :global(.model-viewer) { width:100%; max-width:100%; }
+  .model-pane :global(.arc-viewer) { width:100%; margin:0; }
+  .diagram-pane img { display:block; width:100%; max-height:52vh; object-fit:contain; }
+  .diagram-pane .empty { margin:auto; }
+  .station { display:flex; justify-content:space-between; width:100%; padding:9px 12px; color:var(--text-secondary); background:transparent; border:1px dashed var(--accent-cyan); font:9px var(--font-mono); cursor:pointer; }
   .station:hover,.station.selected { color:var(--accent-cyan); background:color-mix(in srgb, var(--accent-cyan) 8%, transparent); }
-  .weapon-card { width:min(100%,700px); border:1px solid var(--accent-cyan); background:var(--bg-panel); font:9px/1.45 var(--font-mono); }
-  .weapon-card header,.weapon-card>div { display:grid; grid-template-columns:1.3fr .7fr .5fr .8fr 1.5fr; gap:8px; padding:9px; }
+  .weapon-card { width:100%; border:1px solid var(--accent-cyan); background:var(--bg-panel); font:9px/1.45 var(--font-mono); }
+  .weapon-card header,.weapon-card>div { display:grid; grid-template-columns:1.3fr .7fr .5fr .8fr 1.5fr; gap:5px; padding:7px; }
   .weapon-card header { color:var(--accent-cyan); border-bottom:1px solid var(--border-subtle); }
   .weapon-card>div { color:var(--text-secondary); }
 
@@ -129,5 +152,6 @@
   }
   .empty-label { color: var(--accent-amber); font-size: 11px; letter-spacing: 0.2em; margin-bottom: 10px; }
   .empty-msg { color: var(--text-muted); font-size: 11px; letter-spacing: 0.08em; line-height: 1.6; max-width: 420px; }
+  @media(max-width:760px) { .loadout-split { grid-template-columns:minmax(0,1fr); } .model-pane { min-height:300px; } }
 </style>
 

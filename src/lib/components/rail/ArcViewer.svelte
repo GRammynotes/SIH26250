@@ -6,7 +6,7 @@
   import ModelViewer3D from './ModelViewer3D.svelte';
   import { MODEL_MAP } from '../../three/modelAssets';
 
-  let { entityType, entityId, missionId }: { entityType: 'aircraft' | 'missile'; entityId: string; missionId: string } = $props();
+  let { entityType, entityId, missionId, force2d = false }: { entityType: 'aircraft' | 'missile'; entityId: string; missionId: string; force2d?: boolean } = $props();
   let mission = $derived(system.missions.find((item) => item.id === missionId) ?? system.missions.find((item) => item.name.toLowerCase().includes(entityId.toLowerCase())) ?? null);
   let activeMission = $derived(system.activeMissions.find((item) => item.missionId === mission?.id) ?? null);
   let aircraft = $derived(system.aircraft.find((item) => item.id === entityId || item.tailNumber.toLowerCase() === entityId.toLowerCase()) ?? system.aircraft.find((item) => activeMission?.aircraftIds.includes(item.id)) ?? null);
@@ -17,12 +17,12 @@
   const eta = $derived(activeMission ? `${Math.max(1, Math.round((1 - activeMission.progress) * 22))} MIN` : '—');
   const modelDesignation = $derived(entityType === 'missile' ? weapon?.name ?? activeMission?.weaponId ?? 'BrahMos-A' : aircraft?.type ?? '');
   const modelPath = $derived(MODEL_MAP[modelDesignation] ?? null);
-  let viewer3D = $state(true);
+  let viewer3D = $state(!force2d);
   let modelFailed = $state(false);
   onMount(() => {
-    try { viewer3D = localStorage.getItem('aircommand.arcViewerMode') !== '2d'; } catch { viewer3D = true; }
+    if (!force2d) { try { viewer3D = localStorage.getItem('aircommand.arcViewerMode') !== '2d'; } catch { viewer3D = true; } }
   });
-  $effect(() => { modelPath; modelFailed = false; });
+  $effect(() => { modelPath; modelFailed = false; if (force2d) viewer3D = false; });
   function toggleViewer(mode: '2d' | '3d') {
     viewer3D = mode === '3d';
     try { localStorage.setItem('aircommand.arcViewerMode', mode); } catch { /* storage is optional */ }
@@ -30,8 +30,8 @@
 </script>
 
 <section class="arc-viewer" aria-label="Mission trajectory viewer">
-  <div class="entity-head"><b>{entityType === 'missile' ? 'WEAPON TRACK' : 'AIRCRAFT TRACK'} · {aircraftLabel}</b><span>{activeMission?.phase ?? aircraft?.status ?? 'STAGED'}</span><div class="viewer-toggle" aria-label="Trajectory viewer mode"><button class:active={!viewer3D || !modelPath || modelFailed} onclick={() => toggleViewer('2d')}>2D</button><button class:active={viewer3D && !!modelPath && !modelFailed} disabled={!modelPath || modelFailed} onclick={() => toggleViewer('3d')}>3D</button></div></div>
-  {#if viewer3D && modelPath && !modelFailed}
+  <div class="entity-head"><b>{entityType === 'missile' ? 'WEAPON TRACK' : 'AIRCRAFT TRACK'} · {aircraftLabel}</b><span>{activeMission?.phase ?? aircraft?.status ?? 'STAGED'}</span>{#if !force2d}<div class="viewer-toggle" aria-label="Trajectory viewer mode"><button class:active={!viewer3D || !modelPath || modelFailed} onclick={() => toggleViewer('2d')}>2D</button><button class:active={viewer3D && !!modelPath && !modelFailed} disabled={!modelPath || modelFailed} onclick={() => toggleViewer('3d')}>3D</button></div>{/if}</div>
+  {#if !force2d && viewer3D && modelPath && !modelFailed}
     <ModelViewer3D modelPath={modelPath} designation={modelDesignation} {entityType} trajectory={activeMission?.phase?.toLowerCase() as 'ingress' | 'wez' | 'release' | 'egress' | null} fuel={aircraft ? `${aircraft.fuel}%` : '—'} {eta} onLoadError={() => modelFailed = true} />
   {:else}
   <svg viewBox="0 0 340 200" role="img" aria-label="Mission arc from {origin?.name ?? 'origin'} through engagement zone to {mission?.name ?? 'target'}">

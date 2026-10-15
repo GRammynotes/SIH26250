@@ -2,6 +2,8 @@
   import SvelteVirtualList from '@humanspeak/svelte-virtual-list';
   import { system } from '../../stores/systemStore.svelte';
   import { WEAPONS } from '../../data/weapons';
+  import { MODEL_MAP } from '../../three/modelAssets';
+  import ModelThumbnail from '../rail/ModelThumbnail.svelte';
   import type { Aircraft } from '../../types';
   let { onCollapse, onToggleVisibility, onLoadout, onAssign }: { onCollapse?: () => void; onToggleVisibility?: () => void; onLoadout?: (type: string, tail: string) => void; onAssign?: (aircraftId: string, missionId: string) => void } = $props();
 
@@ -50,7 +52,7 @@
 {#snippet aircraftRow(ac: Aircraft)}
   {@const weapons = ac.weapons.map((id) => WEAPONS[id] ?? Object.values(WEAPONS).find((weapon) => weapon.name === id)).filter((weapon) => !!weapon)}
   <div class="row" tabindex="-1" role="group" aria-label="Aircraft {ac.tailNumber}, {ac.status}" onkeydown={(event) => handleAircraftRowKeydown(event, ac.id)}>
-    <div class="line1"><div class="identity"><span class="aircraft-thumb" title={ac.type} aria-hidden="true">✈</span><button class="tail" title="Open aircraft detail" onclick={() => openAircraft(ac.id)}>{ac.tailNumber}</button></div><span class="status" title={ac.status === 'FMC' ? 'Fully mission capable' : ac.status === 'PMC' ? 'Partially mission capable' : 'Not mission capable'} style="color:{statusColor(ac.status)};" aria-label="{ac.status === 'FMC' ? 'Fully mission capable' : ac.status === 'PMC' ? 'Partially mission capable' : 'Not mission capable'}"><span class="status-glyph" aria-hidden="true">{ac.status === 'FMC' ? '✓' : ac.status === 'PMC' ? '◐' : '×'}</span>{ac.status}</span></div>
+    <div class="line1"><div class="identity">{#if MODEL_MAP[ac.type]}<ModelThumbnail modelPath={MODEL_MAP[ac.type]} designation={ac.type} />{:else}<span class="aircraft-thumb" title={ac.type} aria-hidden="true">✈</span>{/if}<button class="tail" title="Open aircraft detail" onclick={() => openAircraft(ac.id)}>{ac.tailNumber}</button></div><span class="status" title={ac.status === 'FMC' ? 'Fully mission capable' : ac.status === 'PMC' ? 'Partially mission capable' : 'Not mission capable'} style="color:{statusColor(ac.status)};" aria-label="{ac.status === 'FMC' ? 'Fully mission capable' : ac.status === 'PMC' ? 'Partially mission capable' : 'Not mission capable'}"><span class="status-glyph" aria-hidden="true">{ac.status === 'FMC' ? '✓' : ac.status === 'PMC' ? '◐' : '×'}</span>{ac.status}</span></div>
     <div class="line2" aria-label="Fuel remaining {ac.fuel} percent"><button class="type" title="Open aircraft detail" onclick={() => openAircraft(ac.id)}>{ac.type}</button><button class="base-link" title="Show base detail" onclick={() => system.selectBase(ac.base)}>{ac.base.toUpperCase()}</button><span class="fuel"><span class="track"><span class="bar" style="width:{ac.fuel}%;background:{statusColor(ac.status)};"></span></span><span class="txt">{ac.fuel}%</span></span></div>
     <div class="quick-actions"><button onclick={() => onLoadout?.(ac.type, ac.tailNumber)}>LOADOUT</button><button onclick={() => assigningId = assigningId === ac.id ? null : ac.id} aria-expanded={assigningId === ac.id}>ASSIGN</button><button onclick={() => expandedId = expandedId === ac.id ? null : ac.id} aria-expanded={expandedId === ac.id}>DETAILS</button></div>
     {#if assigningId === ac.id}<div class="mission-choices" aria-label="Choose mission for {ac.tailNumber}">{#each system.missions.filter((mission) => mission.status === 'PLANNED') as mission (mission.id)}<div><button class="mission-brief" title="Open mission brief" onclick={() => window.dispatchEvent(new CustomEvent('aircommand:mission-brief', { detail: mission.id }))}>{mission.name}</button><button title="Assign aircraft to mission" onclick={() => { onAssign?.(ac.id, mission.id); assigningId = null; }}>ASSIGN</button></div>{:else}<span>NO PLANNED MISSIONS</span>{/each}</div>{/if}
@@ -117,7 +119,7 @@
   .weapon-glyphs button { width:23px; height:21px; border:1px solid var(--border-strong); color:var(--accent-cyan); background:transparent; cursor:pointer; }
   .line1 { display: flex; justify-content: space-between; align-items: center; }
   .identity { display:flex; align-items:center; gap:7px; }
-  .aircraft-thumb { display:grid; place-items:center; width:36px; height:28px; border:1px solid var(--border-subtle); color:var(--accent-cyan); font-size:17px; }
+  .aircraft-thumb { display:grid; place-items:center; width:40px; height:32px; border:1px solid var(--border-subtle); color:var(--accent-cyan); font-size:17px; overflow:hidden; }
   .tail { padding:0; border:0; background:transparent; color:var(--accent-cyan); font:11px var(--font-mono); letter-spacing:.08em; cursor:pointer; }
   .status { display: flex; align-items: center; gap: 5px; font-size: 9px; letter-spacing: 0.12em; }
   .status-glyph { display:grid; place-items:center; width:12px; height:12px; border:1px solid currentColor; font:9px/1 var(--font-mono); }
