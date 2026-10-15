@@ -32,7 +32,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   import EntityDetail from './lib/components/rail/EntityDetail.svelte';
   import WeaponDetail from './lib/components/panels/WeaponDetail.svelte';
   import { preloadModelAssets } from './lib/three/modelAssets';
-  import { narrateUtterance } from './lib/engine/voice';
+import { narrateUtterance, setVoiceOwner } from './lib/engine/voice';
   import { distanceKm, focusMapElements } from './lib/engine/mapNarrative';
   import { HISTORICAL_MISSIONS, type DecisionBranch } from './lib/data/historicalMissions';
 
@@ -163,6 +163,7 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
   let previousLayoutExperience = 'idle';
   $effect(() => {
     const experience = system.activeExperience;
+    setVoiceOwner(experience === 'idle' ? 'system' : experience);
     if (experience === previousLayoutExperience) return;
     previousLayoutExperience = experience;
     if (experience === 'mission') leftPanelTab = 'missions';
@@ -433,9 +434,8 @@ import MissionIOFlow from './lib/components/panels/MissionIOFlow.svelte';
       setTimeout(() => system.pushEvent('COMMAND', 'COMMAND: COA regenerated', 'info'), 3500);
       setTimeout(() => system.pushEvent('EXEC', 'EXEC: mission resumed', 'ok'), 5500);
       decisionProcessing = false;
-      narrateUtterance(`Commander selected ${branch.label}. ${branch.consequence}`, { source: 'COMMANDER', speaker: 'commander' });
+      narrateUtterance(`Commander selected ${branch.label}. ${branch.consequence}`, { source: 'COMMANDER', speaker: 'commander', tier: 'CAUTION' });
       window.dispatchEvent(new CustomEvent('aircommand:rail-decision-resolved', { detail: { missionId: activeMission.missionId, branchId: branch.id } }));
-      window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: 'COMMANDER', text: branch.consequence } }));
     }, 1200);
   }
 

@@ -11,7 +11,7 @@ import { freshAirspace } from '../data/airspace';
 import { freshWeather } from '../data/weather';
 import { detectDeconflictionWarnings } from '../engine/deconfliction';
 import { analyzeTrackLoss, type TrackLossAnalysis } from '../engine/trackLossEngine';
-import { clearVoiceDedupe, narrateEvent, setNarrationSpeed, stopVoiceForOwner } from '../engine/voice';
+import { clearVoiceDedupe, narrateEvent, setNarrationSpeed, setVoiceOwner, stopVoice, stopVoiceForOwner } from '../engine/voice';
 import type { Aircraft, Mission, Threat, COA, AircraftStatus } from '../types';
 
 export type EventLevel = 'info' | 'ok' | 'warn' | 'alert';
@@ -78,6 +78,7 @@ class SystemStore {
       return false;
     }
     this.activeExperience = name;
+    setVoiceOwner(name);
     this.experienceSession += 1;
     this.reoptimizationEpoch += 1;
     this.coaComputationEpoch += 1;
@@ -150,6 +151,7 @@ class SystemStore {
     if ((this.activeExperience === 'training' || this.activeExperience === 'mission') && this.experienceMissionId) this.abortMission(this.experienceMissionId);
     if (owner !== 'idle') stopVoiceForOwner(owner);
     this.activeExperience = 'idle';
+    setVoiceOwner('system');
     this.experienceMissionId = null;
     this.exitFocusMode();
   }
@@ -718,6 +720,7 @@ class SystemStore {
 
   reset() {
     this.exitExperience();
+    stopVoice();
     this.coaComputationEpoch += 1;
     if (this.reoptimizationDebounce !== null) { window.clearTimeout(this.reoptimizationDebounce); this.reoptimizationDebounce = null; }
     this.clearScenarioTimers();

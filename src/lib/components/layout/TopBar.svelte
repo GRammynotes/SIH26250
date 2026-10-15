@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { system } from '../../stores/systemStore.svelte';
-  import { isVoiceEnabled, setVoiceEnabled } from '../../engine/voice';
+  import { isVoiceEnabled, isVoiceTierMuted, setVoiceEnabled, setVoiceTierMuted } from '../../engine/voice';
 
   let {
     aircraftCount = 0, missionCount = 0, threatCount = 0,
@@ -24,6 +24,8 @@
   let utcDate = $state('');
   let openMenu = $state<string | null>(null);
   let voiceOn = $state(true);
+  let warningMuted = $state(false);
+  let voiceMenuOpen = $state(false);
   let captionsOn = $state(true);
   let toggleToast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -35,16 +37,25 @@
   const panels = [['FORCE ROSTER','forceRoster'],['MISSIONS','missions'],['THEATER MAP','theaterMap'],['COA','coa'],['MISSION LOG','missionLog'],['COMMAND STATUS','commandStatus'],['SCENARIO BAR','scenarioBar']];
   let layerChecked = $state({ terrain:false, airspace:true, weather:true, enemy:true, ground:true, trails:true, grid:true, threats:true });
   const securityStatus = $derived(system.spoofedTrackId ? 'LINK COMPROMISED' : system.mode === 'DEGRADED' ? 'KEY ROTATION DUE' : 'LINK SECURE');
+  const voiceOwnerLabel = $derived(system.activeExperience === 'idle' ? 'SYSTEM' : system.activeExperience.toUpperCase());
 
   onMount(() => {
     voiceOn = isVoiceEnabled();
+    warningMuted = isVoiceTierMuted('WARNING');
     try { captionsOn = localStorage.getItem('aircommand.captions') !== 'false'; } catch { captionsOn = true; }
     const tick = () => { const d = new Date(); zulu = d.toISOString().slice(11, 23); utcDate = d.toISOString().slice(0, 10); };
     tick(); const id = setInterval(tick, 100);
     const close = () => openMenu = null;
-    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
-    window.addEventListener('click', close); window.addEventListener('keydown', escape);
-    return () => { clearInterval(id); if (toastTimer) clearTimeout(toastTimer); window.removeEventListener('click', close); window.removeEventListener('keydown', escape); };
+    const closeVoice = () => voiceMenuOpen = false;
+    const syncVoice = (event: Event) => {
+      const detail = (event as CustomEvent<{ enabled: boolean; mutedTiers: string[] }>).detail;
+      if (!detail) return;
+      voiceOn = detail.enabled;
+      warningMuted = detail.mutedTiers.includes('WARNING');
+    };
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { close(); closeVoice(); } };
+    window.addEventListener('click', close); window.addEventListener('click', closeVoice); window.addEventListener('keydown', escape); window.addEventListener('aircommand:voice-state', syncVoice);
+    return () => { clearInterval(id); if (toastTimer) clearTimeout(toastTimer); window.removeEventListener('click', close); window.removeEventListener('click', closeVoice); window.removeEventListener('keydown', escape); window.removeEventListener('aircommand:voice-state', syncVoice); };
   });
 
   function toggleMenu(name: string, event: MouseEvent) {
@@ -53,7 +64,10 @@
   function action(fn?: () => void) { fn?.(); openMenu = null; }
   function toggleLayer(key: string) { layerChecked = { ...layerChecked, [key]: !layerChecked[key as keyof typeof layerChecked] }; onLayerToggle?.(key); }
   function showToggleToast(label: string, enabled: boolean) { toggleToast = `${label}: ${enabled ? 'ON' : 'OFF'}`; if (toastTimer) clearTimeout(toastTimer); toastTimer = setTimeout(() => toggleToast = '', 1200); }
-  function toggleVoice() { voiceOn = !voiceOn; setVoiceEnabled(voiceOn); showToggleToast('VOICE', voiceOn); }
+  function toggleVoiceMenu(event: MouseEvent) { event.stopPropagation(); voiceMenuOpen = !voiceMenuOpen; }
+  function toggleWarningMute() { setVoiceTierMuted('WARNING', !warningMuted); }
+  function muteAllVoice() { setVoiceEnabled(false); }
+  function unmuteVoice() { setVoiceTierMuted('WARNING', false); setVoiceEnabled(true); }
   function toggleCaptions() { captionsOn = !captionsOn; try { localStorage.setItem('aircommand.captions', String(captionsOn)); } catch {} window.dispatchEvent(new CustomEvent('aircommand:captions-state', { detail: captionsOn })); showToggleToast('CAPTIONS', captionsOn); }
 </script>
 
@@ -100,7 +114,14 @@
   </nav>
   <button class="log-toggle" aria-expanded={bottomExpanded} aria-label={bottomExpanded ? 'Collapse event log and command status' : `Open event log and command status, ${unreadLogCount} unread`} title="Event log and command status" onclick={onBottomToggle}>LOG {unreadLogCount ? `· ${unreadLogCount}` : '· STATUS'} {bottomExpanded ? '⌄' : '⌃'}</button>
   <span class="spacer"></span>
-  <button class="voice-toggle" data-tour="voice-toggle" aria-pressed={voiceOn} title="Toggle voice narration" onclick={toggleVoice}>◈ VOICE {voiceOn ? 'ON' : 'OFF'}</button>
+  <div class="voice-control">
+    <button class="voice-toggle" class:muted={!voiceOn} data-tour="voice-toggle" aria-expanded={voiceMenuOpen} aria-label={`Voice narration owner: ${voiceOwnerLabel}`} title="Voice narration controls" onclick={toggleVoiceMenu}>◈ VOICE · {voiceOwnerLabel}</button>
+    {#if voiceMenuOpen}<div class="voice-menu" role="menu" aria-label="Voice controls" onclick={(event) => event.stopPropagation()}>
+      <button role="menuitemcheckbox" aria-checked={warningMuted} onclick={toggleWarningMute}>{warningMuted ? 'UNMUTE WARNING' : 'MUTE WARNING'}</button>
+      <button role="menuitem" disabled={!voiceOn} onclick={muteAllVoice}>MUTE ALL</button>
+      <button role="menuitem" disabled={voiceOn && !warningMuted} onclick={unmuteVoice}>UNMUTE</button>
+    </div>{/if}
+  </div>
   <button class="voice-toggle" aria-pressed={captionsOn} title="Toggle captions" onclick={toggleCaptions}>CC {captionsOn ? 'ON' : 'OFF'}</button>
   {#if toggleToast}<span class="toggle-toast" role="status">{toggleToast}</span>{/if}
   <span class="metric">AC <b>{aircraftCount}</b></span><span class="metric">MSN <b>{missionCount}</b></span><span class="metric">THR <b>{threatCount}</b></span>
@@ -122,7 +143,8 @@
   .sep { color:var(--border-strong); } .spacer { flex:1; } .metric,.date { color:var(--text-muted); white-space:nowrap; } .metric b { color:var(--text-secondary); font-weight:500; margin-left:3px; } .time { color:var(--accent-cyan); white-space:nowrap; }
   .live { display:flex; align-items:center; gap:5px; color:var(--accent-green); font-size:8px; } .dot { width:5px; height:5px; border-radius:50%; background:var(--accent-green); box-shadow:0 0 6px var(--accent-green); }
   .menus { display:flex; align-items:center; height:100%; gap:4px; margin-left:8px; } .menu-group { position:relative; height:100%; display:flex; align-items:center; }
-  .voice-toggle { padding:4px 7px; background:transparent; border:1px solid var(--border-subtle); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; white-space:nowrap; }.voice-toggle[aria-pressed="false"] { color:var(--text-muted); }
+  .voice-toggle { padding:4px 7px; background:transparent; border:1px solid var(--border-subtle); color:var(--accent-cyan); font:8px var(--font-mono); letter-spacing:.08em; cursor:pointer; white-space:nowrap; }.voice-toggle.muted { color:var(--text-muted); }
+  .voice-control { position:relative; }.voice-menu { position:absolute; top:26px; right:0; z-index:80; display:grid; min-width:150px; padding:4px; border:1px solid var(--accent-cyan); background:var(--bg-panel); box-shadow:0 8px 24px rgba(0,0,0,.55); }.voice-menu button { padding:8px; border:1px solid transparent; background:transparent; color:var(--text-secondary); text-align:left; font:8px var(--font-mono); cursor:pointer; }.voice-menu button:hover,.voice-menu button[aria-checked="true"] { border-color:var(--border-strong); color:var(--accent-cyan); }.voice-menu button:disabled { opacity:.4; cursor:default; }
   .log-toggle { padding:4px 6px; border:1px solid var(--border-subtle); background:transparent; color:var(--text-secondary); font:7px var(--font-mono); letter-spacing:.08em; white-space:nowrap; cursor:pointer; }.log-toggle:hover,.log-toggle[aria-expanded="true"] { color:var(--accent-cyan); border-color:var(--accent-cyan); }
   .toggle-toast { position:absolute; right:12px; top:38px; z-index:60; padding:6px 9px; border:1px solid var(--accent-cyan); background:var(--bg-panel); color:var(--accent-cyan); font:8px var(--font-mono); }
   .menu-trigger { position:relative; height:100%; padding:0 10px; background:transparent; border:0; color:var(--text-secondary); font:9px var(--font-mono); letter-spacing:.16em; cursor:pointer; }

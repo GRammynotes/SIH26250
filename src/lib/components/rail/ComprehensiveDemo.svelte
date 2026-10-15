@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { COMPREHENSIVE_DEMO_STEPS, getStepGlossaryTerms } from '../../demo/comprehensiveDemoScript';
-  import { narrateUtterance, stopVoiceForOwner } from '../../engine/voice';
+import { isVoiceEnabled, narrateUtterance, setVoiceEnabled, stopVoiceForOwner } from '../../engine/voice';
   import { parseMapNarrative } from '../../engine/mapNarrative';
   import { system } from '../../stores/systemStore.svelte';
   import type { NarrativeMarker } from '../../engine/mapNarrative';
@@ -30,6 +30,7 @@
 
   // Voice enabled state
   let voiceEnabled = $state(true);
+  const syncVoice = (event: Event) => { voiceEnabled = Boolean((event as CustomEvent<{ enabled: boolean }>).detail?.enabled); };
 
   // Start the demo
   function startDemo() {
@@ -60,25 +61,7 @@
       }));
     });
 
-    // Dispatch caption event
-    if (!voiceEnabled) window.dispatchEvent(
-      new CustomEvent('aircommand:caption', {
-        detail: {
-          source: 'DEMO',
-          text: caption,
-        },
-      })
-    );
-
-    // Voice narration
-    if (voiceEnabled) {
-      narrateUtterance(narration.text, {
-        source: 'DEMO',
-        owner: 'demo',
-        speaker: 'agent',
-        priority: 'info',
-      });
-    }
+    narrateUtterance(narration.text, { source: 'DEMO', owner: 'demo', speaker: 'agent', tier: 'ADVISORY', caption });
 
     // Execute step action if defined
     if (currentStep.action) {
@@ -185,14 +168,7 @@
     if (isPaused) {
       clearTimeout(stepTimer);
       clearTimeout(actionTimer);
-      window.dispatchEvent(
-        new CustomEvent('aircommand:caption', {
-          detail: {
-            source: 'DEMO',
-            text: 'DEMO PAUSED',
-          },
-        })
-      );
+      narrateUtterance('DEMO PAUSED', { source: 'DEMO', owner: 'demo', tier: 'ADVISORY' });
     } else {
       executeStep();
     }
@@ -223,14 +199,7 @@
     document.body.classList.remove('demo-active');
     // Clear focus pointer
     window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));
-    window.dispatchEvent(
-      new CustomEvent('aircommand:caption', {
-        detail: {
-          source: 'DEMO',
-          text: 'DEMO COMPLETE - System unlocked',
-        },
-      })
-    );
+    narrateUtterance('DEMO COMPLETE · System unlocked', { source: 'DEMO', owner: 'demo', tier: 'ADVISORY' });
     onComplete?.();
   }
 
@@ -245,6 +214,7 @@
   // Toggle voice
   function toggleVoice() {
     voiceEnabled = !voiceEnabled;
+    setVoiceEnabled(voiceEnabled);
   }
 
   // Toggle auto-advance
@@ -279,6 +249,8 @@
   }
 
   onMount(() => {
+    voiceEnabled = isVoiceEnabled();
+    window.addEventListener('aircommand:voice-state', syncVoice);
     window.addEventListener('keydown', handleKeydown);
     window.addEventListener('aircommand:experience-pause-request', handlePauseRequest);
     if (open) {
@@ -292,6 +264,7 @@
     stopVoiceForOwner('demo');
     window.removeEventListener('keydown', handleKeydown);
     window.removeEventListener('aircommand:experience-pause-request', handlePauseRequest);
+    window.removeEventListener('aircommand:voice-state', syncVoice);
     clearTimeout(stepTimer);
     clearTimeout(actionTimer);
     window.dispatchEvent(new CustomEvent('aircommand:focus-clear'));

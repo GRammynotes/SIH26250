@@ -1,18 +1,26 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { system } from '../../stores/systemStore.svelte';
-  type Caption = { id: number; source: string; text: string };
+  type Caption = { id: number; source: string; text: string; owner: string };
   let captions = $state<Caption[]>([]);
   let captionsOn = $state(true);
   let nextId = 0;
   const timers = new Map<number, number>();
+  let activeOwner = $state(system.activeExperience === 'idle' ? 'system' : system.activeExperience);
+
+  function clearCaptions() {
+    captions = [];
+    for (const timer of timers.values()) clearTimeout(timer);
+    timers.clear();
+  }
 
   onMount(() => {
     try { captionsOn = localStorage.getItem('aircommand.captions') !== 'false'; } catch { captionsOn = true; }
     const setState = (event: Event) => captionsOn = Boolean((event as CustomEvent<boolean>).detail);
     const add = (event: Event) => {
-      const detail = (event as CustomEvent<{ source: string; text: string }>).detail;
-      const caption = { id: ++nextId, source: detail.source || 'SYSTEM', text: detail.text };
+      const detail = (event as CustomEvent<{ id?: number; source: string; text: string; owner?: string }>).detail;
+      if (!detail || (detail.owner && detail.owner !== activeOwner)) return;
+      const caption = { id: detail.id ?? ++nextId, source: detail.source || 'SYSTEM', text: detail.text, owner: detail.owner ?? activeOwner };
       captions = [...captions.slice(-2), caption];
       const duration = system.simSpeed === 4 ? 1000 : system.simSpeed === 2 ? 2000 : 4000;
       timers.set(caption.id, window.setTimeout(() => {
@@ -20,9 +28,15 @@
         timers.delete(caption.id);
       }, duration));
     };
+    const ownerChanged = (event: Event) => {
+      activeOwner = (event as CustomEvent<{ owner: string }>).detail.owner;
+      clearCaptions();
+    };
     window.addEventListener('aircommand:caption', add);
     window.addEventListener('aircommand:captions-state', setState);
-    return () => { window.removeEventListener('aircommand:caption', add); window.removeEventListener('aircommand:captions-state', setState); for (const timer of timers.values()) clearTimeout(timer); };
+    window.addEventListener('aircommand:voice-owner', ownerChanged);
+    window.addEventListener('aircommand:caption-clear', clearCaptions);
+    return () => { window.removeEventListener('aircommand:caption', add); window.removeEventListener('aircommand:captions-state', setState); window.removeEventListener('aircommand:voice-owner', ownerChanged); window.removeEventListener('aircommand:caption-clear', clearCaptions); clearCaptions(); };
   });
 </script>
 

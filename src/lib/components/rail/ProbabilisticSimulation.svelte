@@ -57,9 +57,8 @@
     }
     runCount++;
     system.pushEvent('SIMULATION', `${result.name} · ${result.chance}% MODELED PROBABILITY`, result.name.includes('DESTROYED') || result.name.includes('SUPPRESSED') ? 'ok' : 'info');
-    narrateUtterance(`Simulation branch selected: ${result.name}. ${result.consequence}`, { source: 'SIMULATION', owner: 'simulation', speaker: 'agent' });
+    narrateUtterance(`Simulation branch selected: ${result.name}. ${result.consequence}`, { source: 'SIMULATION', owner: 'simulation', speaker: 'agent', tier: 'CAUTION', caption: `${result.name} · ${result.chance}% modeled probability` });
     window.dispatchEvent(new CustomEvent('aircommand:diagram-focus', { detail: { bounds: [[72.7, 29.5], [77.2, 34.3]], text: `${result.name}. ${result.consequence}` } }));
-    window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: 'SIMULATION', text: `${result.name} · ${result.chance}% modeled probability` } }));
   }
   $effect(() => {
     if (open && system.activeExperience === 'simulation') sessionToken = system.experienceSession;

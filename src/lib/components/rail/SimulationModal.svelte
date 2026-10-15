@@ -29,8 +29,8 @@
     window.dispatchEvent(new CustomEvent('aircommand:arc-viewer-clear'));
     const narrative = parseMapNarrative(text);
     turns = [...turns, { speaker, text: narrative.text }].slice(-30);
-    narrateUtterance(narrative.text, { source: speaker, owner: 'training', speaker: speaker === 'COMMANDER' ? 'commander' : 'agent', priority: speaker === 'SYSTEM' ? 'critical' : 'info' });
-    window.dispatchEvent(new CustomEvent('aircommand:caption', { detail: { source: speaker, text: narrative.text } }));
+    const tier = /threat alert|spoofed track|sam lock|mission abort/i.test(narrative.text) ? 'WARNING' : /decision required|weapon release|mission launched|battle damage assessment|bda complete/i.test(narrative.text) ? 'CAUTION' : 'ADVISORY';
+    narrateUtterance(narrative.text, { source: speaker, owner: 'training', speaker: speaker === 'COMMANDER' ? 'commander' : 'agent', tier });
   }
   const wait = (ms: number) => system.waitForExperience(sessionToken, ms);
   async function sequencedReveal(missionId: string, missionName: string, aircraft: typeof system.scenarioAircraft, threatIds: string[], startAt: number) {
