@@ -3,7 +3,7 @@
 A browser based tactical air operations decision-support exercise for SIH 2026 Ministry of Defence problem statement 26250: **Air Power — Dynamic Air Operations & Resource Optimisation**.
 
 **Live demonstration:** https://ps2-sih-26250.vercel.app/  
-**Problem statement:** SIH 2026 · MoD PS 26250  
+**Problem statement:** SIH 2026 · MoD PS 26250
 **Team:** AIR COMMAND
 
 ## What it does
