@@ -1,43 +1,25 @@
-# AIR COMMAND · 35-Shot Recorder Checklist
+# AIR COMMAND demo | 2:45–3:00 shot list
 
-Target runtime: **2:55**. Each shot is five seconds. Record the live application at 1920×1080 with no music and team-member voiceover. The opening and closing cards are simple text overlays; the remaining shots use the running console. AIR COMMAND is an exercise decision-support prototype: present simulated inputs as simulated and avoid claiming a live IACCS connection, ATO export, or operational approval.
+Record the running browser prototype at 1920×1080. Use the saved screenshots below only as authentic cutaways. Narrate all scenario inputs and outcomes as simulated. Do not add overlays suggesting live sensor feeds, operational approval, performance gains, or an ATO export.
 
-| Done | Time | UI / framing | Action | Narration cue |
-|---|---|---|---|---|
-| [ ] | 0:00–0:05 | Text card: “Fragmented data slows air operations planning” | Fade directly into the application | Planning depends on bringing operational data together quickly. |
-| [ ] | 0:05–0:10 | Welcome screen | Hold on the four entry choices | AIR COMMAND is a decision-support prototype for SIH problem statement 26250. |
-| [ ] | 0:10–0:15 | Welcome screen | Select EXPLORE | This is an exercise environment; its data and outcomes are simulated. |
-| [ ] | 0:15–0:20 | Full console | Hold the four-region layout | The console places force, map, planning, and event status in one view. |
-| [ ] | 0:20–0:25 | TopBar close-up | Point to classification and IACCS exercise status | The IACCS indicator describes the exercise feed state, not a live connection. |
-| [ ] | 0:25–0:30 | TopBar IACCS popover | Open the status button | Radar, AWACS, and supporting feeds are simulated or locally represented. |
-| [ ] | 0:30–0:35 | Force Roster | Point to FMC / PMC / NMC counts | The roster shows aircraft readiness and fuel state. |
-| [ ] | 0:35–0:40 | Aircraft row | Expand a row to show crew-rest and weapon badges | Crew-rest hours and loaded weapon types are visible on each row. |
-| [ ] | 0:40–0:45 | Tactical map | Pan or hold over the Kashmir / Punjab exercise area | The map combines exercise aircraft, mission, and threat symbols. |
-| [ ] | 0:45–0:50 | Tactical Picture card | Open ◈ LEGEND | Shape and symbol are used alongside colour to distinguish map entities. |
-| [ ] | 0:50–0:55 | Map layers | Turn on AIRSPACE and WEATHER | Airspace and weather layers show the scenario’s geographic constraints. |
-| [ ] | 0:55–1:00 | Scenario bar | Select DEEP STRIKE | We’ll use the supplied deep-strike exercise scenario. |
-| [ ] | 1:00–1:05 | Right COA tab | Point to “GENERATE COA to begin planning” | Before planning, the console makes the next action explicit. |
-| [ ] | 1:05–1:10 | COA tab | Press GENERATE COA | A rules-based weighted allocator ranks three force options. |
-| [ ] | 1:10–1:15 | COA results | Hold on success and risk measures | These are model estimates from the exercise inputs, not operational forecasts. |
-| [ ] | 1:15–1:20 | Option 2 card | Select OPTION 2 | Each option changes assignments and the picture used for comparison. |
-| [ ] | 1:20–1:25 | RED VIEW | Show all three response cards | RED VIEW presents a distinct modeled response for each COA. |
-| [ ] | 1:25–1:30 | WEAPONS tab | Open the weapon matrix | Weapon-target compatibility and range are checked against the scenario. |
-| [ ] | 1:30–1:35 | Force Roster | Point to weapon count, then open a loadout | Weapon details are available from the aircraft roster and loadout view. |
-| [ ] | 1:35–1:40 | Missions tab | Point to priority badges | Mission priority is visible in both the mission queue and COA planning. |
-| [ ] | 1:40–1:45 | Mission briefing | Open a planned mission | The briefing brings target, assignment, and constraints together. |
-| [ ] | 1:45–1:50 | Briefing ROE strip | Hold on positive ID and collateral limit | Every mission briefing displays the exercise ROE before approval. |
-| [ ] | 1:50–1:55 | Briefing authority line | Hold on AOC-in-C and Wing Cdr roles | The interface distinguishes operational tasking from mission execution roles. |
-| [ ] | 1:55–2:00 | Approve briefing | Approve the selected exercise tasking | Approval begins a local simulation; it does not transmit a tasking order. |
-| [ ] | 2:00–2:05 | Execution map | Show route and moving aircraft | The map animates the exercise mission along its route. |
-| [ ] | 2:05–2:10 | Decision prompt | Hold on ROE strip and decision choices | A decision prompt repeats the ROE and presents the modeled consequences. |
-| [ ] | 2:10–2:15 | Select an option | Choose one branch and show impact | The selected branch updates the simulation and records the decision trail. |
-| [ ] | 2:15–2:20 | Mission timeline / event log | Show phase and event sequence | Events and mission phases remain visible for review. |
-| [ ] | 2:20–2:25 | After-Action Review | Open the AAR | The AAR summarizes the simulated mission outcome and decisions. |
-| [ ] | 2:25–2:30 | BDA panel | Hold on outcome evidence | Battle-damage results shown here are exercise outcomes, not real intelligence. |
-| [ ] | 2:30–2:35 | Metrics | Open METRICS | Metrics summarize the current fleet, COA estimates, and recorded decisions. |
-| [ ] | 2:35–2:40 | 3D expanded view | Open a model and rotate once | Aircraft and loadout models provide a visual reference with orbit controls. |
-| [ ] | 2:40–2:45 | Architecture / scope text card | Show a short “rules-based · simulated feeds” overlay | The current prototype uses rules and local exercise data. |
-| [ ] | 2:45–2:50 | Live URL card | Show the deployed address | It is a browser-based demonstration; operational integrations remain future work. |
-| [ ] | 2:50–2:55 | End card | Fade to AIR COMMAND and PS 26250 | AIR COMMAND — SIH 2026, problem statement 26250. |
+| Time | Show | Action / focus | Narration cue |
+| --- | --- | --- | --- |
+| 0:00–0:12 | Console overview | Open on the application; keep the full four-region view legible. | AIR COMMAND is a browser based decision-support exercise for SIH problem statement 26250. |
+| 0:12–0:30 | Exercise framing | Point out the scenario selector and exercise/system status. | The roster, threat picture, feed labels and outcomes come from seeded exercise data. The prototype has no live IACCS or sensor connection. |
+| 0:30–0:52 | Force and map | Expand one aircraft row, show readiness/fuel/crew-rest/weapon details, then pan to mission and threat symbols. | The console brings force status, mission context and map layers into one view. Symbols distinguish aircraft, missions and threats. |
+| 0:52–1:20 | Generate COAs | Select a scenario, generate options, inspect assignments and the risk/success estimates. | A weighted rules engine ranks three force postures. It checks readiness, fuel, crew rest, weapon fit and range, route exposure, airspace and weather. Estimates are illustrative. |
+| 1:20–1:38 | Explain a recommendation | Open the COA detail and weapon matrix; show a blocker or compatibility result if present. | The recommendation exposes assignments and constraints so a user can compare options. It does not claim machine-learning optimization. |
+| 1:38–2:02 | RED VIEW | Select each available option and compare the modeled response cards. | RED VIEW calculates a rule-based response from the exercise assets and selected posture. It is not a live adversary model. |
+| 2:02–2:25 | Briefing and simulation | Open a briefing, read the exercise ROE, approve the local simulation, then show a decision prompt. | The briefing supports a human review step. Approval starts only the local exercise; it does not send an operational tasking order. |
+| 2:25–2:43 | AAR and metrics | Open after-action review, event history and metrics. | The AAR summarizes this simulated run and its decisions. These results are for demonstration and have not been validated as operational measures. |
+| 2:43–3:00 | Close and scope | Show the source or live demo link and the future-scope card. | Next steps are domain validation, uncertainty and provenance, and authorized integrations in a controlled test environment. |
 
-**Recording notes:** run the entire path once before recording; use a team member’s voice, no music, and trim only dead time. If a selector or UI state is unavailable in the current build, record the reason in `docs/screenshots/submission/FAILED.txt` rather than implying that the feature worked.
+## Authentic screenshot cutaways
+
+- `docs/screenshots/final-polish/01-idle-4-regions.png` — initial console
+- `docs/screenshots/final-polish/02-training-active-4-regions.png` — local training simulation
+- `docs/screenshots/final-polish/07-metrics-evidence-based.png` — metrics view
+- `docs/screenshots/final-polish/18-map-theater-clean.png` — map view
+- `docs/screenshots/final-polish/19-map-threat-detail.png` — map threat detail
+
+If a workflow changes in the live build, record the current UI and update the narration. Do not imply a state that the prototype did not produce.
