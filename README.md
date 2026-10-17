@@ -59,6 +59,7 @@ Vite prints the local development URL. The optional Express health endpoint can 
 ## Submission materials
 
 - [SIH template presentation](docs/submission/SIH2026-PS26250-AIR-COMMAND.pptx)
+- [Technical approach slide image](docs/submission/AIR-COMMAND-TECHNICAL-APPROACH.png)
 - [Implementation and scope brief](docs/submission/IMPLEMENTATION_AND_SCOPE.md)
 - [Demo shot list](docs/demo/SHOT_LIST.md)
 - [Narration script](docs/demo/NARRATION.md)

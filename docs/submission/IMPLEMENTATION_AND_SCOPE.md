@@ -46,6 +46,7 @@ The interface uses Svelte 5 and TypeScript, MapLibre GL JS for the map, and Thre
 ## Submission files
 
 - [SIH template presentation](SIH2026-PS26250-AIR-COMMAND.pptx)
+- [Technical approach slide image](AIR-COMMAND-TECHNICAL-APPROACH.png)
 - [Implementation and scope brief](IMPLEMENTATION_AND_SCOPE.md)
 - [Demo shot list](../demo/SHOT_LIST.md)
 - [Narration script](../demo/NARRATION.md)
